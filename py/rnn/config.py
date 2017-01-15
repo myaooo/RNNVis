@@ -20,8 +20,9 @@ flags.DEFINE_bool("use_fp16", False,
 
 FLAGS = flags.FLAGS
 
+
 def data_type():
-  return tf.float16 if FLAGS.use_fp16 else tf.float32
+    return tf.float16 if FLAGS.use_fp16 else tf.float32
 
 
 class RNNConfig(object):
