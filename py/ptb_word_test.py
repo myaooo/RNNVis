@@ -2,35 +2,41 @@ import tensorflow as tf
 import numpy as np
 
 from py.rnn import rnn
-from py.dataset.ptb_reader import ptb_raw_data
-from py.dataset.data_utils import data_feeder, data_batcher
+from py.rnn.trainer import get_gradient_clipper
+from py.datasets.ptb_reader import ptb_raw_data
+from py.datasets.data_utils import data_feeder, data_batcher
+
+
+def test_data_producer(data, batch_size, num_steps):
+    # train_data = valid_data
+    batch_len = len(data) // batch_size
+    epoch_size = (batch_len - 1) // train_steps
+
+    data = data_batcher(data, batch_size)
+    inputs = data_feeder(data, num_steps, name='inputs')
+    targets = data_feeder(data, num_steps, shift=1, name='targets')
+    return inputs, targets, epoch_size
+
+def test_lr_decay(global_step):
+    if global_step < 4000:
+        return 1.0
+    else:
+        return 0.5 ** (global_step/4000)
 
 if __name__ == '__main__':
-
-    import cProfile, pstats, io
-
-    pr = cProfile.Profile()
-    pr.enable()
-    # ... do something ...
 
     logdir = './ptb_log'
     train_steps = 20
     batch_size = 40
     epoch_num = 1
     print('Preparing data')
-    train_data, valid_data, test_data, vocab_size = ptb_raw_data('./dataset/simple-examples/data')
-    train_data = valid_data
-    batch_len = len(train_data) // batch_size
-    epoch_size = (batch_len-1) // train_steps
+    train_data, valid_data, test_data, vocab_size = ptb_raw_data('./cached_data/simple-examples/data')
 
-    train_data = data_batcher(train_data, batch_size)
-    valid_data = data_batcher(valid_data, batch_size)
-    test_data = data_batcher(test_data, batch_size)
+    with tf.name_scope('train'):
+        train_inputs, train_targets, epoch_size = test_data_producer(train_data, batch_size, train_steps)
+    with tf.name_scope('valid'):
+        valid_inputs, valid_targets, _ = test_data_producer(valid_data, batch_size, train_steps)
 
-    train_inputs = data_feeder(train_data, train_steps, name='train_inputs')
-    train_targets = data_feeder(train_data, train_steps, shift=1, name='train_targets')
-    valid_inputs = data_feeder(valid_data, train_steps, name='valid_inputs')
-    valid_targets = data_feeder(valid_data, train_steps, shift=1, name='valid_targets')
     # vocab_size = 10000
     model = rnn.RNN('LSTM', tf.random_uniform_initializer(-0.1, 0.1))
     model.set_input([None], tf.int32, vocab_size, embedding_size=256)
@@ -41,18 +47,12 @@ if __name__ == '__main__':
     model.set_loss_func(rnn.loss_by_example)
     model.compile()
     print('Start Training')
-    model.train(train_inputs, train_targets, train_steps, epoch_size, epoch_num, batch_size, 'Adam', 0.1,
+    model.train(train_inputs, train_targets, train_steps, epoch_size, epoch_num, batch_size, 'GradientDescent', 1.0,
+                clipper=get_gradient_clipper('global_norm', 5), keep_prob=0.8, decay=test_lr_decay,
                 logdir=logdir)
 
     print('Finish Training')
 
-    pr.disable()
-    s = io.StringIO()
-    sortby = 'cumulative'
-    ps = pstats.Stats(pr, stream=s).sort_stats(sortby)
-    ps.print_stats()
-    with open('profile.txt', 'w+') as f:
-        f.write(s.getvalue())
     # test
     # print("start test")
     # j = tf.constant(10, dtype=tf.int32)
