@@ -16,40 +16,98 @@ _str2optimizers = {
 }
 
 
-def _get_optimizer(optimizer):
+def get_optimizer(optimizer):
     """
     Simple helper to get TensorFlow Optimizer
     :param optimizer: a str specifying the name of the optimizer to use,
         or a callable function that is already a TF Optimizer
     :return: a TensorFlow Optimizer
     """
-    if callable(optimizer):
+    if isinstance(optimizer, tf.train.Optimizer):
         return optimizer
     if optimizer in _str2optimizers:
         return _str2optimizers[optimizer]
+    else:
+        raise ValueError('optimizer should be an instance of tf.train.Optimizer or a key in _str2optimizer!')
+
+
+_str2clipper = {
+    'value': tf.clip_by_value,
+    'norm': tf.clip_by_norm,
+    'average_norm': tf.clip_by_average_norm,
+    'global_norm': tf.clip_by_global_norm
+}
+
+
+def get_gradient_clipper(clipper, *args, **kwargs):
+    """
+    Simple helper to get Tensorflow Gradient Clipper
+    E.g: clipper = get_gradient_clipper('value', value_min, value_max, name='ValueClip')
+    :param clipper: a string or a TF clipper function
+    :param args: used to create the clipper
+    :param kwargs: used to create the clipper
+    :return: a function (tensor) -> (clipped tensor)
+    """
+    if not callable(clipper):
+        # workaround of global_norm clipper, since it returns two variable with the second one as a scalar tensor
+        if clipper == 'global_norm':
+            return lambda t: tf.clip_by_global_norm(t, *args, **kwargs)[0]
+        if clipper in _str2clipper:
+            clipper = _str2clipper[clipper]
+        else:
+            raise ValueError('clipper should be a callable function or a given key in _str2clipper!')
+    return lambda t: clipper(t, *args, **kwargs)
+
+
+_str2decay = {
+    'exponential': tf.train.exponential_decay,
+    'inverse_time': tf.train.inverse_time_decay,
+    'natural_exp': tf.train.natural_exp_decay
+}
+
+def get_lr_decay(decay):
+    """
+    Get a more convenient learning rate decay function
+    :param decay: a str in the keys of _str2decay, or a function of the form:
+        f(learning_rate, global_step, decay_rate)
+    :return:
+    """
+    if callable(decay):
+        return decay
+    if decay in _str2decay:
+        return _str2decay[decay]
+
 
 
 class Trainer(object):
     """
     Trainer Class
     """
-    def __init__(self, model, optimizer, learning_rate, valid_model=None):
+    def __init__(self, model, optimizer, learning_rate, gradient_clipper=None, decay=None, valid_model=None):
         """
         :param model: a instance of RNNModel class, the rnn model to be trained
         :param optimizer: the optimizer used to minimize model.loss, should be instance of tf.train.Optimizer
-        :param learning_rate: the learning_rate to use
+        :param learning_rate: a Tensor denoting the learning_rate to use
         :param supervisor: the supervisor used to manage training and saving model checkpoints
         :param valid_model: a instance of RNNModel class, the model used to run on validation set
         """
         if not isinstance(model, rnn.RNNModel):
             raise TypeError("model should be of class RNNModel!")
         self.model = model
-        self.optimizer = _get_optimizer(optimizer)
-        # self.initializer = initializer
         self._lr = learning_rate
+        self.optimizer = get_optimizer(optimizer)(self._lr)
+        # self.initializer = initializer
         self.valid_model = valid_model
-        self.train_op = self.optimizer(self._lr).minimize(self.model.loss)
-        # assert isinstance(supervisor, tf.train.Supervisor)
+        if gradient_clipper is None:
+            self.train_op = self.optimizer(self._lr).minimize(self.model.loss)
+        else:
+
+            tvars = tf.trainable_variables()
+            grads = gradient_clipper(tf.gradients(model.loss, tvars))
+            self.train_op = self.optimizer.apply_gradients(
+                zip(grads, tvars),
+                global_step=tf.contrib.framework.get_or_create_global_step())
+
         self.sv = None
 
     def train(self, inputs, targets, epoch_size, epoch_num, valid_inputs=None, valid_targets=None, save_path=None, verbose=True):
@@ -116,17 +174,3 @@ class Trainer(object):
             print("Epoch Summary: avg loss:{:.3f}, total time:{:.1f}s, speed:{:.1f} wps".format(
                 total_loss / epoch_size, total_time, epoch_size*model.num_steps*model.batch_size/total_time))
         return total_loss / epoch_size
-
-
-class Evaluator(object):
-    """
-    An evaluator evaluates a trained model.
-    This class also provides several utilities for recording hidden states
-    """
-    def __init__(self, model):
-        self.model = model
-        self._init_state = None
-        self._final_state = None
-
-    def evaluate(self, inputs, targets, size, save_path):
-        pass

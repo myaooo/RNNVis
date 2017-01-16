@@ -10,6 +10,7 @@ BasicRNNCell = tf.nn.rnn_cell.BasicRNNCell
 BasicLSTMCell = tf.nn.rnn_cell.BasicLSTMCell
 LSTMCell = tf.nn.rnn_cell.LSTMCell
 GRUCell = tf.nn.rnn_cell.GRUCell
+MultiRNNCell = tf.nn.rnn_cell.MultiRNNCell
 DropOutWrapper = tf.nn.rnn_cell.DropoutWrapper
 # EmbeddingWrapper = tf.nn.rnn_cell.EmbeddingWrapper
 InputProjectionWrapper = tf.nn.rnn_cell.InputProjectionWrapper
@@ -57,15 +58,20 @@ class RNNModel(object):
     """
     A RNN Model unrolled from a RNN instance
     """
-    def __init__(self, rnn, batch_size, num_steps, name=None):
+    def __init__(self, rnn, batch_size, num_steps, keep_prob=None, name=None):
         assert isinstance(rnn, RNN)
         self._rnn = rnn
+        self._cell = rnn.cell
         self.batch_size = batch_size
         self.num_steps = num_steps
         self.name = name or "UnRolled"
+        if keep_prob is not None:
+            cell_list = [DropOutWrapper(cell, input_keep_prob=keep_prob, output_keep_prob=keep_prob) for cell in rnn.cell_list]
+            self._cell = MultiRNNCell(cell_list, state_is_tuple=True)
         # The abstract name scope is not that easily dealt with, try to make the transparent to user
         with tf.name_scope(name):
             reuse = None if len(self._rnn.models) == 0 else True
+
             with tf.variable_scope(rnn.name, reuse=reuse, initializer=rnn.initializer):
                 # Define computation graph
                 input_shape = list(rnn.input_shape)
@@ -79,7 +85,7 @@ class RNNModel(object):
                 else:
                     inputs = self.input_holders
                 self.output, self.final_state = \
-                    tf.nn.dynamic_rnn(rnn.cell, inputs, initial_state=self.state, time_major=True)
+                    tf.nn.dynamic_rnn(self.cell, inputs, initial_state=self.state, time_major=True)
                 self.target_holders = tf.placeholder(rnn.target_dtype, [num_steps] + target_shape)
                 self.loss = rnn.loss_func(self.output, self.target_holders)
 
@@ -87,7 +93,7 @@ class RNNModel(object):
 
     @property
     def cell(self):
-        return self._rnn.cell
+        return self._cell
 
     @property
     def rnn(self):
@@ -233,7 +239,7 @@ class RNN(object):
         self._cell = tf.nn.rnn_cell.MultiRNNCell(cells=self.cell_list)
         self.is_compiled = True
 
-    def unroll(self, batch_size, num_steps, name=None):
+    def unroll(self, batch_size, num_steps, keep_prob=None, name=None):
         """
         Unroll the RNN Cell into a RNN Model with fixed num_steps and batch_size
         :param batch_size: batch_size of the model
@@ -242,13 +248,15 @@ class RNN(object):
         :return:
         """
         assert self.is_compiled
-        self.models.append(RNNModel(self, batch_size, num_steps, name))
+        self.models.append(RNNModel(self, batch_size, num_steps, keep_prob=keep_prob, name=name))
         return self.models[-1]
 
-    def train(self, inputs, targets, num_steps, epoch_size, epoch_num, batch_size, optimizer, learning_rate=0.001,
+    def train(self, inputs, targets, num_steps, epoch_size, epoch_num, batch_size,
+              optimizer, learning_rate=0.001, keep_prob=None, clipper=None, decay=None,
               valid_inputs=None, valid_targets=None, valid_batch_size=None, logdir=None):
         """
         Training using given input and target data
+        TODO: Clean up this messy function
         :param inputs: should be a list of input sequence, each element of the list is a input sequence specified by x.
         :param targets: should be of size [num_seq, seq_length, ...]
         :param epoch_num: number of training epochs
@@ -259,15 +267,15 @@ class RNN(object):
         """
         assert self.is_compiled
         if self.trainer is None:
-            model = self.unroll(batch_size, num_steps, 'Train')
-            self.trainer = Trainer(model, optimizer, learning_rate)
+            model = self.unroll(batch_size, num_steps, keep_prob, name='Train')
+            self.trainer = Trainer(model, optimizer, learning_rate, clipper, decay)
         else:
             self.trainer.optimizer = optimizer
             self.trainer._lr = learning_rate
         if valid_inputs is not None:
-            self.trainer.valid_model = self.unroll(valid_batch_size, num_steps, 'Valid')
+            self.trainer.valid_model = self.unroll(valid_batch_size, num_steps, name='Valid')
         print("Start Running Train Graph")
-        self.trainer.train(inputs, targets, epoch_size, epoch_num, valid_inputs, valid_targets, save_path='ptb_log')
+        self.trainer.train(inputs, targets, epoch_size, epoch_num, valid_inputs, valid_targets, save_path=logdir)
 
     @property
     def cell(self):
