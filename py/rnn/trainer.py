@@ -41,49 +41,63 @@ _str2clipper = {
 
 def get_gradient_clipper(clipper, *args, **kwargs):
     """
-    Simple helper to get Tensorflow Gradient Clipper
+    Simple helper to get Gradient Clipper
     E.g: clipper = get_gradient_clipper('value', value_min, value_max, name='ValueClip')
-    :param clipper: a string or a TF clipper function
+    :param clipper: a string denoting TF Gradient Clipper (e.g. "global_norm", denote tf.clip_by_global_norm)
+        or a function of type f(tensor) -> clipped_tensor
     :param args: used to create the clipper
     :param kwargs: used to create the clipper
     :return: a function (tensor) -> (clipped tensor)
     """
-    if not callable(clipper):
-        # workaround of global_norm clipper, since it returns two variable with the second one as a scalar tensor
-        if clipper == 'global_norm':
-            return lambda t: tf.clip_by_global_norm(t, *args, **kwargs)[0]
-        if clipper in _str2clipper:
-            clipper = _str2clipper[clipper]
-        else:
-            raise ValueError('clipper should be a callable function or a given key in _str2clipper!')
+    if callable(clipper):
+        return clipper
+    # workaround of global_norm clipper, since it returns two variable with the second one as a scalar tensor
+    if clipper == 'global_norm':
+        return lambda t: tf.clip_by_global_norm(t, *args, **kwargs)[0]
+    if clipper in _str2clipper:
+        clipper = _str2clipper[clipper]
+    else:
+        raise ValueError('clipper should be a callable function or a given key in _str2clipper!')
     return lambda t: clipper(t, *args, **kwargs)
 
 
 _str2decay = {
     'exponential': tf.train.exponential_decay,
     'inverse_time': tf.train.inverse_time_decay,
-    'natural_exp': tf.train.natural_exp_decay
+    'natural_exp': tf.train.natural_exp_decay,
+    'polynomial': tf.train.polynomial_decay
 }
 
-def get_lr_decay(decay):
+
+def get_lr_decay(decay, *args, **kwargs):
     """
-    Get a more convenient learning rate decay function
+    Get a more convenient learning rate decay function.
+    E.g. decay_func = get_lr_decay("exponential", 0.1, decay_steps=10000, decay_rate=0.95)
     :param decay: a str in the keys of _str2decay, or a function of the form:
-        f(learning_rate, global_step, decay_rate)
+        f(global_step) -> current_learning_rate, where global_step is a Python number
     :return:
     """
     if callable(decay):
         return decay
+    if not isinstance(decay, str):
+        raise TypeError("The input argument should be a callable function or a str!")
+    if decay == 'piecewise_constant':
+        return lambda global_step: tf.train.piecewise_constant(global_step, *args, **kwargs)
     if decay in _str2decay:
-        return _str2decay[decay]
-
+        decay_func = _str2decay[decay]
+        if len(args) == 0:
+            return lambda global_step: decay_func(kwargs.pop('learning_rate'), global_step, **kwargs)
+        else:
+            return lambda global_step: decay_func(args[0], global_step, *args[1:], **kwargs)
+    else:
+        raise ValueError("Cannot find corresponding decay function for the input {}".format(decay))
 
 
 class Trainer(object):
     """
     Trainer Class
     """
-    def __init__(self, model, optimizer, learning_rate, gradient_clipper=None, decay=None, valid_model=None):
+    def __init__(self, model, optimizer, learning_rate=0.1, gradient_clipper=None, decay=None, valid_model=None):
         """
         :param model: a instance of RNNModel class, the rnn model to be trained
         :param optimizer: the optimizer used to minimize model.loss, should be instance of tf.train.Optimizer
@@ -98,17 +112,31 @@ class Trainer(object):
         self.optimizer = get_optimizer(optimizer)(self._lr)
         # self.initializer = initializer
         self.valid_model = valid_model
+        self.global_step = tf.Variable(0, trainable=False)
+        self.decay = decay
+        if self.decay is not None:
+            self._lr = tf.Variable(decay(0.0), trainable=False)
+            self._new_lr = tf.placeholder(tf.float32, shape=())
+            self._update_lr = tf.assign(self._lr, self._new_lr, name='update_lr')
         if gradient_clipper is None:
-            self.train_op = self.optimizer(self._lr).minimize(self.model.loss)
+            self.train_op = self.optimizer(self._lr).minimize(self.model.loss, self.global_step)
         else:
-
-            tvars = tf.trainable_variables()
-            grads = gradient_clipper(tf.gradients(model.loss, tvars))
+            grads_and_vars = self.optimizer.compute_gradients(model.loss)
+            # Clip Gradients
+            grads, tvars = zip(*grads_and_vars)
+            grads = gradient_clipper(grads)
             self.train_op = self.optimizer.apply_gradients(
                 zip(grads, tvars),
-                global_step=tf.contrib.framework.get_or_create_global_step())
+                global_step=self.global_step)
 
         self.sv = None
+
+    def update_lr(self, sess):
+        if self.decay is None:
+            return
+        global_step = tf.train.global_step(sess, self.global_step)
+        new_lr = self.decay(global_step)
+        sess.run(self._update_lr, feed_dict={self._new_lr: new_lr})
 
     def train(self, inputs, targets, epoch_size, epoch_num, valid_inputs=None, valid_targets=None, save_path=None, verbose=True):
         """
@@ -133,6 +161,7 @@ class Trainer(object):
                     self.run_one_epoch(valid_inputs, valid_targets,
                                        epoch_size*self.valid_model.num_steps // self.model.num_steps,
                                        {}, sess, valid=True, verbose=verbose)
+                self.update_lr(sess)
             print("Saving model to %s." % FLAGS.save_path)
             if save_path is not None:
                 self.sv.saver.save(sess, save_path, global_step=self.sv.global_step)

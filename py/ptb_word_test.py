@@ -17,6 +17,12 @@ def test_data_producer(data, batch_size, num_steps):
     targets = data_feeder(data, num_steps, shift=1, name='targets')
     return inputs, targets, epoch_size
 
+def test_lr_decay(global_step):
+    if global_step < 4000:
+        return 1.0
+    else:
+        return 0.5 ** (global_step/4000)
+
 if __name__ == '__main__':
 
     logdir = './ptb_log'
@@ -42,7 +48,7 @@ if __name__ == '__main__':
     model.compile()
     print('Start Training')
     model.train(train_inputs, train_targets, train_steps, epoch_size, epoch_num, batch_size, 'GradientDescent', 1.0,
-                clipper=get_gradient_clipper('global_norm', 5), keep_prob=0.8,
+                clipper=get_gradient_clipper('global_norm', 5), keep_prob=0.8, decay=test_lr_decay,
                 logdir=logdir)
 
     print('Finish Training')
