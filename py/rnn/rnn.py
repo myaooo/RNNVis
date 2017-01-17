@@ -22,16 +22,20 @@ int32 = tf.int32
 def loss_by_example(outputs, targets):
     """
     Weighted cross-entropy loss for a sequence of logits (per example).
-    :param outputs: a 3D Tensor of shape [num_steps, batch_size, output_size]
-    :param targets: List of 2D int32 Tensors of shape [num_steps, batch_size]
+    :param outputs: a 2D Tensor of shape [batch_size, output_size]
+    :param targets: a 1D int32 Tensors of shape [batch_size]
     :return: a scalar tensor denoting the average loss of each example
     """
-    shape = tf.shape(outputs)
-    flatten_size = shape[0] * shape[1]
-    outputs = tf.reshape(outputs, [-1, shape[2]])
-    targets = tf.reshape(targets, [-1])
-    _loss = tf.nn.seq2seq.sequence_loss([outputs], [targets], [tf.ones([flatten_size], dtype=data_type())])
-    return _loss
+    if len(outputs.get_shape()) == 2:
+        flatten_shape = tf.shape(targets)
+    elif len(outputs.get_shape()) == 3:
+        shape = outputs.get_shape().as_list()
+        outputs = tf.reshape(outputs, [-1, shape[2]])
+        targets = tf.reshape(targets, [-1])
+        flatten_shape = tf.shape(targets)
+    else:
+        raise ValueError("outputs must be 2D or 3D tensor!")
+    return tf.nn.seq2seq.sequence_loss([outputs], [targets], [tf.ones(flatten_shape, dtype=data_type())])
 
 
 class Config(object):
@@ -65,31 +69,35 @@ class RNNModel(object):
         self.batch_size = batch_size
         self.num_steps = num_steps
         self.name = name or "UnRolled"
+        # Ugly hackings for DropoutWrapper
         if keep_prob is not None:
             cell_list = [DropOutWrapper(cell, input_keep_prob=keep_prob, output_keep_prob=keep_prob) for cell in rnn.cell_list]
             self._cell = MultiRNNCell(cell_list, state_is_tuple=True)
         # The abstract name scope is not that easily dealt with, try to make the transparent to user
         with tf.name_scope(name):
-            reuse = None if len(self._rnn.models) == 0 else True
-
+            reuse = rnn.need_reuse
             with tf.variable_scope(rnn.name, reuse=reuse, initializer=rnn.initializer):
-                # Define computation graph
-                input_shape = list(rnn.input_shape)
-                target_shape = list(rnn.target_shape)
-                input_shape[0] = target_shape[0] = batch_size
-                self.state = rnn.cell.zero_state(batch_size, data_type())
+                # Build TF computation Graph
+                input_shape = [batch_size] + list(rnn.input_shape)[1:]
+                target_shape = [batch_size] + list(rnn.target_shape)[1:]
+                self.state = self.cell.zero_state(batch_size, data_type())
                 self.input_holders = tf.placeholder(rnn.input_dtype, [num_steps] + input_shape)
-                # ugly hacking for EmbeddingWrapper Badness
-                if rnn.map_to_embedding:
-                    inputs = rnn.map_to_embedding(self.input_holders)
-                else:
-                    inputs = self.input_holders
-                self.output, self.final_state = \
-                    tf.nn.dynamic_rnn(self.cell, inputs, initial_state=self.state, time_major=True)
                 self.target_holders = tf.placeholder(rnn.target_dtype, [num_steps] + target_shape)
-                self.loss = rnn.loss_func(self.output, self.target_holders)
-
-                # self._assign_inputs = tf.assign(self.input_holders, )
+                # ugly hacking for EmbeddingWrapper Badness
+                inputs = self.input_holders if not rnn.map_to_embedding else rnn.map_to_embedding(self.input_holders)
+                # Call TF api to create recurrent neural network
+                self.outputs, self.final_state = \
+                    tf.nn.dynamic_rnn(self.cell, inputs, initial_state=self.state, time_major=True)
+                if rnn.project_output:
+                    # rnn has output project, do manual projection for speed
+                    outputs = tf.reshape(self.outputs, [-1, self.outputs.get_shape().as_list()[2]])
+                    outputs = rnn.project_output(outputs)
+                    targets = tf.reshape(self.target_holders, [-1])
+                    self.loss = rnn.loss_func(outputs, targets)
+                else:
+                    self.loss = rnn.loss_func(self.outputs, self.target_holders)
+        # Append self to rnn's model list
+        rnn.models.append(self)
 
     @property
     def cell(self):
@@ -152,7 +160,8 @@ class RNN(object):
         self.trainer = None
         self.loss_func = None
         self.is_compiled = False
-        self.map_to_embedding = None
+        self._map_to_embedding = None
+        self._projcet_output = None
         self.embedding_size = None
         self.vocab_size = None
         self.supervisor = None
@@ -203,13 +212,13 @@ class RNN(object):
         :param kwargs: the arguments used to create the cell
         :return: a cell managed under scope
         """
-        with tf.variable_scope(self.name, reuse=None, initializer=self.initializer):
-            self.cell_list.append(cell(*args, **kwargs))
+        self.cell_list.append(cell(*args, **kwargs))
 
     def compile(self):
         """
         Compile the model. Should be called before training or running the model.
-        Basically, this function concat all the cells together, and do checkings on model configurations
+        Basically, this function just do checkings on model configurations, it creates no tf.Variables or ops,
+            it just do all the prepares before building the computation graph
         :return: None
         """
         if self.is_compiled:  # In case of multiple compiles
@@ -221,21 +230,7 @@ class RNN(object):
             raise ValueError("output_shape or output_dtype is None, call set_output first!")
         if self.loss_func is None:
             raise ValueError("loss_func is None, call set_loss_func first!")
-        # with tf.variable_scope(self.name, reuse=None, initializer=config.initializer) as scope:
-        # if self._cell is not None:
-            # This operation creates no tf.Variables, no need for using variable scope
-        # Wrappers are not efficient, here for use them for convenience
-
-        if self.embedding_size:
-            # EmbeddingWrapper does not work for tf.nn.rnn now
-            # self.cell_list[0] = EmbeddingWrapper(self.cell_list[0], self.vocab_size, self.embedding_size)
-            with tf.variable_scope(self.name, reuse=None, initializer=self.initializer):
-                embedding = tf.get_variable("embedding", [self.vocab_size, self.embedding_size], dtype=data_type())
-                self.map_to_embedding = lambda inputs: tf.nn.embedding_lookup(embedding, inputs)
-
-        if self.cell_list[-1].output_size != self.output_shape[-1]:
-            # if the last cell's output_size does not match intended output shape, we need a projection
-            self.cell_list[-1] = OutputProjectionWrapper(self.cell_list[-1], self.output_shape[-1])
+        # This operation creates no tf.Variables, no need for using variable scope
         self._cell = tf.nn.rnn_cell.MultiRNNCell(cells=self.cell_list)
         self.is_compiled = True
 
@@ -248,8 +243,7 @@ class RNN(object):
         :return:
         """
         assert self.is_compiled
-        self.models.append(RNNModel(self, batch_size, num_steps, keep_prob=keep_prob, name=name))
-        return self.models[-1]
+        return RNNModel(self, batch_size, num_steps, keep_prob=keep_prob, name=name)
 
     def train(self, inputs, targets, num_steps, epoch_size, epoch_num, batch_size,
               optimizer, learning_rate=0.001, keep_prob=None, clipper=None, decay=None,
@@ -280,3 +274,26 @@ class RNN(object):
     @property
     def cell(self):
         return self._cell
+
+    @property
+    def need_reuse(self):
+        return None if len(self.models) == 0 else True
+
+    def map_to_embedding(self, inputs):
+        if self.embedding_size:
+            # The Variables are already created in the compile(), need to
+            with tf.variable_scope('embedding', initializer=self.initializer):
+                embedding = tf.get_variable("embedding", [self.vocab_size, self.embedding_size], dtype=data_type())
+                return tf.nn.embedding_lookup(embedding, inputs)
+        else:
+            return None
+
+    def project_output(self, outputs):
+        if self.cell_list[-1].output_size != self.output_shape[-1]:
+            with tf.variable_scope('project', initializer=self.initializer):
+                project_w = tf.get_variable(
+                    "project_w", [self.cell_list[-1].output_size, self.vocab_size], dtype=data_type())
+                projcet_b = tf.get_variable("project_b", [self.vocab_size], dtype=data_type())
+                return tf.matmul(outputs, project_w) + projcet_b
+        else:
+            return None

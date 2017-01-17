@@ -96,6 +96,8 @@ def get_lr_decay(decay, *args, **kwargs):
 class Trainer(object):
     """
     Trainer Class
+    Usage:
+        TODO
     """
     def __init__(self, model, optimizer, learning_rate=0.1, gradient_clipper=None, decay=None, valid_model=None):
         """
