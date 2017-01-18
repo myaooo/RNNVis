@@ -28,7 +28,7 @@ if __name__ == '__main__':
     logdir = './ptb_log'
     train_steps = 20
     batch_size = 20
-    epoch_num = 1
+    epoch_num = 13
     print('Preparing data')
     train_data, valid_data, test_data, vocab_size = ptb_raw_data('./cached_data/simple-examples/data')
 
