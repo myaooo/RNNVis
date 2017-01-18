@@ -24,10 +24,10 @@ def test_data_producer(data, batch_size, num_steps):
     return inputs, targets, epoch_size
 
 def test_lr_decay(global_step):
-    if global_step < 2000:
+    if global_step < 7000:
         return 1.0
     else:
-        return 0.5 ** (global_step/2000)
+        return 0.5 ** (global_step/7000)
 
 if __name__ == '__main__':
 
