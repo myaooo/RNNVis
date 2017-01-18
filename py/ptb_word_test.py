@@ -1,3 +1,9 @@
+"""
+The data required for this example is in the data/ dir of the
+PTB datasets from Tomas Mikolov's webpage:
+$ wget http://www.fit.vutbr.cz/~imikolov/rnnlm/simple-examples.tgz
+$ tar xvf simple-examples.tgz
+"""
 import tensorflow as tf
 import numpy as np
 

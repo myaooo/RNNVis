@@ -35,7 +35,8 @@ def loss_by_example(outputs, targets):
         flatten_shape = tf.shape(targets)
     else:
         raise ValueError("outputs must be 2D or 3D tensor!")
-    return tf.nn.seq2seq.sequence_loss([outputs], [targets], [tf.ones(flatten_shape, dtype=data_type())])
+    _loss = tf.nn.seq2seq.sequence_loss_by_example([outputs], [targets], [tf.ones(flatten_shape, dtype=data_type())])
+    return tf.reduce_mean(_loss)
 
 
 class Config(object):
@@ -261,8 +262,7 @@ class RNN(object):
         """
         assert self.is_compiled
         if self.trainer is None:
-            model = self.unroll(batch_size, num_steps, keep_prob, name='Train')
-            self.trainer = Trainer(model, optimizer, learning_rate, clipper, decay)
+            self.trainer = Trainer(self,batch_size,num_steps,keep_prob, optimizer, learning_rate, clipper, decay)
         else:
             self.trainer.optimizer = optimizer
             self.trainer._lr = learning_rate

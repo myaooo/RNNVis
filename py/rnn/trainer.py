@@ -99,7 +99,8 @@ class Trainer(object):
     Usage:
         TODO
     """
-    def __init__(self, model, optimizer, learning_rate=0.1, gradient_clipper=None, decay=None, valid_model=None):
+    def __init__(self, rnn_, batch_size, num_steps, keep_prob, optimizer,
+                 learning_rate=0.1, gradient_clipper=None, decay=None, valid_model=None):
         """
         :param model: a instance of RNNModel class, the rnn model to be trained
         :param optimizer: the optimizer used to minimize model.loss, should be instance of tf.train.Optimizer
@@ -107,31 +108,32 @@ class Trainer(object):
         :param supervisor: the supervisor used to manage training and saving model checkpoints
         :param valid_model: a instance of RNNModel class, the model used to run on validation set
         """
-        if not isinstance(model, rnn.RNNModel):
-            raise TypeError("model should be of class RNNModel!")
-        self.model = model
+        if not isinstance(rnn_, rnn.RNN):
+            raise TypeError("rnn should be instance of RNN")
+        self.model = rnn_.unroll(batch_size, num_steps, keep_prob, name="Train")
         self._lr = learning_rate
         self.optimizer = get_optimizer(optimizer)(self._lr)
         # self.initializer = initializer
         self.valid_model = valid_model
         self.global_step = tf.Variable(0, trainable=False)
         self.decay = decay
-        if self.decay is not None:
-            self._lr = tf.Variable(decay(0.0), trainable=False)
-            self._new_lr = tf.placeholder(tf.float32, shape=())
-            self._update_lr = tf.assign(self._lr, self._new_lr, name='update_lr')
-        if gradient_clipper is None:
-            self.train_op = self.optimizer(self._lr).minimize(self.model.loss, self.global_step)
-        else:
-            tvars = tf.trainable_variables()
-            grads = gradient_clipper(tf.gradients(model.loss, tvars))
-            # grads_and_vars = self.optimizer.compute_gradients(model.loss)
-            # # Clip Gradients
-            # grads, tvars = zip(*grads_and_vars)
-            # grads = gradient_clipper(grads)
-            self.train_op = self.optimizer.apply_gradients(
-                zip(grads, tvars),
-                global_step=self.global_step)
+        with tf.name_scope("Train"):
+            if self.decay is not None:
+                self._lr = tf.Variable(decay(0.0), trainable=False)
+                self._new_lr = tf.placeholder(tf.float32, shape=())
+                self._update_lr = tf.assign(self._lr, self._new_lr, name='update_lr')
+            if gradient_clipper is None:
+                self.train_op = self.optimizer(self._lr).minimize(self.model.loss, self.global_step)
+            else:
+                tvars = tf.trainable_variables()
+                grads = gradient_clipper(tf.gradients(self.model.loss, tvars))
+                # grads_and_vars = self.optimizer.compute_gradients(model.loss)
+                # # Clip Gradients
+                # grads, tvars = zip(*grads_and_vars)
+                # grads = gradient_clipper(grads)
+                self.train_op = self.optimizer.apply_gradients(
+                    zip(grads, tvars),
+                    global_step=self.global_step)
 
         self.sv = None
 
@@ -197,10 +199,11 @@ class Trainer(object):
             vals = sess.run(run_ops, feed_dict)
             state = vals['state']
             total_loss += vals['loss']
-            if verbose and i % (epoch_size // 10) == 0:
-                print("epoch[{:d}/{:d}] local avg loss:{:.3f}, speed:{:.1f} wps".format(
-                    i, epoch_size, vals['loss'],
-                    (epoch_size // 10)*model.batch_size*model.num_steps / (time.time()-verbose_time)))
+            if verbose and i % (epoch_size // 10) == 1:
+                delta_time = time.time()-verbose_time
+                print("epoch[{:d}/{:d}] avg loss:{:.3f}, speed:{:.1f} wps, time: {:.1f}s".format(
+                    i, epoch_size, total_loss/i,
+                    i*model.batch_size*model.num_steps / (time.time()-start_time), delta_time))
                 verbose_time = time.time()
         total_time = time.time()-start_time
         if verbose:
