@@ -18,16 +18,16 @@ def test_data_producer(data, batch_size, num_steps):
     return inputs, targets, epoch_size
 
 def test_lr_decay(global_step):
-    if global_step < 4000:
+    if global_step < 2000:
         return 1.0
     else:
-        return 0.5 ** (global_step/4000)
+        return 0.5 ** (global_step/2000)
 
 if __name__ == '__main__':
 
     logdir = './ptb_log'
     train_steps = 20
-    batch_size = 40
+    batch_size = 20
     epoch_num = 1
     print('Preparing data')
     train_data, valid_data, test_data, vocab_size = ptb_raw_data('./cached_data/simple-examples/data')
@@ -39,16 +39,16 @@ if __name__ == '__main__':
 
     # vocab_size = 10000
     model = rnn.RNN('LSTM', tf.random_uniform_initializer(-0.1, 0.1))
-    model.set_input([None], tf.int32, vocab_size, embedding_size=256)
-    model.add_cell(rnn.BasicLSTMCell, 256)
-    model.add_cell(rnn.BasicLSTMCell, 256)
+    model.set_input([None], tf.int32, vocab_size, embedding_size=200)
+    model.add_cell(rnn.BasicLSTMCell, 200)
+    model.add_cell(rnn.BasicLSTMCell, 200)
     model.set_output([None, vocab_size], tf.float32)
     model.set_target([None], tf.int32)
     model.set_loss_func(rnn.loss_by_example)
     model.compile()
     print('Start Training')
     model.train(train_inputs, train_targets, train_steps, epoch_size, epoch_num, batch_size, 'GradientDescent', 1.0,
-                clipper=get_gradient_clipper('global_norm', 5), keep_prob=0.8, decay=test_lr_decay,
+                clipper=get_gradient_clipper('global_norm', 5), keep_prob=1.0, decay=test_lr_decay,
                 logdir=logdir)
 
     print('Finish Training')

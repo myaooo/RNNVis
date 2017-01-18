@@ -123,10 +123,12 @@ class Trainer(object):
         if gradient_clipper is None:
             self.train_op = self.optimizer(self._lr).minimize(self.model.loss, self.global_step)
         else:
-            grads_and_vars = self.optimizer.compute_gradients(model.loss)
-            # Clip Gradients
-            grads, tvars = zip(*grads_and_vars)
-            grads = gradient_clipper(grads)
+            tvars = tf.trainable_variables()
+            grads = gradient_clipper(tf.gradients(model.loss, tvars))
+            # grads_and_vars = self.optimizer.compute_gradients(model.loss)
+            # # Clip Gradients
+            # grads, tvars = zip(*grads_and_vars)
+            # grads = gradient_clipper(grads)
             self.train_op = self.optimizer.apply_gradients(
                 zip(grads, tvars),
                 global_step=self.global_step)
@@ -195,7 +197,7 @@ class Trainer(object):
             vals = sess.run(run_ops, feed_dict)
             state = vals['state']
             total_loss += vals['loss']
-            if verbose and i % (epoch_size // 10) == 0 and i != 0:
+            if verbose and i % (epoch_size // 10) == 0:
                 print("epoch[{:d}/{:d}] local avg loss:{:.3f}, speed:{:.1f} wps".format(
                     i, epoch_size, vals['loss'],
                     (epoch_size // 10)*model.batch_size*model.num_steps / (time.time()-verbose_time)))

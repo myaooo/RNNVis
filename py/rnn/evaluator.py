@@ -20,7 +20,7 @@ class Evaluator(object):
     An evaluator evaluates a trained RNN.
     This class also provides several utilities for recording hidden states
     """
-    def __init__(self, rnn_, batch_size, ):
+    def __init__(self, rnn_, batch_size, log_period, state=True, input=True, output=True):
         self.model = rnn_.unroll(batch_size, config.state, name='Evaluate')
         self.config = config
         self._init_state = None
