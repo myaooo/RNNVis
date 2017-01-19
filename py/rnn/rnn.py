@@ -3,12 +3,15 @@ RNN Model Classes
 """
 
 import time
+import sys
+from contextlib import redirect_stderr, redirect_stdout
 import tensorflow as tf
 from tensorflow.contrib.copy_graph import copy_op_to_graph
 from .trainer import Trainer
 from .config import *
 from .evaluator import Evaluator
 from py.datasets.data_utils import Feeder
+import logging
 
 
 BasicRNNCell = tf.nn.rnn_cell.BasicRNNCell
@@ -196,15 +199,20 @@ class RNNModel(object):
     def init_state(self, sess):
         return sess.run(self.state)
 
-    def ops_placement(self, ops):
+    def log_ops_placement(self, ops, log_path):
         # Print ops assignments for debugging
         sess = tf.Session(config=tf.ConfigProto(log_device_placement=True))
+        _hdlr = tf.logging._handler
+        new_handler = logging.FileHandler(log_path, 'a+')
+        tf.logging._logger.removeHandler(_hdlr)
+        tf.logging._logger.addHandler(new_handler)
         try:
-            print("ops placements:")
-            print(sess.run(ops))
+            sess.run(ops)
         except:
             print("ops placements end.")
-
+        tf.logging._logger.removeHandler(new_handler)
+        tf.logging._logger.addHandler(_hdlr)
+        print("ops placements info logged to {}".format(log_path))
     # def update_batch_size(self, new_batch_size, sess):
     #     sess.run(self._update_batch_size, {self._new_batch_size: new_batch_size})
 
@@ -348,7 +356,7 @@ class RNN(object):
             else:
                 self.trainer.optimizer = optimizer
                 self.trainer._lr = learning_rate
-            self.trainer.model.ops_placement(self.trainer.train_op)
+            # self.trainer.model.log_ops_placement(self.trainer.train_op, 'debug.log')
             if valid_inputs is None:
                 # Only needs to run training graph
                 self.finalize()
@@ -363,7 +371,7 @@ class RNN(object):
                         if verbose:
                             print("Epoch {}:".format(i))
                         self.trainer.train_one_epoch(inputs, targets, epoch_size, sess, verbose=verbose)
-                        valid_evaluator.evaluate(valid_inputs, valid_targets, epoch_size, sess, verbose=verbose)
+                        valid_evaluator.evaluate(valid_inputs, valid_targets, epoch_size, sess, verbose=False)
                         self.trainer.update_lr(sess)
 
                     if save_path is not None:
