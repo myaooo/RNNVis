@@ -60,7 +60,7 @@ class Evaluator(object):
         total_loss = 0
         for i in range(input_size):
             rslts = self.model.run(
-                inputs, targets, 1, {}, sess, eval_ops=eval_ops, verbose=verbose)
+                inputs, targets, 1, {}, sess, eval_ops=eval_ops, verbose_every=False)
             if record and eval_ops:
                 summary = rslts['evals'][0]["summary"]
                 self.writer.add_summary(summary, i*self.record_every)
