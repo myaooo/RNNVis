@@ -15,7 +15,7 @@ model:
   loss_func: sequence_loss
 train:
   epoch_num: 10
-  num_steps: 20
+  num_steps: 40
   batch_size: 20
   keep_prob: 1.0
   gradient_clip: global_norm

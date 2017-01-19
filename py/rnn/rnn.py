@@ -405,8 +405,9 @@ class RNN(object):
         if self.embedding_size:
             # The Variables are already created in the compile(), need to
             with tf.variable_scope('embedding', initializer=self.initializer):
-                embedding = tf.get_variable("embedding", [self.vocab_size, self.embedding_size], dtype=data_type())
-                return tf.nn.embedding_lookup(embedding, inputs)
+                with tf.device("/cpu:0"): # Force CPU since GPU implementation is missing
+                    embedding = tf.get_variable("embedding", [self.vocab_size, self.embedding_size], dtype=data_type())
+                    return tf.nn.embedding_lookup(embedding, inputs)
         else:
             return None
 

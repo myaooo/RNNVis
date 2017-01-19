@@ -97,7 +97,7 @@ class Trainer(object):
         TODO
     """
     def __init__(self, rnn_, batch_size, num_steps, keep_prob, optimizer,
-                 learning_rate=0.1, gradient_clipper=None, decay=None, valid_model=None):
+                 learning_rate=0.1, gradient_clipper=None, decay=None):
         """
         :param model: a instance of RNNModel class, the rnn model to be trained
         :param optimizer: the optimizer used to minimize model.loss, should be instance of tf.train.Optimizer
@@ -107,11 +107,10 @@ class Trainer(object):
         """
         if not isinstance(rnn_, rnn.RNN):
             raise TypeError("rnn should be instance of RNN")
-        self.model = rnn_.unroll(batch_size, num_steps, keep_prob, name="Train")
+        self.model = rnn_.unroll(batch_size, num_steps, keep_prob, name="TrainModel")
         self._lr = learning_rate
         self.optimizer = get_optimizer(optimizer)(self._lr)
         # self.initializer = initializer
-        self.valid_model = valid_model
         self.global_step = tf.Variable(0, trainable=False)
         self.decay = decay
         with tf.name_scope("Train"):

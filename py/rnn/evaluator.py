@@ -30,7 +30,7 @@ class Evaluator(object):
         self.log_state = log_state
         self.log_input = log_input
         self.log_output = log_output
-        self.model = rnn_.unroll(batch_size, record_every, name='Evaluate')
+        self.model = rnn_.unroll(batch_size, record_every, name='EvaluateModel')
         self.summary_ops = []
         self.logdir = logdir if logdir is not None else rnn_.logdir
         self.writer = tf.summary.FileWriter(self.logdir)
