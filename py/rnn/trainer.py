@@ -144,7 +144,7 @@ class Trainer(object):
         new_lr = self.decay(global_step)
         sess.run(self._update_lr, feed_dict={self._new_lr: new_lr})
 
-    def train(self, inputs, targets, epoch_size, epoch_num, valid_inputs=None, valid_targets=None, save_path=None, verbose=True):
+    def train(self, inputs, targets, epoch_size, epoch_num, sv, verbose=True):
         """
         Training using given input and target data
         :param inputs: a Tensor of shape [num_step, batch_size (, feature_size)] produced using data_utils.data_feeder
@@ -156,23 +156,24 @@ class Trainer(object):
         :param save_path: the path to save the logs
         :return: None
         """
-        self.sv = tf.train.Supervisor(logdir=save_path)
-        with self.sv.managed_session() as sess:
+        # Print ops assignments for debugging
+        sess = tf.Session(config=tf.ConfigProto(log_device_placement=True))
+        try:
+            print(sess.run(self.model.loss))
+        except:
+            print("ops placements logged.")
+
+        with sv.managed_session() as sess:
             for i in range(epoch_num):
                 if verbose:
                     print("Epoch {}:".format(i))
-                self.run_one_epoch(inputs, targets, epoch_size,
-                                   {'train_op': self.train_op}, sess, verbose=verbose)
-                if valid_inputs is not None:
-                    self.run_one_epoch(valid_inputs, valid_targets,
-                                       epoch_size*self.valid_model.num_steps // self.model.num_steps,
-                                       {}, sess, valid=True, verbose=verbose)
+                self.train_one_epoch(inputs, targets, epoch_size, sess, verbose=verbose)
                 self.update_lr(sess)
-            print("Saving model to %s." % FLAGS.save_path)
-            if save_path is not None:
-                self.sv.saver.save(sess, save_path, global_step=self.sv.global_step)
+            # print("Saving model to %s." % FLAGS.save_path)
+            # if save_path is not None:
+            #     sv.saver.save(sess, save_path, global_step=self.sv.global_step)
 
-    def run_one_epoch(self, inputs, targets, epoch_size, run_ops, sess, valid=False, verbose=True):
+    def train_one_epoch(self, inputs, targets, epoch_size, sess, verbose=True):
         """
         Run one epoch of training (validating)
         :param inputs: same as above
@@ -184,29 +185,5 @@ class Trainer(object):
         :param verbose: flag of printing mid results
         :return: avg. results
         """
-        model = self.valid_model if valid else self.model
-        state = model.init_state(sess)
-        run_ops['state'] = model.final_state
-        run_ops['loss'] = model.loss
-        total_loss = 0
-        start_time = verbose_time = time.time()
-        for i in range(epoch_size):
-            feed_dict = model.feed_state(state)
-            _inputs, _targets = sess.run([inputs, targets])
-            feed_dict.update(model.feed_data(_inputs, True))
-            feed_dict.update(model.feed_data(_targets, False))
-            # feed_dict[model.target_holders] = [targets[:, i] for i in range(model.num_steps)]
-            vals = sess.run(run_ops, feed_dict)
-            state = vals['state']
-            total_loss += vals['loss']
-            if verbose and i % (epoch_size // 10) == 1:
-                delta_time = time.time()-verbose_time
-                print("epoch[{:d}/{:d}] avg loss:{:.3f}, speed:{:.1f} wps, time: {:.1f}s".format(
-                    i, epoch_size, total_loss/i,
-                    i*model.batch_size*model.num_steps / (time.time()-start_time), delta_time))
-                verbose_time = time.time()
-        total_time = time.time()-start_time
-        if verbose:
-            print("Epoch Summary: avg loss:{:.3f}, total time:{:.1f}s, speed:{:.1f} wps".format(
-                total_loss / epoch_size, total_time, epoch_size*model.num_steps*model.batch_size/total_time))
-        return total_loss / epoch_size
+        run_ops = {'train_op': self.train_op}
+        self.model.run(inputs, targets, epoch_size, run_ops, sess, verbose=verbose)
