@@ -4,6 +4,7 @@ Configurations for RNN models
 
 import yaml
 import tensorflow as tf
+from tensorflow.python.client import device_lib
 
 tf.GraphKeys.EVAL_SUMMARIES = "eval_summarys"
 
