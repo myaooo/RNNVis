@@ -119,7 +119,7 @@ class Trainer(object):
         self.decay = decay
         with tf.name_scope("Train"):
             if self.decay is not None:
-                self._lr = tf.Variable(decay(0.0), trainable=False)
+                self._lr = tf.Variable(decay(0.0), dtype=tf.float32, trainable=False)
                 self._new_lr = tf.placeholder(tf.float32, shape=())
                 self._update_lr = tf.assign(self._lr, self._new_lr, name='update_lr')
             if gradient_clipper is None:
@@ -156,12 +156,6 @@ class Trainer(object):
         :param save_path: the path to save the logs
         :return: None
         """
-        # Print ops assignments for debugging
-        sess = tf.Session(config=tf.ConfigProto(log_device_placement=True))
-        try:
-            print(sess.run(self.model.loss))
-        except:
-            print("ops placements logged.")
 
         with sv.managed_session() as sess:
             for i in range(epoch_num):

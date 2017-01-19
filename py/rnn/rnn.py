@@ -196,6 +196,15 @@ class RNNModel(object):
     def init_state(self, sess):
         return sess.run(self.state)
 
+    def ops_placement(self, ops):
+        # Print ops assignments for debugging
+        sess = tf.Session(config=tf.ConfigProto(log_device_placement=True))
+        try:
+            print("ops placements:")
+            print(sess.run(ops))
+        except:
+            print("ops placements end.")
+
     # def update_batch_size(self, new_batch_size, sess):
     #     sess.run(self._update_batch_size, {self._new_batch_size: new_batch_size})
 
@@ -300,8 +309,9 @@ class RNN(object):
             raise ValueError("loss_func is None, call set_loss_func first!")
         # This operation creates no tf.Variables, no need for using variable scope
         self._cell = tf.nn.rnn_cell.MultiRNNCell(cells=self.cell_list)
-        # Create a default evaluator
+        # All done
         self.is_compiled = True
+        # Create a default evaluator
         with self.graph.as_default():
             self.evaluator = Evaluator(self, batch_size=1)
 
@@ -338,6 +348,7 @@ class RNN(object):
             else:
                 self.trainer.optimizer = optimizer
                 self.trainer._lr = learning_rate
+            self.trainer.model.ops_placement(self.trainer.train_op)
             if valid_inputs is None:
                 # Only needs to run training graph
                 self.finalize()
