@@ -2,6 +2,7 @@
 Configurations for RNN models
 """
 
+import os
 import yaml
 import tensorflow as tf
 
@@ -19,6 +20,7 @@ flags.DEFINE_string("log_path", None, "The path to save the log")
 
 FLAGS = flags.FLAGS
 
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
 def data_type():
     return tf.float16 if FLAGS.use_fp16 else tf.float32
