@@ -153,7 +153,7 @@ class RNNModel(object):
             total_loss += vals['loss']
             if eval_ops:
                 evals.append(sess.run(eval_ops, feed_dict))
-            if verbose and i % (epoch_size // 10) == 100:
+            if verbose and i % epoch_size == 200:
                 delta_time = time.time() - verbose_time
                 print("epoch[{:d}/{:d}] avg loss:{:.3f}, speed:{:.1f} wps, time: {:.1f}s".format(
                     i, epoch_size, total_loss / i,

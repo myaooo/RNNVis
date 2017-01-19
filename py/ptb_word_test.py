@@ -22,11 +22,11 @@ def test_data_producer(data, batch_size, num_steps):
 
 
 def test_lr_decay(global_step):
-    base_lr = 0.5
+    base_lr = 1
     if global_step < 7000:
         return base_lr
     else:
-        return base_lr * 0.5 ** (global_step/7000)
+        return base_lr * 0.5 ** ((global_step-7000)/2300)
 
 if __name__ == '__main__':
 
@@ -52,10 +52,10 @@ if __name__ == '__main__':
     print('Start Training')
     model.train(train_inputs, train_targets, train_steps, epoch_size, epoch_num, batch_size, 'GradientDescent', 1.0,
                 clipper=get_gradient_clipper('global_norm', 5), keep_prob=1.0, decay=test_lr_decay,
-                valid_inputs=valid_inputs, valid_targets=valid_targets, valid_batch_size=batch_size, save_path=logdir)
+                valid_inputs=valid_inputs, valid_targets=valid_targets, valid_batch_size=batch_size)
 
     print('Finish Training')
-
+    model.save()
     # test
     # print("start test")
     # j = tf.constant(10, dtype=tf.int32)
