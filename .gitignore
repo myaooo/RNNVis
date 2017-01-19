@@ -1,4 +1,4 @@
 .idea/
 *__pycache__/
-*cached_data
+cached_data
 *.log

@@ -4,22 +4,18 @@ Configurations for RNN models
 
 import yaml
 import tensorflow as tf
-from tensorflow.python.client import device_lib
 
 tf.GraphKeys.EVAL_SUMMARIES = "eval_summarys"
 
 flags = tf.flags
 logging = tf.logging
 
-flags.DEFINE_string(
-    "model", "small",
-    "A type of model. Possible options are: small, medium, large.")
-flags.DEFINE_string("data_path", None,
-                    "Where the training/test data is stored.")
-flags.DEFINE_string("save_path", None,
-                    "Model output directory.")
 flags.DEFINE_bool("use_fp16", False,
                   "Train using 16-bit floats instead of 32bit floats")
+flags.DEFINE_float('gpu_memory', 0.2, "The fraction of gpu memory each process is allowed to use")
+flags.DEFINE_string("config_path", None, "The path of the model configuration file")
+flags.DEFINE_string("data_path", None, "The path of the input data")
+flags.DEFINE_string("log_path", None, "The path to save the log")
 
 FLAGS = flags.FLAGS
 
@@ -27,6 +23,21 @@ FLAGS = flags.FLAGS
 def data_type():
     return tf.float16 if FLAGS.use_fp16 else tf.float32
 
+
+def config_path():
+    return FLAGS.config_path
+
+
+def data_path():
+    return FLAGS.data_path
+
+
+def log_path():
+    return FLAGS.log_path
+
+
+gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=FLAGS.gpu_memory)
+config_options = tf.ConfigProto(device_count={"GPU": 1})
 
 # class RNNConfig(object):
 #     """

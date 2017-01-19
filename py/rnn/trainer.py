@@ -2,11 +2,8 @@
 Trainer handling TensorFlow Graph training computations
 """
 
-import tensorflow as tf
-import time
+from py.rnn.command_utils import *
 from . import rnn
-from .config import *
-
 
 _str2optimizers = {
     "Adam": tf.train.AdamOptimizer,
@@ -181,3 +178,4 @@ class Trainer(object):
         """
         run_ops = {'train_op': self.train_op}
         self.model.run(inputs, targets, epoch_size, run_ops, sess, verbose_every=epoch_size//10 if verbose else False)
+

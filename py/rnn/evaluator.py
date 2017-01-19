@@ -2,9 +2,8 @@
 Evaluator Class
 """
 
-import tensorflow as tf
+from py.rnn.command_utils import *
 from . import rnn
-from .config import *
 
 
 class EvaluateConfig(object):
