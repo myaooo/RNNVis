@@ -5,6 +5,8 @@ Configurations for RNN models
 import yaml
 import tensorflow as tf
 
+tf.GraphKeys.EVAL_SUMMARIES = "eval_summarys"
+
 flags = tf.flags
 logging = tf.logging
 

@@ -1,55 +1,58 @@
+"""
+The data required for this example is in the data/ dir of the
+PTB datasets from Tomas Mikolov's webpage:
+$ wget http://www.fit.vutbr.cz/~imikolov/rnnlm/simple-examples.tgz
+$ tar xvf simple-examples.tgz
+"""
 import tensorflow as tf
 import numpy as np
 
 from py.rnn import rnn
 from py.rnn.trainer import get_gradient_clipper
 from py.datasets.ptb_reader import ptb_raw_data
-from py.datasets.data_utils import data_feeder, data_batcher
+from py.datasets.data_utils import InputProducer
 
 
 def test_data_producer(data, batch_size, num_steps):
     # train_data = valid_data
-    batch_len = len(data) // batch_size
-    epoch_size = (batch_len - 1) // train_steps
+    producer = InputProducer(data, batch_size)
+    inputs = producer.get_feeder(num_steps,transpose=True)
+    targets = producer.get_feeder(num_steps, offset=1, transpose=True)
+    return inputs, targets, targets.epoch_size
 
-    data = data_batcher(data, batch_size)
-    inputs = data_feeder(data, num_steps, name='inputs')
-    targets = data_feeder(data, num_steps, shift=1, name='targets')
-    return inputs, targets, epoch_size
 
 def test_lr_decay(global_step):
-    if global_step < 4000:
-        return 1.0
+    base_lr = 0.5
+    if global_step < 7000:
+        return base_lr
     else:
-        return 0.5 ** (global_step/4000)
+        return base_lr * 0.5 ** (global_step/7000)
 
 if __name__ == '__main__':
 
     logdir = './ptb_log'
     train_steps = 20
-    batch_size = 40
-    epoch_num = 1
+    batch_size = 20
+    epoch_num = 13
     print('Preparing data')
     train_data, valid_data, test_data, vocab_size = ptb_raw_data('./cached_data/simple-examples/data')
 
-    with tf.name_scope('train'):
-        train_inputs, train_targets, epoch_size = test_data_producer(train_data, batch_size, train_steps)
-    with tf.name_scope('valid'):
-        valid_inputs, valid_targets, _ = test_data_producer(valid_data, batch_size, train_steps)
+    train_inputs, train_targets, epoch_size = test_data_producer(train_data, batch_size, train_steps)
+    valid_inputs, valid_targets, _ = test_data_producer(valid_data, batch_size, train_steps)
 
     # vocab_size = 10000
     model = rnn.RNN('LSTM', tf.random_uniform_initializer(-0.1, 0.1))
-    model.set_input([None], tf.int32, vocab_size, embedding_size=256)
-    model.add_cell(rnn.BasicLSTMCell, 256)
-    model.add_cell(rnn.BasicLSTMCell, 256)
+    model.set_input([None], tf.int32, vocab_size, embedding_size=200)
+    model.add_cell(rnn.BasicLSTMCell, 200)
+    model.add_cell(rnn.BasicLSTMCell, 200)
     model.set_output([None, vocab_size], tf.float32)
     model.set_target([None], tf.int32)
     model.set_loss_func(rnn.loss_by_example)
     model.compile()
     print('Start Training')
     model.train(train_inputs, train_targets, train_steps, epoch_size, epoch_num, batch_size, 'GradientDescent', 1.0,
-                clipper=get_gradient_clipper('global_norm', 5), keep_prob=0.8, decay=test_lr_decay,
-                logdir=logdir)
+                clipper=get_gradient_clipper('global_norm', 5), keep_prob=1.0, decay=test_lr_decay,
+                valid_inputs=valid_inputs, valid_targets=valid_targets, valid_batch_size=batch_size, save_path=logdir)
 
     print('Finish Training')
 

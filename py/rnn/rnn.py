@@ -2,9 +2,14 @@
 RNN Model Classes
 """
 
+import time
 import tensorflow as tf
+from tensorflow.contrib.copy_graph import copy_op_to_graph
 from .trainer import Trainer
 from .config import *
+from .evaluator import Evaluator
+from py.datasets.data_utils import Feeder
+
 
 BasicRNNCell = tf.nn.rnn_cell.BasicRNNCell
 BasicLSTMCell = tf.nn.rnn_cell.BasicLSTMCell
@@ -22,15 +27,20 @@ int32 = tf.int32
 def loss_by_example(outputs, targets):
     """
     Weighted cross-entropy loss for a sequence of logits (per example).
-    :param outputs: a 3D Tensor of shape [num_steps, batch_size, output_size]
-    :param targets: List of 2D int32 Tensors of shape [num_steps, batch_size]
+    :param outputs: a 2D Tensor of shape [batch_size, output_size]
+    :param targets: a 1D int32 Tensors of shape [batch_size]
     :return: a scalar tensor denoting the average loss of each example
     """
-    shape = tf.shape(outputs)
-    flatten_size = shape[0] * shape[1]
-    outputs = tf.reshape(outputs, [-1, shape[2]])
-    targets = tf.reshape(targets, [-1])
-    _loss = tf.nn.seq2seq.sequence_loss([outputs], [targets], [tf.ones([flatten_size], dtype=data_type())])
+    if len(outputs.get_shape()) == 2:
+        flatten_shape = tf.shape(targets)
+    elif len(outputs.get_shape()) == 3:
+        shape = outputs.get_shape().as_list()
+        outputs = tf.reshape(outputs, [-1, shape[2]])
+        targets = tf.reshape(targets, [-1])
+        flatten_shape = tf.shape(targets)
+    else:
+        raise ValueError("outputs must be 2D or 3D tensor!")
+    _loss = tf.nn.seq2seq.sequence_loss([outputs], [targets], [tf.ones(flatten_shape, dtype=data_type())])
     return _loss
 
 
@@ -60,36 +70,44 @@ class RNNModel(object):
     """
     def __init__(self, rnn, batch_size, num_steps, keep_prob=None, name=None):
         assert isinstance(rnn, RNN)
+        # if batch_size is None:
+        #     batch_size = tf.Variable(20, dtype=tf.int32, trainable=False)
+        #     self._new_batch_size = tf.placeholder(tf.int32, shape=())
+        #     self._update_batch_size = tf.assign(batch_size, self._new_batch_size, name="update_batch_size")
         self._rnn = rnn
         self._cell = rnn.cell
         self.batch_size = batch_size
         self.num_steps = num_steps
         self.name = name or "UnRolled"
+        # Ugly hackings for DropoutWrapper
         if keep_prob is not None:
             cell_list = [DropOutWrapper(cell, input_keep_prob=keep_prob, output_keep_prob=keep_prob) for cell in rnn.cell_list]
             self._cell = MultiRNNCell(cell_list, state_is_tuple=True)
         # The abstract name scope is not that easily dealt with, try to make the transparent to user
         with tf.name_scope(name):
-            reuse = None if len(self._rnn.models) == 0 else True
-
+            reuse = rnn.need_reuse
             with tf.variable_scope(rnn.name, reuse=reuse, initializer=rnn.initializer):
-                # Define computation graph
-                input_shape = list(rnn.input_shape)
-                target_shape = list(rnn.target_shape)
-                input_shape[0] = target_shape[0] = batch_size
-                self.state = rnn.cell.zero_state(batch_size, data_type())
+                # Build TF computation Graph
+                input_shape = [None] + list(rnn.input_shape)[1:]
+                target_shape = [None] + list(rnn.target_shape)[1:]
+                self.state = self.cell.zero_state(batch_size, data_type())
                 self.input_holders = tf.placeholder(rnn.input_dtype, [num_steps] + input_shape)
-                # ugly hacking for EmbeddingWrapper Badness
-                if rnn.map_to_embedding:
-                    inputs = rnn.map_to_embedding(self.input_holders)
-                else:
-                    inputs = self.input_holders
-                self.output, self.final_state = \
-                    tf.nn.dynamic_rnn(self.cell, inputs, initial_state=self.state, time_major=True)
                 self.target_holders = tf.placeholder(rnn.target_dtype, [num_steps] + target_shape)
-                self.loss = rnn.loss_func(self.output, self.target_holders)
-
-                # self._assign_inputs = tf.assign(self.input_holders, )
+                # ugly hacking for EmbeddingWrapper Badness
+                self.inputs = self.input_holders if not rnn.map_to_embedding else rnn.map_to_embedding(self.input_holders)
+                # Call TF api to create recurrent neural network
+                self.outputs, self.final_state = \
+                    tf.nn.dynamic_rnn(self.cell, self.inputs, initial_state=self.state, time_major=True)
+                if rnn.project_output:
+                    # rnn has output project, do manual projection for speed
+                    outputs = tf.reshape(self.outputs, [-1, self.outputs.get_shape().as_list()[2]])
+                    self.outputs = rnn.project_output(outputs)
+                    self.targets = tf.reshape(self.target_holders, [-1])
+                    self.loss = rnn.loss_func(self.outputs, self.targets)
+                else:
+                    self.loss = rnn.loss_func(self.outputs, self.target_holders)
+        # Append self to rnn's model list
+        rnn.models.append(self)
 
     @property
     def cell(self):
@@ -98,6 +116,59 @@ class RNNModel(object):
     @property
     def rnn(self):
         return self._rnn
+
+    def run(self, inputs, targets, epoch_size, run_ops, sess, eval_ops=None, verbose=True):
+        """
+        RNN Model's main API for running the part of graph in this model
+        Note: this function can only be run after the graph is finalized
+        :param inputs:
+        :param targets:
+        :param epoch_size:
+        :param run_ops:
+        :param eval_ops:
+        :param sess:
+        :param verbose:
+        :return:
+        """
+        # initialize state and add ops that must be run
+        state = self.init_state(sess)
+        run_ops['state'] = self.final_state
+        run_ops['loss'] = self.loss
+        total_loss = 0
+        vals = None
+        start_time = verbose_time = time.time()
+        evals = []
+        for i in range(epoch_size):
+            feed_dict = self.feed_state(state)
+            if isinstance(inputs, Feeder):
+                _inputs = inputs()
+                _targets = targets()
+            else:
+                _inputs, _targets = sess.run([inputs, targets])
+            feed_dict.update(self.feed_data(_inputs, True))
+            feed_dict.update(self.feed_data(_targets, False))
+            # feed_dict[model.target_holders] = [targets[:, i] for i in range(model.num_steps)]
+            vals = sess.run(run_ops, feed_dict)
+            state = vals['state']
+            total_loss += vals['loss']
+            if eval_ops:
+                evals.append(sess.run(eval_ops, feed_dict))
+            if verbose and i % (epoch_size // 10) == 100:
+                delta_time = time.time() - verbose_time
+                print("epoch[{:d}/{:d}] avg loss:{:.3f}, speed:{:.1f} wps, time: {:.1f}s".format(
+                    i, epoch_size, total_loss / i,
+                                   i * self.batch_size * self.num_steps / (time.time() - start_time), delta_time))
+                verbose_time = time.time()
+        total_time = time.time() - start_time
+        # Prepare for returning values
+        vals['loss'] = total_loss / epoch_size
+        vals['time'] = total_time
+        if eval_ops:
+            vals['evals'] = evals
+        if verbose:
+            print("Epoch Summary: avg loss:{:.3f}, total time:{:.1f}s, speed:{:.1f} wps".format(
+                total_loss / epoch_size, total_time, epoch_size * self.num_steps * self.batch_size / total_time))
+        return vals
 
     def feed_state(self, state):
         """
@@ -125,6 +196,9 @@ class RNNModel(object):
     def init_state(self, sess):
         return sess.run(self.state)
 
+    # def update_batch_size(self, new_batch_size, sess):
+    #     sess.run(self._update_batch_size, {self._new_batch_size: new_batch_size})
+
 
 class RNN(object):
     """
@@ -133,7 +207,7 @@ class RNN(object):
     For computation (training, evaluating), use RNN.unroll() to create RNNModel,
     which create TF computation Graph for computation.
     """
-    def __init__(self, name="RNN", initializer=None):
+    def __init__(self, name="RNN", initializer=None, logdir=None, graph=None):
         """
         :param name: a str, used to create variable scope
         :return: a empty RNN model
@@ -150,13 +224,15 @@ class RNN(object):
         self._cell = None
         self.cell_list = []
         self.trainer = None
+        self.evaluator = None
         self.loss_func = None
         self.is_compiled = False
-        self.map_to_embedding = None
         self.embedding_size = None
         self.vocab_size = None
         self.supervisor = None
         self.models = []
+        self.graph = graph if isinstance(graph, tf.Graph) else tf.get_default_graph()
+        self.logdir = logdir or name
 
     def set_input(self, dshape, dtype, vocab_size, embedding_size=None):
         """
@@ -203,41 +279,31 @@ class RNN(object):
         :param kwargs: the arguments used to create the cell
         :return: a cell managed under scope
         """
-        with tf.variable_scope(self.name, reuse=None, initializer=self.initializer):
-            self.cell_list.append(cell(*args, **kwargs))
+        self.cell_list.append(cell(*args, **kwargs))
 
     def compile(self):
         """
         Compile the model. Should be called before training or running the model.
-        Basically, this function concat all the cells together, and do checkings on model configurations
+        Basically, this function just do checkings on model configurations,
+            and create a Evaluator which contains an unrolled model
         :return: None
         """
         if self.is_compiled:  # In case of multiple compiles
             print("Already compiled!")
             return
+
         if self.input_shape is None or self.input_dtype is None:
             raise ValueError("input_shape or input_dtype is None, call set_input first!")
         if self.output_shape is None or self.output_dtype is None:
             raise ValueError("output_shape or output_dtype is None, call set_output first!")
         if self.loss_func is None:
             raise ValueError("loss_func is None, call set_loss_func first!")
-        # with tf.variable_scope(self.name, reuse=None, initializer=config.initializer) as scope:
-        # if self._cell is not None:
-            # This operation creates no tf.Variables, no need for using variable scope
-        # Wrappers are not efficient, here for use them for convenience
-
-        if self.embedding_size:
-            # EmbeddingWrapper does not work for tf.nn.rnn now
-            # self.cell_list[0] = EmbeddingWrapper(self.cell_list[0], self.vocab_size, self.embedding_size)
-            with tf.variable_scope(self.name, reuse=None, initializer=self.initializer):
-                embedding = tf.get_variable("embedding", [self.vocab_size, self.embedding_size], dtype=data_type())
-                self.map_to_embedding = lambda inputs: tf.nn.embedding_lookup(embedding, inputs)
-
-        if self.cell_list[-1].output_size != self.output_shape[-1]:
-            # if the last cell's output_size does not match intended output shape, we need a projection
-            self.cell_list[-1] = OutputProjectionWrapper(self.cell_list[-1], self.output_shape[-1])
+        # This operation creates no tf.Variables, no need for using variable scope
         self._cell = tf.nn.rnn_cell.MultiRNNCell(cells=self.cell_list)
+        # Create a default evaluator
         self.is_compiled = True
+        with self.graph.as_default():
+            self.evaluator = Evaluator(self, batch_size=1)
 
     def unroll(self, batch_size, num_steps, keep_prob=None, name=None):
         """
@@ -248,12 +314,12 @@ class RNN(object):
         :return:
         """
         assert self.is_compiled
-        self.models.append(RNNModel(self, batch_size, num_steps, keep_prob=keep_prob, name=name))
-        return self.models[-1]
+        with self.graph.as_default():  # Ensure that the model is created under the managed graph
+            return RNNModel(self, batch_size, num_steps, keep_prob=keep_prob, name=name)
 
     def train(self, inputs, targets, num_steps, epoch_size, epoch_num, batch_size,
               optimizer, learning_rate=0.001, keep_prob=None, clipper=None, decay=None,
-              valid_inputs=None, valid_targets=None, valid_batch_size=None, logdir=None):
+              valid_inputs=None, valid_targets=None, valid_batch_size=None, save_path=None, verbose=True):
         """
         Training using given input and target data
         TODO: Clean up this messy function
@@ -266,17 +332,92 @@ class RNN(object):
         :return: None
         """
         assert self.is_compiled
-        if self.trainer is None:
-            model = self.unroll(batch_size, num_steps, keep_prob, name='Train')
-            self.trainer = Trainer(model, optimizer, learning_rate, clipper, decay)
-        else:
-            self.trainer.optimizer = optimizer
-            self.trainer._lr = learning_rate
-        if valid_inputs is not None:
-            self.trainer.valid_model = self.unroll(valid_batch_size, num_steps, name='Valid')
-        print("Start Running Train Graph")
-        self.trainer.train(inputs, targets, epoch_size, epoch_num, valid_inputs, valid_targets, save_path=logdir)
+        with self.graph.as_default():
+            if self.trainer is None:
+                self.trainer = Trainer(self, batch_size, num_steps, keep_prob, optimizer, learning_rate, clipper, decay)
+            else:
+                self.trainer.optimizer = optimizer
+                self.trainer._lr = learning_rate
+            if valid_inputs is None:
+                # Only needs to run training graph
+                self.finalize()
+                print("Start Running Train Graph")
+                self.trainer.train(inputs, targets, epoch_size, epoch_num, self.supervisor)
+            else:
+                valid_evaluator = Evaluator(self, valid_batch_size, num_steps, False, False, False)
+                self.finalize()
+                print("Start Running Train Graph")
+                with self.supervisor.managed_session() as sess:
+                    for i in range(epoch_num):
+                        if verbose:
+                            print("Epoch {}:".format(i))
+                        self.trainer.train_one_epoch(inputs, targets, epoch_size, sess, verbose=verbose)
+                        valid_evaluator.evaluate(valid_inputs, valid_targets, epoch_size, sess, verbose=verbose)
+                        self.trainer.update_lr(sess)
+
+                    if save_path is not None:
+                        self.save(save_path)
+
+    def save(self, path=None):
+        """
+        Save the model to a given path
+        :param path:
+        :return:
+        """
+        if not self.finalized:
+            self.finalize()
+        path = path if path is not None else self.logdir
+        with self.supervisor.managed_session() as sess:
+            self.supervisor.saver.save(sess, path, global_step=self.supervisor.global_step)
+            print("Model variables saved to {}.".format(path))
+
+    def restore(self, path=None):
+        if not self.finalized:
+            self.finalize()
+        path = path if path is not None else self.logdir
+        checkpoint = tf.train.latest_checkpoint(path)
+        with self.supervisor.managed_session() as sess:
+            self.supervisor.saver.restore(sess, checkpoint)
+            print("Model variables restored from {}.".format(path))
+
+    def finalize(self):
+        """
+        After all the computation ops are built in the graph, build a supervisor which implicitly finalize the graph
+        :return: None
+        """
+        if self.finalized:
+            print("Graph has already been finalized!")
+            return False
+        self.supervisor = tf.train.Supervisor(self.graph, logdir=self.logdir)
+        return True
+
+    @property
+    def finalized(self):
+        return False if self.supervisor is None else False
 
     @property
     def cell(self):
         return self._cell
+
+    @property
+    def need_reuse(self):
+        return None if len(self.models) == 0 else True
+
+    def map_to_embedding(self, inputs):
+        if self.embedding_size:
+            # The Variables are already created in the compile(), need to
+            with tf.variable_scope('embedding', initializer=self.initializer):
+                embedding = tf.get_variable("embedding", [self.vocab_size, self.embedding_size], dtype=data_type())
+                return tf.nn.embedding_lookup(embedding, inputs)
+        else:
+            return None
+
+    def project_output(self, outputs):
+        if self.cell_list[-1].output_size != self.output_shape[-1]:
+            with tf.variable_scope('project', initializer=self.initializer):
+                project_w = tf.get_variable(
+                    "project_w", [self.cell_list[-1].output_size, self.vocab_size], dtype=data_type())
+                projcet_b = tf.get_variable("project_b", [self.vocab_size], dtype=data_type())
+                return tf.matmul(outputs, project_w) + projcet_b
+        else:
+            return None
