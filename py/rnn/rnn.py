@@ -7,7 +7,7 @@ import math
 import time
 
 from py.datasets.data_utils import Feeder
-from py.rnn.command_utils import *
+from .command_utils import *
 from .evaluator import Evaluator
 from .trainer import Trainer
 

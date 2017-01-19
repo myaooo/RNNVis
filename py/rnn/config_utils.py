@@ -5,7 +5,7 @@ Helpers for running rnn services from configurations
 
 import yaml
 import tensorflow as tf
-from rnn import rnn
+from . import rnn
 
 
 __str2initializer = {
