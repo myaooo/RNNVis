@@ -180,4 +180,4 @@ class Trainer(object):
         :return: avg. results
         """
         run_ops = {'train_op': self.train_op}
-        self.model.run(inputs, targets, epoch_size, run_ops, sess, verbose=verbose)
+        self.model.run(inputs, targets, epoch_size, run_ops, sess, verbose_every=epoch_size//10 if verbose else False)

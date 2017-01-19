@@ -54,13 +54,17 @@ class Evaluator(object):
         else:
             self.merged_summary = tf.summary.merge(self.summary_ops, _evals, "eval_summaries")
 
-    def evaluate(self, inputs, targets, input_size, sess, record=False, verbose=True):
+    def evaluate(self, inputs, targets, input_size, sess, record=False, verbose=False):
         self.writer.reopen()
         eval_ops = {"summary": self.merged_summary} if self.merged_summary else {}
+        total_loss = 0
         for i in range(input_size):
             rslts = self.model.run(
                 inputs, targets, 1, {}, sess, eval_ops=eval_ops, verbose=verbose)
             if record and eval_ops:
                 summary = rslts['evals'][0]["summary"]
                 self.writer.add_summary(summary, i*self.record_every)
+            total_loss += rslts['loss']
         self.writer.close()
+        loss = total_loss / input_size
+        print("Evaluate Summary: avg loss:{:.3f}".format(loss))

@@ -7,7 +7,7 @@ $ tar xvf simple-examples.tgz
 import tensorflow as tf
 import numpy as np
 
-from py.rnn import rnn
+from py.rnn.rnn import build_rnn, RNN
 from py.rnn.trainer import get_gradient_clipper
 from py.datasets.ptb_reader import ptb_raw_data
 from py.datasets.data_utils import InputProducer
@@ -40,15 +40,16 @@ if __name__ == '__main__':
     train_inputs, train_targets, epoch_size = test_data_producer(train_data, batch_size, train_steps)
     valid_inputs, valid_targets, _ = test_data_producer(valid_data, batch_size, train_steps)
 
+    model = build_rnn('../config/lstm.yml')
     # vocab_size = 10000
-    model = rnn.RNN('LSTM', tf.random_uniform_initializer(-0.1, 0.1))
-    model.set_input([None], tf.int32, vocab_size, embedding_size=200)
-    model.add_cell(rnn.BasicLSTMCell, 200)
-    model.add_cell(rnn.BasicLSTMCell, 200)
-    model.set_output([None, vocab_size], tf.float32)
-    model.set_target([None], tf.int32)
-    model.set_loss_func(rnn.loss_by_example)
-    model.compile()
+    # model = rnn.RNN('LSTM', tf.random_uniform_initializer(-0.1, 0.1))
+    # model.set_input([None], tf.int32, vocab_size, embedding_size=200)
+    # model.add_cell(rnn.BasicLSTMCell, 200)
+    # model.add_cell(rnn.BasicLSTMCell, 200)
+    # model.set_output([None, vocab_size], tf.float32)
+    # model.set_target([None], tf.int32)
+    # model.set_loss_func(rnn.loss_by_example)
+    # model.compile()
     print('Start Training')
     model.train(train_inputs, train_targets, train_steps, epoch_size, epoch_num, batch_size, 'GradientDescent', 1.0,
                 clipper=get_gradient_clipper('global_norm', 5), keep_prob=1.0, decay=test_lr_decay,
@@ -56,6 +57,9 @@ if __name__ == '__main__':
 
     print('Finish Training')
     model.save()
+
+    model2 = build_rnn('../config/lstm.yml')
+    model2.restore()
     # test
     # print("start test")
     # j = tf.constant(10, dtype=tf.int32)

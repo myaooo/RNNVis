@@ -4,6 +4,8 @@ RNN Model Classes
 
 import time
 import sys
+import math
+import yaml
 from contextlib import redirect_stderr, redirect_stdout
 import tensorflow as tf
 from tensorflow.contrib.copy_graph import copy_op_to_graph
@@ -27,7 +29,7 @@ OutputProjectionWrapper = tf.nn.rnn_cell.OutputProjectionWrapper
 int32 = tf.int32
 
 
-def loss_by_example(outputs, targets):
+def sequence_loss(outputs, targets):
     """
     Weighted cross-entropy loss for a sequence of logits (per example).
     :param outputs: a 2D Tensor of shape [batch_size, output_size]
@@ -45,26 +47,6 @@ def loss_by_example(outputs, targets):
         raise ValueError("outputs must be 2D or 3D tensor!")
     _loss = tf.nn.seq2seq.sequence_loss([outputs], [targets], [tf.ones(flatten_shape, dtype=data_type())])
     return _loss
-
-
-class Config(object):
-    """
-    Helper Class to create a RNN model
-    """
-    def __init__(self,
-                 cell=BasicRNNCell,
-                 layer_num=3,
-                 layer_size=256,
-                 num_step=10,
-                 batch_size=30,
-                 initializer=tf.random_uniform_initializer(-0.1, 0.1)):
-        self.cell = cell
-        self.layer_num = layer_num
-        self.layer_size = layer_size
-        self.num_step = num_step
-        self.batch_size = batch_size
-        self.initializer = initializer
-        # self.init_scale = init_scale
 
 
 class RNNModel(object):
@@ -120,7 +102,7 @@ class RNNModel(object):
     def rnn(self):
         return self._rnn
 
-    def run(self, inputs, targets, epoch_size, run_ops, sess, eval_ops=None, verbose=True):
+    def run(self, inputs, targets, epoch_size, run_ops, sess, eval_ops=None, verbose_every=None):
         """
         RNN Model's main API for running the part of graph in this model
         Note: this function can only be run after the graph is finalized
@@ -134,6 +116,8 @@ class RNNModel(object):
         :return:
         """
         # initialize state and add ops that must be run
+        if verbose_every is None or verbose_every is False:
+            verbose_every = math.inf
         state = self.init_state(sess)
         run_ops['state'] = self.final_state
         run_ops['loss'] = self.loss
@@ -156,7 +140,7 @@ class RNNModel(object):
             total_loss += vals['loss']
             if eval_ops:
                 evals.append(sess.run(eval_ops, feed_dict))
-            if verbose and i % epoch_size == 200:
+            if i % verbose_every == 0 and i!=0:
                 delta_time = time.time() - verbose_time
                 print("epoch[{:d}/{:d}] avg loss:{:.3f}, speed:{:.1f} wps, time: {:.1f}s".format(
                     i, epoch_size, total_loss / i,
@@ -168,7 +152,7 @@ class RNNModel(object):
         vals['time'] = total_time
         if eval_ops:
             vals['evals'] = evals
-        if verbose:
+        if math.isfinite(verbose_every):
             print("Epoch Summary: avg loss:{:.3f}, total time:{:.1f}s, speed:{:.1f} wps".format(
                 total_loss / epoch_size, total_time, epoch_size * self.num_steps * self.batch_size / total_time))
         return vals
@@ -440,3 +424,105 @@ class RNN(object):
                 return tf.matmul(outputs, project_w) + projcet_b
         else:
             return None
+
+
+__str2initializer = {
+    'random_uniform': tf.random_uniform_initializer,
+    'constant': tf.constant_initializer,
+    'truncated_normal': tf.truncated_normal_initializer
+}
+
+
+def get_initializer(initializer, **kwargs):
+    if callable(initializer):
+        return initializer(**kwargs)
+    if isinstance(initializer, str):
+        if initializer in __str2initializer:
+            return __str2initializer[initializer](**kwargs)
+        else:
+            print("{} is not an available initializer, default to tf.random_uniform_initializer".format(initializer))
+    return tf.random_uniform_initializer(**kwargs)
+
+
+__str2dtype = {
+    'int32': tf.int32,
+    'float32': tf.float32
+}
+
+
+def get_dtype(dtype):
+    assert isinstance(dtype, str)
+    if dtype in __str2dtype:
+        return __str2dtype[dtype]
+    return tf.int32
+
+
+__str2cell = {
+    'BasicLSTM': BasicLSTMCell,
+    'BasicRNN': BasicRNNCell,
+    'LSTM': LSTMCell,
+    'GRU': GRUCell
+}
+
+
+def getRNNCell(cell):
+    if isinstance(cell, tf.nn.rnn_cell.RNNCell):
+        return cell
+    assert isinstance(cell, str)
+    if cell in __str2cell:
+        return __str2cell[cell]
+    return BasicLSTMCell
+
+
+def get_loss_func(loss_func):
+    if callable(loss_func):
+        return loss_func
+    assert isinstance(loss_func, str)
+    if loss_func == 'sequence_loss':
+        return sequence_loss
+    return sequence_loss
+
+
+class RNNConfig(object):
+    """
+    Helper Class to create a RNN model
+    """
+    def __init__(self, name='RNN', initializer_name=None, initializer_args=None, vocab_size=1000, embedding_size=50,
+                 input_dtype='int32', target_dtype='int32', cells=None, cell_type='BasicLSTM',
+                 loss_func='sequence_loss'):
+        self.name=name
+        self.cells = cells
+        self.cell = getRNNCell(cell_type)
+        self.initializer = get_initializer(initializer_name, **initializer_args)
+        self.input_dtype = get_dtype(input_dtype)
+        self.target_dtype = get_dtype(target_dtype)
+        self.vocab_size = vocab_size
+        self.embedding_size = embedding_size
+        self.loss_func = get_loss_func(loss_func)
+
+
+    @staticmethod
+    def load(file_path):
+        with open(file_path) as f:
+            config_dict = yaml.safe_load(f)['model']
+            return RNNConfig(**config_dict)
+
+
+def build_rnn(config):
+    """
+    Build a RNN from config
+    :param config:
+    :return:
+    """
+    if isinstance(config, str):
+        config = RNNConfig.load(config)
+    assert isinstance(config, RNNConfig)
+    model = RNN(config.name, config.initializer)
+    model.set_input([None], config.input_dtype, config.vocab_size, config.embedding_size)
+    for cell in config.cells:
+        model.add_cell(config.cell, **cell)
+    model.set_output([None, config.vocab_size], tf.float32)
+    model.set_target([None], config.target_dtype)
+    model.set_loss_func(config.loss_func)
+    model.compile()
+    return model

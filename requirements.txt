@@ -1,3 +1,2 @@
 pyyaml==3.12
 flask==0.12
-tensorflow==0.12.1
