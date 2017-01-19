@@ -59,6 +59,7 @@ class RNNModel(object):
         self.batch_size = batch_size
         self.num_steps = num_steps
         self.name = name or "UnRolled"
+        self.current_state = None
         # Ugly hackings for DropoutWrapper
         if keep_prob is not None:
             cell_list = [DropOutWrapper(cell, input_keep_prob=keep_prob, output_keep_prob=keep_prob) for cell in rnn.cell_list]
@@ -113,7 +114,8 @@ class RNNModel(object):
         # initialize state and add ops that must be run
         if verbose_every is None or verbose_every is False:
             verbose_every = math.inf
-        state = self.init_state(sess)
+        if self.current_state is None:
+            self.init_state(sess)
         run_ops['state'] = self.final_state
         run_ops['loss'] = self.loss
         total_loss = 0
@@ -121,7 +123,7 @@ class RNNModel(object):
         start_time = verbose_time = time.time()
         evals = []
         for i in range(epoch_size):
-            feed_dict = self.feed_state(state)
+            feed_dict = self.feed_state(self.current_state)
             if isinstance(inputs, Feeder):
                 _inputs = inputs()
                 _targets = targets()
@@ -131,7 +133,7 @@ class RNNModel(object):
             feed_dict.update(self.feed_data(_targets, False))
             # feed_dict[model.target_holders] = [targets[:, i] for i in range(model.num_steps)]
             vals = sess.run(run_ops, feed_dict)
-            state = vals['state']
+            self.current_state = vals['state']
             total_loss += vals['loss']
             if eval_ops:
                 evals.append(sess.run(eval_ops, feed_dict))
@@ -176,7 +178,8 @@ class RNNModel(object):
         return {holders: data}
 
     def init_state(self, sess):
-        return sess.run(self.state)
+        self.current_state = sess.run(self.state)
+        return self.current_state
 
     def log_ops_placement(self, ops, log_path):
         # Print ops assignments for debugging
