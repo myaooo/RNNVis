@@ -364,7 +364,7 @@ class RNN(object):
         """
         if not self.finalized:
             self.finalize()
-        path = path if path is not None else self.logdir
+        path = path if path is not None else self.logdir + './model'
         with self.supervisor.managed_session() as sess:
             self.supervisor.saver.save(sess, path, global_step=self.supervisor.global_step)
             print("Model variables saved to {}.".format(path))
@@ -372,7 +372,7 @@ class RNN(object):
     def restore(self, path=None):
         if not self.finalized:
             self.finalize()
-        path = path if path is not None else self.logdir
+        path = path if path is not None else self.logdir + './model'
         checkpoint = tf.train.latest_checkpoint(path)
         with self.supervisor.managed_session() as sess:
             self.supervisor.saver.restore(sess, checkpoint)
