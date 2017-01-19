@@ -2,14 +2,14 @@
 RNN Model Classes
 """
 
+import logging
+import math
 import time
-import tensorflow as tf
-from tensorflow.contrib.copy_graph import copy_op_to_graph
-from .trainer import Trainer
-from .config import *
-from .evaluator import Evaluator
-from py.datasets.data_utils import Feeder
 
+from py.datasets.data_utils import Feeder
+from .command_utils import *
+from .evaluator import Evaluator
+from .trainer import Trainer
 
 BasicRNNCell = tf.nn.rnn_cell.BasicRNNCell
 BasicLSTMCell = tf.nn.rnn_cell.BasicLSTMCell
@@ -24,7 +24,7 @@ OutputProjectionWrapper = tf.nn.rnn_cell.OutputProjectionWrapper
 int32 = tf.int32
 
 
-def loss_by_example(outputs, targets):
+def sequence_loss(outputs, targets):
     """
     Weighted cross-entropy loss for a sequence of logits (per example).
     :param outputs: a 2D Tensor of shape [batch_size, output_size]
@@ -44,26 +44,6 @@ def loss_by_example(outputs, targets):
     return _loss
 
 
-class Config(object):
-    """
-    Helper Class to create a RNN model
-    """
-    def __init__(self,
-                 cell=BasicRNNCell,
-                 layer_num=3,
-                 layer_size=256,
-                 num_step=10,
-                 batch_size=30,
-                 initializer=tf.random_uniform_initializer(-0.1, 0.1)):
-        self.cell = cell
-        self.layer_num = layer_num
-        self.layer_size = layer_size
-        self.num_step = num_step
-        self.batch_size = batch_size
-        self.initializer = initializer
-        # self.init_scale = init_scale
-
-
 class RNNModel(object):
     """
     A RNN Model unrolled from a RNN instance
@@ -79,6 +59,7 @@ class RNNModel(object):
         self.batch_size = batch_size
         self.num_steps = num_steps
         self.name = name or "UnRolled"
+        self.current_state = None
         # Ugly hackings for DropoutWrapper
         if keep_prob is not None:
             cell_list = [DropOutWrapper(cell, input_keep_prob=keep_prob, output_keep_prob=keep_prob) for cell in rnn.cell_list]
@@ -117,7 +98,7 @@ class RNNModel(object):
     def rnn(self):
         return self._rnn
 
-    def run(self, inputs, targets, epoch_size, run_ops, sess, eval_ops=None, verbose=True):
+    def run(self, inputs, targets, epoch_size, run_ops, sess, eval_ops=None, verbose_every=None):
         """
         RNN Model's main API for running the part of graph in this model
         Note: this function can only be run after the graph is finalized
@@ -131,7 +112,10 @@ class RNNModel(object):
         :return:
         """
         # initialize state and add ops that must be run
-        state = self.init_state(sess)
+        if verbose_every is None or verbose_every is False:
+            verbose_every = math.inf
+        if self.current_state is None:
+            self.init_state(sess)
         run_ops['state'] = self.final_state
         run_ops['loss'] = self.loss
         total_loss = 0
@@ -139,7 +123,7 @@ class RNNModel(object):
         start_time = verbose_time = time.time()
         evals = []
         for i in range(epoch_size):
-            feed_dict = self.feed_state(state)
+            feed_dict = self.feed_state(self.current_state)
             if isinstance(inputs, Feeder):
                 _inputs = inputs()
                 _targets = targets()
@@ -149,11 +133,11 @@ class RNNModel(object):
             feed_dict.update(self.feed_data(_targets, False))
             # feed_dict[model.target_holders] = [targets[:, i] for i in range(model.num_steps)]
             vals = sess.run(run_ops, feed_dict)
-            state = vals['state']
+            self.current_state = vals['state']
             total_loss += vals['loss']
             if eval_ops:
                 evals.append(sess.run(eval_ops, feed_dict))
-            if verbose and i % (epoch_size // 10) == 100:
+            if i % verbose_every == 0 and i!=0:
                 delta_time = time.time() - verbose_time
                 print("epoch[{:d}/{:d}] avg loss:{:.3f}, speed:{:.1f} wps, time: {:.1f}s".format(
                     i, epoch_size, total_loss / i,
@@ -165,7 +149,7 @@ class RNNModel(object):
         vals['time'] = total_time
         if eval_ops:
             vals['evals'] = evals
-        if verbose:
+        if math.isfinite(verbose_every):
             print("Epoch Summary: avg loss:{:.3f}, total time:{:.1f}s, speed:{:.1f} wps".format(
                 total_loss / epoch_size, total_time, epoch_size * self.num_steps * self.batch_size / total_time))
         return vals
@@ -194,8 +178,23 @@ class RNNModel(object):
         return {holders: data}
 
     def init_state(self, sess):
-        return sess.run(self.state)
+        self.current_state = sess.run(self.state)
+        return self.current_state
 
+    def log_ops_placement(self, ops, log_path):
+        # Print ops assignments for debugging
+        sess = tf.Session(config=tf.ConfigProto(log_device_placement=True))
+        _hdlr = tf.logging._handler
+        new_handler = logging.FileHandler(log_path, 'a+')
+        tf.logging._logger.removeHandler(_hdlr)
+        tf.logging._logger.addHandler(new_handler)
+        try:
+            sess.run(ops)
+        except:
+            print("ops placements end.")
+        tf.logging._logger.removeHandler(new_handler)
+        tf.logging._logger.addHandler(_hdlr)
+        print("ops placements info logged to {}".format(log_path))
     # def update_batch_size(self, new_batch_size, sess):
     #     sess.run(self._update_batch_size, {self._new_batch_size: new_batch_size})
 
@@ -300,8 +299,9 @@ class RNN(object):
             raise ValueError("loss_func is None, call set_loss_func first!")
         # This operation creates no tf.Variables, no need for using variable scope
         self._cell = tf.nn.rnn_cell.MultiRNNCell(cells=self.cell_list)
-        # Create a default evaluator
+        # All done
         self.is_compiled = True
+        # Create a default evaluator
         with self.graph.as_default():
             self.evaluator = Evaluator(self, batch_size=1)
 
@@ -338,6 +338,7 @@ class RNN(object):
             else:
                 self.trainer.optimizer = optimizer
                 self.trainer._lr = learning_rate
+            # self.trainer.model.log_ops_placement(self.trainer.train_op, 'debug.log')
             if valid_inputs is None:
                 # Only needs to run training graph
                 self.finalize()
@@ -352,7 +353,7 @@ class RNN(object):
                         if verbose:
                             print("Epoch {}:".format(i))
                         self.trainer.train_one_epoch(inputs, targets, epoch_size, sess, verbose=verbose)
-                        valid_evaluator.evaluate(valid_inputs, valid_targets, epoch_size, sess, verbose=verbose)
+                        valid_evaluator.evaluate(valid_inputs, valid_targets, epoch_size, sess, verbose=False)
                         self.trainer.update_lr(sess)
 
                     if save_path is not None:
@@ -366,7 +367,7 @@ class RNN(object):
         """
         if not self.finalized:
             self.finalize()
-        path = path if path is not None else self.logdir
+        path = path if path is not None else self.logdir + './model'
         with self.supervisor.managed_session() as sess:
             self.supervisor.saver.save(sess, path, global_step=self.supervisor.global_step)
             print("Model variables saved to {}.".format(path))
@@ -374,7 +375,7 @@ class RNN(object):
     def restore(self, path=None):
         if not self.finalized:
             self.finalize()
-        path = path if path is not None else self.logdir
+        path = path if path is not None else self.logdir + './model'
         checkpoint = tf.train.latest_checkpoint(path)
         with self.supervisor.managed_session() as sess:
             self.supervisor.saver.restore(sess, checkpoint)
@@ -407,8 +408,9 @@ class RNN(object):
         if self.embedding_size:
             # The Variables are already created in the compile(), need to
             with tf.variable_scope('embedding', initializer=self.initializer):
-                embedding = tf.get_variable("embedding", [self.vocab_size, self.embedding_size], dtype=data_type())
-                return tf.nn.embedding_lookup(embedding, inputs)
+                with tf.device("/cpu:0"): # Force CPU since GPU implementation is missing
+                    embedding = tf.get_variable("embedding", [self.vocab_size, self.embedding_size], dtype=data_type())
+                    return tf.nn.embedding_lookup(embedding, inputs)
         else:
             return None
 

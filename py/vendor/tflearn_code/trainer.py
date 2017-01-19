@@ -1,24 +1,24 @@
 # -*- coding: utf-8 -*-
 from __future__ import division, print_function, absolute_import
 
-import re
 import os
+import re
+
 import numpy as np
 import tensorflow as tf
+import tflearn
 from tensorflow.python.training import optimizer as tf_optimizer
 
-import tflearn
 from py import callbacks as tf_callbacks
-from py.rnn.config import init_training_mode
+from py import data_flow
+from py import utils
+from py import variables
+from py.rnn.command_utils import init_training_mode
+from .summarizer import summaries, summarize, summarize_gradients, \
+    summarize_variables, summarize_activations
 from ..utils import to_list, id_generator, check_dir_name, standarize_dict, \
     get_dict_first_element, make_batches, slice_array, check_scope_path, \
     check_restore_tensor
-from py import data_flow
-from py import variables
-from py import utils
-
-from .summarizer import summaries, summarize, summarize_gradients, \
-    summarize_variables, summarize_activations
 
 # Fix for TF 0.12
 try:

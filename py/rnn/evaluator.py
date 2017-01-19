@@ -2,9 +2,8 @@
 Evaluator Class
 """
 
-import tensorflow as tf
+from py.rnn.command_utils import *
 from . import rnn
-from .config import *
 
 
 class EvaluateConfig(object):
@@ -31,7 +30,7 @@ class Evaluator(object):
         self.log_state = log_state
         self.log_input = log_input
         self.log_output = log_output
-        self.model = rnn_.unroll(batch_size, record_every, name='Evaluate')
+        self.model = rnn_.unroll(batch_size, record_every, name='EvaluateModel')
         self.summary_ops = []
         self.logdir = logdir if logdir is not None else rnn_.logdir
         self.writer = tf.summary.FileWriter(self.logdir)
@@ -54,13 +53,20 @@ class Evaluator(object):
         else:
             self.merged_summary = tf.summary.merge(self.summary_ops, _evals, "eval_summaries")
 
-    def evaluate(self, inputs, targets, input_size, sess, record=False, verbose=True):
-        self.writer.reopen()
+    def evaluate(self, inputs, targets, input_size, sess, record=False, verbose=False):
+        if record:
+            self.writer.reopen()
+        self.model.init_state(sess)
         eval_ops = {"summary": self.merged_summary} if self.merged_summary else {}
+        total_loss = 0
         for i in range(input_size):
             rslts = self.model.run(
-                inputs, targets, 1, {}, sess, eval_ops=eval_ops, verbose=verbose)
+                inputs, targets, 1, {}, sess, eval_ops=eval_ops, verbose_every=False)
             if record and eval_ops:
                 summary = rslts['evals'][0]["summary"]
                 self.writer.add_summary(summary, i*self.record_every)
-        self.writer.close()
+            total_loss += rslts['loss']
+        if record:
+            self.writer.close()
+        loss = total_loss / input_size
+        print("Evaluate Summary: avg loss:{:.3f}".format(loss))

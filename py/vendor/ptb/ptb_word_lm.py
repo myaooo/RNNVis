@@ -38,7 +38,7 @@ The hyperparameters used in the model:
 - lr_decay - the decay of the learning rate for each epoch after "max_epoch"
 - batch_size - the batch size
 The data required for this example is in the data/ dir of the
-PTB dataset from Tomas Mikolov's webpage:
+PTB datasets from Tomas Mikolov's webpage:
 $ wget http://www.fit.vutbr.cz/~imikolov/rnnlm/simple-examples.tgz
 $ tar xvf simple-examples.tgz
 To run:
@@ -148,10 +148,11 @@ class PTBModel(object):
       return
 
     self._lr = tf.Variable(0.0, trainable=False)
-    tvars = tf.trainable_variables()
-    grads, _ = tf.clip_by_global_norm(tf.gradients(cost, tvars),
-                                      config.max_grad_norm)
     optimizer = tf.train.GradientDescentOptimizer(self._lr)
+    grads_and_vars = optimizer.compute_gradients(cost)
+    grads, tvars = zip(*grads_and_vars)
+    grads, _ = tf.clip_by_global_norm(grads,
+                                      config.max_grad_norm)
     self._train_op = optimizer.apply_gradients(
         zip(grads, tvars),
         global_step=tf.contrib.framework.get_or_create_global_step())
@@ -197,7 +198,7 @@ class SmallConfig(object):
   num_steps = 20
   hidden_size = 200
   max_epoch = 4
-  max_max_epoch = 13
+  max_max_epoch = 1
   keep_prob = 1.0
   lr_decay = 0.5
   batch_size = 20
@@ -312,12 +313,15 @@ def main(_):
   eval_config.batch_size = 1
   eval_config.num_steps = 1
 
-  with tf.Graph().as_default():
+  graph1 = tf.Graph()
+
+
+  with graph1.as_default():
     initializer = tf.random_uniform_initializer(-config.init_scale,
                                                 config.init_scale)
 
     with tf.name_scope("Train"):
-      train_input = PTBInput(config=config, data=train_data, name="TrainInput")
+      train_input = PTBInput(config=config, data=valid_data, name="TrainInput")
       with tf.variable_scope("Model", reuse=None, initializer=initializer):
         m = PTBModel(is_training=True, config=config, input_=train_input)
       tf.scalar_summary("Training Loss", m.cost)
@@ -329,11 +333,6 @@ def main(_):
         mvalid = PTBModel(is_training=False, config=config, input_=valid_input)
       tf.scalar_summary("Validation Loss", mvalid.cost)
 
-    with tf.name_scope("Test"):
-      test_input = PTBInput(config=eval_config, data=test_data, name="TestInput")
-      with tf.variable_scope("Model", reuse=True, initializer=initializer):
-        mtest = PTBModel(is_training=False, config=eval_config,
-                         input_=test_input)
 
     sv = tf.train.Supervisor(logdir=FLAGS.save_path)
     with sv.managed_session() as session:
@@ -349,13 +348,21 @@ def main(_):
         valid_perplexity = run_epoch(session, mvalid)
         print("Epoch: %d Valid Perplexity: %.3f" % (i + 1, valid_perplexity))
 
-      test_perplexity = run_epoch(session, mtest)
-      print("Test Perplexity: %.3f" % test_perplexity)
 
       if FLAGS.save_path:
         print("Saving model to %s." % FLAGS.save_path)
         sv.saver.save(session, FLAGS.save_path, global_step=sv.global_step)
 
+  print(graph1.finalized)
+  graph2 = tf.Graph()
+  with graph2.as_default():
+    with tf.name_scope("Test"):
+      test_input = PTBInput(config=eval_config, data=test_data, name="TestInput")
+      with tf.variable_scope("Model", reuse=True, initializer=initializer):
+        mtest = PTBModel(is_training=False, config=eval_config,
+                         input_=test_input)
+        test_perplexity = run_epoch(session, mtest)
+        print("Test Perplexity: %.3f" % test_perplexity)
 
 if __name__ == "__main__":
   tf.app.run()

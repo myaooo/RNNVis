@@ -2,11 +2,8 @@
 Trainer handling TensorFlow Graph training computations
 """
 
-import tensorflow as tf
-import time
+from py.rnn.command_utils import *
 from . import rnn
-from .config import *
-
 
 _str2optimizers = {
     "Adam": tf.train.AdamOptimizer,
@@ -100,7 +97,7 @@ class Trainer(object):
         TODO
     """
     def __init__(self, rnn_, batch_size, num_steps, keep_prob, optimizer,
-                 learning_rate=0.1, gradient_clipper=None, decay=None, valid_model=None):
+                 learning_rate=0.1, gradient_clipper=None, decay=None):
         """
         :param model: a instance of RNNModel class, the rnn model to be trained
         :param optimizer: the optimizer used to minimize model.loss, should be instance of tf.train.Optimizer
@@ -110,16 +107,15 @@ class Trainer(object):
         """
         if not isinstance(rnn_, rnn.RNN):
             raise TypeError("rnn should be instance of RNN")
-        self.model = rnn_.unroll(batch_size, num_steps, keep_prob, name="Train")
+        self.model = rnn_.unroll(batch_size, num_steps, keep_prob, name="TrainModel")
         self._lr = learning_rate
         self.optimizer = get_optimizer(optimizer)(self._lr)
         # self.initializer = initializer
-        self.valid_model = valid_model
         self.global_step = tf.Variable(0, trainable=False)
         self.decay = decay
         with tf.name_scope("Train"):
             if self.decay is not None:
-                self._lr = tf.Variable(decay(0.0), trainable=False)
+                self._lr = tf.Variable(decay(0.0), dtype=tf.float32, trainable=False)
                 self._new_lr = tf.placeholder(tf.float32, shape=())
                 self._update_lr = tf.assign(self._lr, self._new_lr, name='update_lr')
             if gradient_clipper is None:
@@ -156,12 +152,6 @@ class Trainer(object):
         :param save_path: the path to save the logs
         :return: None
         """
-        # Print ops assignments for debugging
-        sess = tf.Session(config=tf.ConfigProto(log_device_placement=True))
-        try:
-            print(sess.run(self.model.loss))
-        except:
-            print("ops placements logged.")
 
         with sv.managed_session() as sess:
             for i in range(epoch_num):
@@ -186,4 +176,6 @@ class Trainer(object):
         :return: avg. results
         """
         run_ops = {'train_op': self.train_op}
-        self.model.run(inputs, targets, epoch_size, run_ops, sess, verbose=verbose)
+        self.model.init_state(sess)
+        self.model.run(inputs, targets, epoch_size, run_ops, sess, verbose_every=epoch_size//10 if verbose else False)
+
