@@ -311,7 +311,7 @@ class RNN(object):
         self.is_compiled = True
         # Create a default evaluator
         with self.graph.as_default():
-            self.evaluator = Evaluator(self, batch_size=1)
+            self.evaluator = Evaluator(self, batch_size=1, logdir=os.path.join(self.logdir, "./evaluate"))
 
     def unroll(self, batch_size, num_steps, keep_prob=None, name=None):
         """
@@ -385,6 +385,13 @@ class RNN(object):
                         self.trainer.train_one_epoch(inputs, targets, epoch_size, sess, verbose=verbose)
                         self.validator.evaluate(valid_inputs, valid_targets, valid_epoch_size, sess, verbose=False)
                         self.trainer.update_lr(sess)
+
+    def evaluate(self, inputs, targets, epoch_size):
+        assert self.is_compiled
+        with self.graph.as_default():
+            self.finalize()
+            with self.supervisor.managed_session(config=config_proto) as sess:
+                self.evaluator.evaluate(inputs, targets, epoch_size, sess, record=True, verbose=False)
 
     def save(self, path=None):
         """
