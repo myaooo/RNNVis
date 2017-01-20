@@ -378,7 +378,7 @@ class RNN(object):
             else:
                 self.finalize()
                 print("Start Running Train Graph")
-                with self.supervisor.managed_session() as sess:
+                with self.supervisor.managed_session(config=config_proto) as sess:
                     for i in range(epoch_num):
                         if verbose:
                             print("Epoch {}:".format(i))
@@ -404,6 +404,7 @@ class RNN(object):
             self.finalize()
         path = path if path is not None else os.path.join(self.logdir, './model')
         checkpoint = tf.train.latest_checkpoint(path)
+        print(checkpoint)
         with self.supervisor.managed_session() as sess:
             self.supervisor.saver.restore(sess, checkpoint)
             print("Model variables restored from {}.".format(path))
