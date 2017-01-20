@@ -14,7 +14,7 @@ model:
     - num_units: 200
   loss_func: sequence_loss
 train:
-  epoch_num: 10
+  epoch_num: 2
   num_steps: 40
   batch_size: 20
   keep_prob: 1.0

@@ -348,6 +348,9 @@ class RNN(object):
     def add_validator(self, batch_size, num_steps):
         assert self.is_compiled
         if self.validator is not None:
+            print("validator is already exists! Currently do not support multi training!")
+            return
+        with self.graph.as_default():
             self.validator = Evaluator(self, batch_size, num_steps, False, False, False)
 
     def train(self, inputs, targets, epoch_size, epoch_num, valid_inputs=None, valid_targets=None,
