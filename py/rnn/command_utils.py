@@ -27,7 +27,7 @@ flags.DEFINE_string("log_path", None, "The path to save the log")
 
 FLAGS = flags.FLAGS
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "0,1,2,3"[:(FLAGS.gpu_num*2-1)]
+os.environ["CUDA_VISIBLE_DEVICES"] = "" if FLAGS.gpu_num == 0 else "0,1,2,3"[:(FLAGS.gpu_num*2-1)]
 
 
 def data_type():
