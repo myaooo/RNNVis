@@ -18,6 +18,7 @@ class EvaluateConfig(object):
 
 _evals = [tf.GraphKeys.EVAL_SUMMARIES]
 
+
 class Evaluator(object):
     """
     An evaluator evaluates a trained RNN.
@@ -53,12 +54,13 @@ class Evaluator(object):
         else:
             self.merged_summary = tf.summary.merge(self.summary_ops, _evals, "eval_summaries")
 
-    def evaluate(self, inputs, targets, input_size, sess, record=False, verbose=False):
+    def evaluate(self, inputs, targets, input_size, sess, record=False, verbose=True):
         if record:
             self.writer.reopen()
         self.model.init_state(sess)
-        eval_ops = {"summary": self.merged_summary} if self.merged_summary else {}
+        eval_ops = {"summary": self.merged_summary} if self.merged_summary is not None else {}
         total_loss = 0
+        print("Start evaluating...")
         for i in range(input_size):
             rslts = self.model.run(
                 inputs, targets, 1, {}, sess, eval_ops=eval_ops, verbose_every=False)
@@ -66,6 +68,8 @@ class Evaluator(object):
                 summary = rslts['evals'][0]["summary"]
                 self.writer.add_summary(summary, i*self.record_every)
             total_loss += rslts['loss']
+            if verbose and i % 100 == 0:
+                print("[{:d}/{:d}]: avg loss:{:.3f}".format(i, input_size, total_loss/(i+1)))
         if record:
             self.writer.close()
         loss = total_loss / input_size

@@ -311,7 +311,8 @@ class RNN(object):
         self.is_compiled = True
         # Create a default evaluator
         with self.graph.as_default():
-            self.evaluator = Evaluator(self, batch_size=1, logdir=os.path.join(self.logdir, "./evaluate"))
+            with tf.device("/cpu:0"):
+                self.evaluator = Evaluator(self, batch_size=1, logdir=os.path.join(self.logdir, "./evaluate"))
 
     def unroll(self, batch_size, num_steps, keep_prob=None, name=None):
         """
@@ -415,7 +416,7 @@ class RNN(object):
         print(checkpoint)
         with self.supervisor.managed_session() as sess:
             self.supervisor.saver.restore(sess, checkpoint)
-            print("Model variables restored from {}.".format(path))
+        print("Model variables restored from {}.".format(path))
 
     def finalize(self):
         """
@@ -457,7 +458,7 @@ class RNN(object):
         if self.has_embedding:
             # The Variables are already created in the compile(), need to
             with tf.variable_scope('embedding', initializer=self.initializer):
-                with tf.device("/cpu:0"): # Force CPU since GPU implementation is missing
+                with tf.device("/cpu:0"):  # Force CPU since GPU implementation is missing
                     embedding = tf.get_variable("embedding", [self.vocab_size, self.embedding_size], dtype=data_type())
                     return tf.nn.embedding_lookup(embedding, inputs)
         else:
