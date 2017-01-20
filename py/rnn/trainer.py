@@ -17,14 +17,16 @@ def get_optimizer(optimizer):
     """
     Simple helper to get TensorFlow Optimizer
     :param optimizer: a str specifying the name of the optimizer to use,
-        or a callable function that is already a TF Optimizer
+        or a subclass of a TF Optimizer
     :return: a TensorFlow Optimizer
     """
-    if isinstance(optimizer, tf.train.Optimizer):
-        return optimizer
-    if optimizer in _str2optimizers:
-        return _str2optimizers[optimizer]
-    else:
+    if isinstance(optimizer, str):
+        if optimizer in _str2optimizers:
+            return _str2optimizers[optimizer]
+    try:
+        if issubclass(optimizer, tf.train.Optimizer):
+            return optimizer
+    finally:
         raise ValueError('optimizer should be an instance of tf.train.Optimizer or a key in _str2optimizer!')
 
 
@@ -97,41 +99,40 @@ class Trainer(object):
         TODO
     """
     def __init__(self, rnn_, batch_size, num_steps, keep_prob, optimizer,
-                 learning_rate=0.1, gradient_clipper=None, decay=None):
+                 learning_rate=0.1, gradient_clipper=None):
         """
-        :param model: a instance of RNNModel class, the rnn model to be trained
+        :param rnn_: an instance of RNN class, the rnn model to be trained
+        :param batch_size: batch size of the graph
+        :param num_steps: num_steps of the training graph
+        :param keep_prob: keep probability of the training
         :param optimizer: the optimizer used to minimize model.loss, should be instance of tf.train.Optimizer
-        :param learning_rate: a Tensor denoting the learning_rate to use
-        :param supervisor: the supervisor used to manage training and saving model checkpoints
-        :param valid_model: a instance of RNNModel class, the model used to run on validation set
+        :param learning_rate: a Python number denoting the learning_rate,
+            or a callable function denoting the learning_rate decay function of type: f(global_step) -> current_lr
         """
         if not isinstance(rnn_, rnn.RNN):
             raise TypeError("rnn should be instance of RNN")
         self.model = rnn_.unroll(batch_size, num_steps, keep_prob, name="TrainModel")
-        self._lr = learning_rate
-        self.optimizer = get_optimizer(optimizer)(self._lr)
-        # self.initializer = initializer
-        self.global_step = tf.Variable(0, trainable=False)
-        self.decay = decay
+        if callable(learning_rate):
+            self.decay = learning_rate
+        else:
+            self._lr = learning_rate
+            self.decay = None
         with tf.name_scope("Train"):
             if self.decay is not None:
-                self._lr = tf.Variable(decay(0.0), dtype=tf.float32, trainable=False)
+                self._lr = tf.Variable(self.decay(0.0), dtype=tf.float32, trainable=False)
                 self._new_lr = tf.placeholder(tf.float32, shape=())
                 self._update_lr = tf.assign(self._lr, self._new_lr, name='update_lr')
+            self.optimizer = get_optimizer(optimizer)(self._lr)
+            # self.initializer = initializer
+            self.global_step = tf.Variable(0, trainable=False)
             if gradient_clipper is None:
                 self.train_op = self.optimizer(self._lr).minimize(self.model.loss, self.global_step)
             else:
                 tvars = tf.trainable_variables()
                 grads = gradient_clipper(tf.gradients(self.model.loss, tvars))
-                # grads_and_vars = self.optimizer.compute_gradients(model.loss)
-                # # Clip Gradients
-                # grads, tvars = zip(*grads_and_vars)
-                # grads = gradient_clipper(grads)
                 self.train_op = self.optimizer.apply_gradients(
                     zip(grads, tvars),
                     global_step=self.global_step)
-
-        self.sv = None
 
     def update_lr(self, sess):
         if self.decay is None:
@@ -140,28 +141,24 @@ class Trainer(object):
         new_lr = self.decay(global_step)
         sess.run(self._update_lr, feed_dict={self._new_lr: new_lr})
 
-    def train(self, inputs, targets, epoch_size, epoch_num, sv, verbose=True):
+    def train(self, inputs, targets, epoch_size, epoch_num, sess, verbose=True):
         """
         Training using given input and target data
         :param inputs: a Tensor of shape [num_step, batch_size (, feature_size)] produced using data_utils.data_feeder
         :param targets: a Tensor of shape [num_step, batch_size (, feature_size)] produced using data_utils.data_feeder
         :param epoch_size: the size of one epoch
         :param epoch_num: number of training epochs
-        :param valid_inputs: a Tensor of shape [1, batch_size] produced using data_utils.data_feeder
-        :param valid_targets: a Tensor of shape [1, batch_size] produced using data_utils.data_feeder
-        :param save_path: the path to save the logs
+        :param sess: the session used to run the training
+        :param verbose: whether print training information
         :return: None
         """
 
-        with sv.managed_session() as sess:
+        with sess:
             for i in range(epoch_num):
                 if verbose:
                     print("Epoch {}:".format(i))
                 self.train_one_epoch(inputs, targets, epoch_size, sess, verbose=verbose)
                 self.update_lr(sess)
-            # print("Saving model to %s." % FLAGS.save_path)
-            # if save_path is not None:
-            #     sv.saver.save(sess, save_path, global_step=self.sv.global_step)
 
     def train_one_epoch(self, inputs, targets, epoch_size, sess, verbose=True):
         """

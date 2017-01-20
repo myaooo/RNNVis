@@ -6,6 +6,7 @@ Helpers for running rnn services from configurations
 import yaml
 import tensorflow as tf
 from . import rnn
+from . import trainer
 
 
 __str2initializer = {
@@ -16,6 +17,12 @@ __str2initializer = {
 
 
 def get_initializer(initializer, **kwargs):
+    """
+    A helper function to get TensorFlow variable initializer
+    :param initializer: a tf.*_initializer, or a str denoting the name of the function
+    :param kwargs: the input kwargs for the initializer function
+    :return: a TF initializer
+    """
     if callable(initializer):
         return initializer(**kwargs)
     if isinstance(initializer, str):
@@ -33,6 +40,11 @@ __str2dtype = {
 
 
 def get_dtype(dtype):
+    """
+    A helper function to get tf.dtype from str
+    :param dtype: a str, e.g. "int32"
+    :return: corresponding tf.dtype
+    """
     assert isinstance(dtype, str)
     if dtype in __str2dtype:
         return __str2dtype[dtype]
@@ -47,16 +59,29 @@ __str2cell = {
 }
 
 
-def getRNNCell(cell):
-    if isinstance(cell, tf.nn.rnn_cell.RNNCell):
-        return cell
-    assert isinstance(cell, str)
-    if cell in __str2cell:
-        return __str2cell[cell]
-    return tf.nn.rnn_cell.BasicLSTMCell
+def get_rnn_cell(cell):
+    """
+    A helper function to get tf RNNCell
+    :param cell: a subclass of RNNCell or a str denoting existing implementations
+    :return: a Cell class
+    """
+    if isinstance(cell, str):
+        if cell in __str2cell:
+            return __str2cell[cell]
+    try:
+        if issubclass(cell, tf.nn.rnn_cell.RNNCell):
+            return cell
+    finally:
+        return tf.nn.rnn_cell.BasicLSTMCell
 
 
 def get_loss_func(loss_func):
+    """
+    A helper class to get model loss function from str
+    TODO: add wrappers for all the TF loss function
+    :param loss_func: a str denoting the loss function
+    :return: a callable loss_func
+    """
     if callable(loss_func):
         return loss_func
     assert isinstance(loss_func, str)
@@ -74,7 +99,7 @@ class RNNConfig(object):
                  loss_func='sequence_loss'):
         self.name = name
         self.cells = cells
-        self.cell = getRNNCell(cell_type)
+        self.cell = get_rnn_cell(cell_type)
         self.initializer = get_initializer(initializer_name, **initializer_args)
         self.input_dtype = get_dtype(input_dtype)
         self.target_dtype = get_dtype(target_dtype)
@@ -82,9 +107,13 @@ class RNNConfig(object):
         self.embedding_size = embedding_size
         self.loss_func = get_loss_func(loss_func)
 
-
     @staticmethod
     def load(file_path):
+        """
+        Load an RNNConfig from config file
+        :param file_path: path of the config file
+        :return: an instance of RNNConfig
+        """
         with open(file_path) as f:
             config_dict = yaml.safe_load(f)['model']
             return RNNConfig(**config_dict)
@@ -93,8 +122,8 @@ class RNNConfig(object):
 def build_rnn(config):
     """
     Build a RNN from config
-    :param config:
-    :return:
+    :param config: path of the config file or a RNNConfig instance
+    :return: a compiled model
     """
     if isinstance(config, str):
         config = RNNConfig.load(config)
@@ -114,9 +143,15 @@ class TrainConfig(object):
     """Manage configurations for Training"""
     def __init__(self, **kwargs):
         self.__dict__.update(kwargs)
+        self.clipper = trainer.get_gradient_clipper(self.gradient_clip, **self.gradient_clip_args)
 
     @staticmethod
     def load(file_path):
+        """
+        Load an TrainConfig from config file
+        :param file_path: path of the config file
+        :return: an instance of TrainConfig
+        """
         with open(file_path) as f:
             config_dict = yaml.safe_load(f)['train']
             return TrainConfig(**config_dict)

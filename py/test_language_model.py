@@ -35,18 +35,20 @@ if __name__ == '__main__':
     train_steps = train_config.num_steps
     batch_size = train_config.batch_size
     epoch_num = train_config.epoch_num
+    keep_prob = train_config.keep_prob
     print('Preparing data')
     train_data, valid_data, test_data, vocab_size = ptb_raw_data(data_path())
 
     train_inputs, train_targets, epoch_size = test_data_producer(train_data, batch_size, train_steps)
-    valid_inputs, valid_targets, _ = test_data_producer(valid_data, batch_size, train_steps)
+    valid_inputs, valid_targets, valid_epoch_size = test_data_producer(valid_data, batch_size, train_steps)
 
     model = build_rnn(config_path())
+    model.add_trainer(batch_size, train_steps, keep_prob, train_config.optimizer, test_lr_decay,
+                      clipper=train_config.clipper)
+    model.add_validator(batch_size, train_steps)
     print('Start Training')
-    model.train(train_inputs, train_targets, train_steps, epoch_size, epoch_num, batch_size, train_config.optimizer, 1.0,
-                clipper=get_gradient_clipper(train_config.gradient_clip, 5), keep_prob=train_config.keep_prob,
-                decay=test_lr_decay,
-                valid_inputs=valid_inputs, valid_targets=valid_targets, valid_batch_size=batch_size)
+    model.train(train_inputs, train_targets, epoch_size, epoch_num,
+                valid_inputs=valid_inputs, valid_targets=valid_targets, valid_epoch_size=valid_epoch_size)
 
     print('Finish Training')
     model.save()

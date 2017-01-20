@@ -19,4 +19,6 @@ train:
   batch_size: 20
   keep_prob: 1.0
   gradient_clip: global_norm
+  gradient_clip_args:
+    clip_norm: 5.0
   optimizer: GradientDescent
