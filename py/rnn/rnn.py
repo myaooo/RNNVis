@@ -402,8 +402,9 @@ class RNN(object):
     def restore(self, path=None):
         if not self.finalized:
             self.finalize()
-        path = path if path is not None else os.path.join(self.logdir, './model')
+        path = path if path is not None else self.logdir
         checkpoint = tf.train.latest_checkpoint(path)
+        print(path)
         print(checkpoint)
         with self.supervisor.managed_session() as sess:
             self.supervisor.saver.restore(sess, checkpoint)
