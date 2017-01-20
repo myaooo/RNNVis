@@ -2,3 +2,4 @@
 *__pycache__/
 cached_data
 *.log
+*.pyc
