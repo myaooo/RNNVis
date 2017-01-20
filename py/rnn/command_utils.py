@@ -22,6 +22,7 @@ flags.DEFINE_string("log_path", None, "The path to save the log")
 
 FLAGS = flags.FLAGS
 
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
 def data_type():
     return tf.float16 if FLAGS.use_fp16 else tf.float32
@@ -45,7 +46,7 @@ def get_available_gpus():
 
 available_gpus = get_available_gpus()
 gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=FLAGS.gpu_memory, visible_device_list=list(available_gpus[0])[-1])
-config_proto = tf.ConfigProto(gpu_options=gpu_options)
+config_proto = tf.ConfigProto(device_count={"GPU": FLAGS.gpu_num}, gpu_options=gpu_options)
 
 # class RNNConfig(object):
 #     """
