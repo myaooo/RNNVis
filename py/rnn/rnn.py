@@ -392,7 +392,7 @@ class RNN(object):
         with self.graph.as_default():
             self.finalize()
             with self.supervisor.managed_session(config=config_proto) as sess:
-                self.evaluator.evaluate(inputs, targets, epoch_size, sess, record=True, verbose=False)
+                self.evaluator.evaluate(inputs, targets, epoch_size, sess, record=True, verbose=True)
 
     def save(self, path=None):
         """

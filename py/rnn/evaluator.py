@@ -68,8 +68,10 @@ class Evaluator(object):
                 summary = rslts['evals'][0]["summary"]
                 self.writer.add_summary(summary, i*self.record_every)
             total_loss += rslts['loss']
-            if verbose and i % 100 == 0:
-                print("[{:d}/{:d}]: avg loss:{:.3f}".format(i, input_size, total_loss/(i+1)))
+            if i % 100 == 0:
+                self.writer.flush()
+                if verbose:
+                    print("[{:d}/{:d}]: avg loss:{:.3f}".format(i, input_size, total_loss/(i+1)))
         if record:
             self.writer.close()
         loss = total_loss / input_size
