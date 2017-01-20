@@ -52,6 +52,3 @@ if __name__ == '__main__':
 
     print('Finish Training')
     model.save()
-
-    model2 = build_rnn(config_path())
-    model2.restore()
