@@ -24,3 +24,4 @@ if __name__ == '__main__':
 
     model2 = build_rnn(config_path())
     model2.restore()
+    model2.evaluate(inputs, targets, epoch_size)

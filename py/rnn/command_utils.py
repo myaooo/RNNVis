@@ -13,8 +13,6 @@ def get_available_gpus():
     return [x.name for x in local_device_protos if x.device_type == 'GPU']
 
 tf.GraphKeys.EVAL_SUMMARIES = "eval_summarys"
-available_gpus = get_available_gpus()
-
 
 flags = tf.flags
 logging = tf.logging
@@ -46,6 +44,7 @@ def data_path():
 def log_path():
     return FLAGS.log_path
 
+available_gpus = get_available_gpus()
 gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=FLAGS.gpu_memory, visible_device_list="0")
 config_proto = tf.ConfigProto(device_count={"GPU": FLAGS.gpu_num}, gpu_options=gpu_options)
 
