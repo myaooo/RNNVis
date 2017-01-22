@@ -25,7 +25,7 @@ class Evaluator(object):
     This class also provides several utilities for recording hidden states
     """
 
-    def __init__(self, rnn_, batch_size=1, record_every=1, log_state=True, log_input=True, log_output=True, logdir=None):
+    def __init__(self, rnn_, batch_size=1, record_every=1, log_state=True, log_input=True, log_output=True):
         assert isinstance(rnn_, rnn.RNN)
         self.record_every = record_every
         self.log_state = log_state
@@ -33,8 +33,8 @@ class Evaluator(object):
         self.log_output = log_output
         self.model = rnn_.unroll(batch_size, record_every, name='EvaluateModel')
         self.summary_ops = []
-        self.logdir = logdir if logdir is not None else rnn_.logdir
-        self.writer = tf.summary.FileWriter(self.logdir)
+        # self.logdir = logdir if logdir is not None else rnn_.logdir
+        # self.writer = tf.summary.FileWriter(self.logdir)
         if log_state:
             for i, s in enumerate(self.model.state):
                 # s is tuple
@@ -54,9 +54,11 @@ class Evaluator(object):
         else:
             self.merged_summary = tf.summary.merge(self.summary_ops, _evals, "eval_summaries")
 
-    def evaluate(self, inputs, targets, input_size, sess, record=False, verbose=True):
+    def evaluate(self, inputs, targets, input_size, sess, record=False, verbose=True, logdir=None):
         if record:
-            self.writer.reopen()
+            writer = tf.summary.FileWriter(logdir)
+        else:
+            writer = None
         self.model.init_state(sess)
         eval_ops = {"summary": self.merged_summary} if self.merged_summary is not None else {}
         total_loss = 0
@@ -66,13 +68,12 @@ class Evaluator(object):
                 inputs, targets, 1, {}, sess, eval_ops=eval_ops, verbose_every=False)
             if record and eval_ops:
                 summary = rslts['evals'][0]["summary"]
-                self.writer.add_summary(summary, i*self.record_every)
+                writer.add_summary(summary, i*self.record_every)
             total_loss += rslts['loss']
             if i % 1000 == 0:
-                self.writer.flush()
                 if verbose:
                     print("[{:d}/{:d}]: avg loss:{:.3f}".format(i, input_size, total_loss/(i+1)))
         if record:
-            self.writer.close()
+            writer.close()
         loss = total_loss / input_size
         print("Evaluate Summary: avg loss:{:.3f}".format(loss))

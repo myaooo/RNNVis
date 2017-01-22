@@ -83,9 +83,9 @@ class RNNModel(object):
                 if rnn.has_projcet:
                     # rnn has output project, do manual projection for speed
                     outputs = tf.reshape(self.outputs, [-1, self.outputs.get_shape().as_list()[2]])
-                    self.outputs = rnn.project_output(outputs)
+                    outputs = rnn.project_output(outputs)
                     self.targets = tf.reshape(self.target_holders, [-1])
-                    self.loss = rnn.loss_func(self.outputs, self.targets)
+                    self.loss = rnn.loss_func(outputs, self.targets)
                 else:
                     self.loss = rnn.loss_func(self.outputs, self.target_holders)
         # Append self to rnn's model list
@@ -287,7 +287,7 @@ class RNN(object):
         assert not self.is_compiled
         self.cell_list.append(cell(*args, **kwargs))
 
-    def compile(self):
+    def compile(self, evaluate=True):
         """
         Compile the model. Should be called before training or running the model.
         Basically, this function just do checkings on model configurations,
@@ -310,9 +310,10 @@ class RNN(object):
         # All done
         self.is_compiled = True
         # Create a default evaluator
-        with self.graph.as_default():
-            with tf.device("/cpu:0"):
-                self.evaluator = Evaluator(self, batch_size=1, logdir=os.path.join(self.logdir, "./evaluate"))
+        if evaluate:
+            with self.graph.as_default():
+                with tf.device("/cpu:0"):
+                    self.evaluator = Evaluator(self, batch_size=1)
 
     def unroll(self, batch_size, num_steps, keep_prob=None, name=None):
         """
@@ -354,6 +355,23 @@ class RNN(object):
         with self.graph.as_default():
             self.validator = Evaluator(self, batch_size, num_steps, False, False, False)
 
+    def add_evaluator(self, batch_size=1, record_every=1, log_state=True, log_input=True, log_output=True):
+        """
+        Explicitly add evaluator instead of using the default one. You must explicitly call compile(evaluate=False)
+            before calling this function
+        :param batch_size: default to be 1
+        :param record_every: record frequency
+        :param log_state: flag of state logging
+        :param log_input: flag of input logging
+        :param log_output: flag of output logging
+        :param logdir: logging directory
+        :return:
+        """
+        assert self.evaluator is None
+        with self.graph.as_default():
+            with tf.device("/cpu:0"):
+                self.evaluator = Evaluator(self, batch_size, record_every, log_state, log_input, log_output)
+
     def train(self, inputs, targets, epoch_size, epoch_num, valid_inputs=None, valid_targets=None,
               valid_epoch_size=None, verbose=True):
         """
@@ -363,9 +381,10 @@ class RNN(object):
         :param targets: should be of size [num_seq, seq_length, ...]
         :param epoch_size: the size of an epoch
         :param epoch_num: number of training epochs
-        :param batch_size: batch_size
-        :param validation_set: Validation set, should be (input, output)
-        :param validation_batch_size: batch_size of validation set
+        :param valid_inputs: Validation input data
+        :param valid_targets: Validation target data
+        :param valid_epoch_size: batch_size of validation set
+        :param verbose: Print training information if True
         :return: None
         """
         assert self.is_compiled
@@ -387,12 +406,13 @@ class RNN(object):
                         self.validator.evaluate(valid_inputs, valid_targets, valid_epoch_size, sess, verbose=False)
                         self.trainer.update_lr(sess)
 
-    def evaluate(self, inputs, targets, epoch_size):
+    def evaluate(self, inputs, targets, epoch_size, logdir=None):
         assert self.is_compiled
         with self.graph.as_default():
             self.finalize()
             with self.supervisor.managed_session(config=config_proto) as sess:
-                self.evaluator.evaluate(inputs, targets, epoch_size, sess, record=True, verbose=True)
+                logdir = os.path.join(self.logdir, "./evaluate") if logdir is None else logdir
+                self.evaluator.evaluate(inputs, targets, epoch_size, sess, record=True, verbose=True, logdir=logdir)
 
     def save(self, path=None):
         """
