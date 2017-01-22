@@ -71,9 +71,10 @@ _str2decay = {
 def get_lr_decay(decay, *args, **kwargs):
     """
     Get a more convenient learning rate decay function.
-    E.g. decay_func = get_lr_decay("exponential", 0.1, decay_steps=10000, decay_rate=0.95)
+    Note that global_step and decay_steps are neglected for convenience of using epoch_num as decay variable
+    E.g. decay_func = get_lr_decay("exponential", 0.1, decay_rate=0.95)
     :param decay: a str in the keys of _str2decay, or a function of the form:
-        f(global_step) -> current_learning_rate, where global_step is a Python number
+        f(epoch) -> current_learning_rate, where epoch is a Python number (float)
     :return:
     """
     if callable(decay):
@@ -85,9 +86,9 @@ def get_lr_decay(decay, *args, **kwargs):
     if decay in _str2decay:
         decay_func = _str2decay[decay]
         if len(args) == 0:
-            return lambda global_step: decay_func(kwargs.pop('learning_rate'), global_step, **kwargs)
+            return lambda epoch: decay_func(kwargs.pop('learning_rate'), int(epoch*10000), decay_steps=10000, **kwargs)
         else:
-            return lambda global_step: decay_func(args[0], global_step, *args[1:], **kwargs)
+            return lambda epoch: decay_func(args[0], int(epoch*10000), 10000, *args[1:], **kwargs)
     else:
         raise ValueError("Cannot find corresponding decay function for the input {}".format(decay))
 
@@ -134,11 +135,11 @@ class Trainer(object):
                     zip(grads, tvars),
                     global_step=self.global_step)
 
-    def update_lr(self, sess):
+    def update_lr(self, sess, epoch_size):
         if self.decay is None:
             return
         global_step = tf.train.global_step(sess, self.global_step)
-        new_lr = self.decay(global_step)
+        new_lr = self.decay(float(global_step)/epoch_size)
         sess.run(self._update_lr, feed_dict={self._new_lr: new_lr})
 
     def train(self, inputs, targets, epoch_size, epoch_num, sess, verbose=True):
@@ -156,9 +157,10 @@ class Trainer(object):
         with sess:
             for i in range(epoch_num):
                 if verbose:
-                    print("Epoch {}:".format(i))
+                    print("Epoch:{:d}".format(i))
+                    print("lr:{:.3f}".format( self._lr.eval(sess)))
                 self.train_one_epoch(inputs, targets, epoch_size, sess, verbose=verbose)
-                self.update_lr(sess)
+                self.update_lr(sess, epoch_size)
 
     def train_one_epoch(self, inputs, targets, epoch_size, sess, verbose=True):
         """
@@ -172,7 +174,10 @@ class Trainer(object):
         :param verbose: flag of printing mid results
         :return: avg. results
         """
+        if verbose:
+            print("lr:{:.3f}".format(self._lr.eval(sess)))
         run_ops = {'train_op': self.train_op}
         self.model.init_state(sess)
         self.model.run(inputs, targets, epoch_size, run_ops, sess, verbose_every=epoch_size//10 if verbose else False)
+        self.update_lr(sess, epoch_size)
 

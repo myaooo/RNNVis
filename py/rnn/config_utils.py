@@ -109,35 +109,21 @@ class RNNConfig(object):
         self.loss_func = get_loss_func(loss_func)
 
     @staticmethod
-    def load(file_path):
+    def load(file_or_dict):
         """
         Load an RNNConfig from config file
-        :param file_path: path of the config file
+        :param file_or_dict: path of the config file
         :return: an instance of RNNConfig
         """
-        with open(file_path) as f:
-            config_dict = yaml.safe_load(f)['model']
-            return RNNConfig(**config_dict)
-
-
-def build_rnn(config):
-    """
-    Build a RNN from config
-    :param config: path of the config file or a RNNConfig instance
-    :return: a compiled model
-    """
-    if isinstance(config, str):
-        config = RNNConfig.load(config)
-    assert isinstance(config, RNNConfig)
-    model = rnn.RNN(config.name, config.initializer, os.path.join('models/', config.name))
-    model.set_input([None], config.input_dtype, config.vocab_size, config.embedding_size)
-    for cell in config.cells:
-        model.add_cell(config.cell, **cell)
-    model.set_output([None, config.vocab_size], tf.float32)
-    model.set_target([None], config.target_dtype)
-    model.set_loss_func(config.loss_func)
-    model.compile()
-    return model
+        if isinstance(file_or_dict, dict):
+            config_dict = file_or_dict['model']
+        else:
+            with open(file_or_dict) as f:
+                try:
+                    config_dict = yaml.safe_load(f)['model']
+                except:
+                    raise ValueError("Malformat of config file!")
+        return RNNConfig(**config_dict)
 
 
 def parse_lr_from_config(lr):
@@ -169,12 +155,18 @@ class TrainConfig(object):
         self.lr = parse_lr_from_config(self.learning_rate)
 
     @staticmethod
-    def load(file_path):
+    def load(file_or_dict):
         """
         Load an TrainConfig from config file
         :param file_path: path of the config file
         :return: an instance of TrainConfig
         """
-        with open(file_path) as f:
-            config_dict = yaml.safe_load(f)
-            return TrainConfig(**(config_dict['train']))
+        if isinstance(file_or_dict, dict):
+            config_dict = file_or_dict['train']
+        else:
+            with open(file_or_dict) as f:
+                try:
+                    config_dict = yaml.safe_load(f)['train']
+                except:
+                    raise ValueError("Malformat of config file!")
+        return TrainConfig(**config_dict)

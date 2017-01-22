@@ -404,7 +404,6 @@ class RNN(object):
                             print("Epoch {}:".format(i))
                         self.trainer.train_one_epoch(inputs, targets, epoch_size, sess, verbose=verbose)
                         self.validator.evaluate(valid_inputs, valid_targets, valid_epoch_size, sess, verbose=False)
-                        self.trainer.update_lr(sess)
 
     def evaluate(self, inputs, targets, epoch_size, logdir=None):
         assert self.is_compiled
