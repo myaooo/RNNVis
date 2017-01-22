@@ -42,8 +42,12 @@ if __name__ == '__main__':
     train_inputs, train_targets, epoch_size = test_data_producer(train_data, batch_size, train_steps)
     valid_inputs, valid_targets, valid_epoch_size = test_data_producer(valid_data, batch_size, train_steps)
 
+    if callable(train_config.lr):
+        def lr(step): return train_config.lr(step / epoch_size)
+    else:
+        lr = train_config.lr
     model = build_rnn(config_path())
-    model.add_trainer(batch_size, train_steps, keep_prob, train_config.optimizer, test_lr_decay,
+    model.add_trainer(batch_size, train_steps, keep_prob, train_config.optimizer, lr,
                       clipper=train_config.clipper)
     model.add_validator(batch_size, train_steps)
     print('Start Training')

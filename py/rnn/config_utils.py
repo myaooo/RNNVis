@@ -3,6 +3,7 @@ Helpers for running rnn services from configurations
 """
 
 
+import os
 import yaml
 import tensorflow as tf
 from . import rnn
@@ -128,7 +129,7 @@ def build_rnn(config):
     if isinstance(config, str):
         config = RNNConfig.load(config)
     assert isinstance(config, RNNConfig)
-    model = rnn.RNN(config.name, config.initializer)
+    model = rnn.RNN(config.name, config.initializer, os.path.join('models/', config.name))
     model.set_input([None], config.input_dtype, config.vocab_size, config.embedding_size)
     for cell in config.cells:
         model.add_cell(config.cell, **cell)
@@ -139,11 +140,33 @@ def build_rnn(config):
     return model
 
 
+def parse_lr_from_config(lr):
+    if isinstance(lr, str):
+        try:
+            func = eval(lr)
+        except:
+            raise ValueError('If learning_rate is a str, it should be a lambda expression of form f(epoch) -> rate')
+
+    elif isinstance(lr, dict):
+        try:
+            func = trainer.get_lr_decay(lr['decay'], **lr['decay_args'])
+        except:
+            raise ValueError('If learning_rate is a dict, it should has keys "decay" and "decay_args"')
+    else:
+        try:
+            func = float(lr)
+        except:
+            raise ValueError('Mal-format for a input learning_rate, it should be a number, '
+                             'a str of lambda expression, or a dict specifying tf learning_rate_decay')
+    return func
+
+
 class TrainConfig(object):
     """Manage configurations for Training"""
     def __init__(self, **kwargs):
         self.__dict__.update(kwargs)
         self.clipper = trainer.get_gradient_clipper(self.gradient_clip, **self.gradient_clip_args)
+        self.lr = parse_lr_from_config(self.learning_rate)
 
     @staticmethod
     def load(file_path):
@@ -153,5 +176,5 @@ class TrainConfig(object):
         :return: an instance of TrainConfig
         """
         with open(file_path) as f:
-            config_dict = yaml.safe_load(f)['train']
-            return TrainConfig(**config_dict)
+            config_dict = yaml.safe_load(f)
+            return TrainConfig(**(config_dict['train']))
