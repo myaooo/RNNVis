@@ -45,8 +45,7 @@ def data_path():
 def log_path():
     return FLAGS.log_path
 
-available_gpus = get_available_gpus()
-gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=FLAGS.gpu_memory, visible_device_list="0")
+gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=FLAGS.gpu_memory)
 config_proto = tf.ConfigProto(device_count={"GPU": FLAGS.gpu_num}, gpu_options=gpu_options)
 
 
