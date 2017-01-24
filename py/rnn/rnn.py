@@ -8,7 +8,7 @@ import time
 import os
 
 import tensorflow as tf
-from datasets.data_utils import Feeder
+from py.datasets.data_utils import Feeder
 from .command_utils import data_type, config_proto
 from .evaluator import Evaluator
 from .trainer import Trainer

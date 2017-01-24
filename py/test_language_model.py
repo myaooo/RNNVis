@@ -7,9 +7,27 @@ $ tar xvf simple-examples.tgz
 
 from py.datasets.data_utils import InputProducer
 from py.datasets.ptb_reader import ptb_raw_data
-from py.rnn.command_utils import data_path, data_type, init_tf_environ
+from py.procedures import init_tf_environ
 import py.rnn as rnn
 import tensorflow as tf
+
+flags = tf.flags
+flags.DEFINE_string("config_path", None, "The path of the model configuration file")
+flags.DEFINE_string("data_path", None, "The path of the input data")
+flags.DEFINE_string("log_path", None, "The path to save the log")
+FLAGS = flags.FLAGS
+
+
+def config_path():
+    return FLAGS.config_path
+
+
+def data_path():
+    return FLAGS.data_path
+
+
+def log_path():
+    return FLAGS.log_path
 
 
 def test_data_producer(data, batch_size, num_steps):

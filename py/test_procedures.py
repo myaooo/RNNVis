@@ -5,11 +5,27 @@ $ wget http://www.fit.vutbr.cz/~imikolov/rnnlm/simple-examples.tgz
 $ tar xvf simple-examples.tgz
 """
 
-from procedures import build_model
-from datasets.data_utils import InputProducer
-from datasets.ptb_reader import ptb_raw_data
-from rnn.command_utils import config_path, data_path, init_tf_environ
+from .procedures import build_model
+from .datasets.data_utils import InputProducer
+from .datasets.ptb_reader import ptb_raw_data
+from tensorflow import flags
 
+flags.DEFINE_string("config_path", None, "The path of the model configuration file")
+flags.DEFINE_string("data_path", None, "The path of the input data")
+flags.DEFINE_string("log_path", None, "The path to save the log")
+FLAGS = flags.FLAGS
+
+
+def config_path():
+    return FLAGS.config_path
+
+
+def data_path():
+    return FLAGS.data_path
+
+
+def log_path():
+    return FLAGS.log_path
 
 def test_data_producer(data, batch_size, num_steps):
     # train_data = valid_data
@@ -20,7 +36,6 @@ def test_data_producer(data, batch_size, num_steps):
 
 if __name__ == '__main__':
 
-    init_tf_environ()
     print('Building model..')
     model, train_config = build_model(config_path())
     train_steps = train_config.num_steps
