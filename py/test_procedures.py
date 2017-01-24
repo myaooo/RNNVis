@@ -5,7 +5,7 @@ $ wget http://www.fit.vutbr.cz/~imikolov/rnnlm/simple-examples.tgz
 $ tar xvf simple-examples.tgz
 """
 
-from .procedures import build_model
+from .procedures import build_model, init_tf_environ
 from .datasets.data_utils import InputProducer
 from .datasets.ptb_reader import ptb_raw_data
 from tensorflow import flags
@@ -36,6 +36,7 @@ def test_data_producer(data, batch_size, num_steps):
 
 if __name__ == '__main__':
 
+    init_tf_environ()
     print('Building model..')
     model, train_config = build_model(config_path())
     train_steps = train_config.num_steps
