@@ -118,7 +118,7 @@ class RNNModel(object):
         if run_ops is None: run_ops = {}
         if eval_ops is None: eval_ops = {}
         if sum_ops is None: sum_ops = {}
-        verbose_every = math.inf if verbose is None else epoch_size//10
+        verbose_every = epoch_size//10 if verbose else math.inf
         # initialize state and add ops that must be run
         if self.current_state is None:
             self.init_state(sess)
