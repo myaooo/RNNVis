@@ -5,9 +5,9 @@ Pre-defined procedures for running rnn, evaluating and recording
 
 import os
 import tensorflow as tf
-from rnn.config_utils import RNNConfig, TrainConfig
-from rnn.command_utils import data_type
-from rnn.rnn import RNN
+from py.rnn.config_utils import RNNConfig, TrainConfig
+from py.rnn.command_utils import data_type
+from py.rnn.rnn import RNN
 
 flags = tf.flags
 flags.DEFINE_integer('gpu_num', 1, "The number of gpu to use.")
