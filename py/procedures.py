@@ -13,8 +13,10 @@ flags = tf.flags
 flags.DEFINE_integer('gpu_num', 1, "The number of gpu to use.")
 FLAGS = flags.FLAGS
 
+
 def init_tf_environ():
-    os.environ["CUDA_VISIBLE_DEVICES"] = "" if FLAGS.gpu_num == 0 else "0,1,2,3"[:(FLAGS.gpu_num * 2 - 1)]
+    os.environ["CUDA_VISIBLE_DEVICES"] = str(FLAGS.gpu_num)
+    # if FLAGS.gpu_num == 0 else "0,1,2,3"[:(FLAGS.gpu_num * 2 - 1)]
 
 
 def build_rnn(rnn_config):
