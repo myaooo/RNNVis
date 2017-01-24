@@ -2,7 +2,7 @@
 Trainer handling TensorFlow Graph training computations
 """
 
-from py.rnn.command_utils import *
+import tensorflow as tf
 from . import rnn
 
 _str2optimizers = {
@@ -26,7 +26,7 @@ def get_optimizer(optimizer):
     try:
         if issubclass(optimizer, tf.train.Optimizer):
             return optimizer
-    finally:
+    except:
         raise ValueError('optimizer should be an instance of tf.train.Optimizer or a key in _str2optimizer!')
 
 
@@ -177,7 +177,8 @@ class Trainer(object):
         if verbose:
             print("lr:{:.3f}".format(self._lr.eval(sess)))
         run_ops = {'train_op': self.train_op}
+        sum_ops = {'loss': self.model.loss}
         self.model.init_state(sess)
-        self.model.run(inputs, targets, epoch_size, run_ops, sess, verbose_every=epoch_size//10 if verbose else False)
+        self.model.run(inputs, targets, epoch_size, sess, run_ops, sum_ops=sum_ops, verbose=verbose)
         self.update_lr(sess, epoch_size)
 

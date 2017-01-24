@@ -15,15 +15,11 @@
 
 """Tests for models.tutorials.rnn.ptb.reader."""
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
 import os.path
 
 import tensorflow as tf
 
-import reader
+from . import ptb_reader as reader
 
 
 class PtbReaderTest(tf.test.TestCase):
@@ -53,10 +49,10 @@ class PtbReaderTest(tf.test.TestCase):
       coord = tf.train.Coordinator()
       tf.train.start_queue_runners(session, coord=coord)
       try:
-        xval, yval = session.run([x, y])
+        xval, yval = session.run([x, y], )
         self.assertAllEqual(xval, [[4, 3], [5, 6], [1, 0]])
         self.assertAllEqual(yval, [[3, 2], [6, 1], [0, 3]])
-        xval, yval = session.run([x, y])
+        xval, yval = session.run([x, y], )
         self.assertAllEqual(xval, [[2, 1], [1, 1], [3, 4]])
         self.assertAllEqual(yval, [[1, 0], [1, 1], [4, 1]])
       finally:

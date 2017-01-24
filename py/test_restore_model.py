@@ -4,7 +4,7 @@ Tests the restore of trained model
 import tensorflow as tf
 from py.rnn.command_utils import data_path
 from py.rnn.config_utils import build_rnn
-from py.rnn.command_utils import config_path
+from py.rnn.command_utils import config_path, init_tf_environ
 from py.datasets.data_utils import InputProducer
 from py.datasets.ptb_reader import ptb_raw_data
 
@@ -17,6 +17,7 @@ def test_data_producer(data, batch_size, num_steps):
     return inputs, targets, inputs.epoch_size
 
 if __name__ == '__main__':
+    init_tf_environ()
     print('Preparing data')
     train_data, valid_data, test_data, vocab_size = ptb_raw_data(data_path())
 

@@ -5,10 +5,9 @@ Pre-defined procedures for running rnn, evaluating and recording
 
 import os
 import tensorflow as tf
-from .config_utils import RNNConfig, TrainConfig
-from .rnn import RNN
-from . import trainer
-from . import evaluator
+from rnn.config_utils import RNNConfig, TrainConfig
+from rnn.command_utils import data_type
+from rnn.rnn import RNN
 
 
 def build_rnn(rnn_config):
@@ -22,7 +21,7 @@ def build_rnn(rnn_config):
     _rnn.set_input([None], rnn_config.input_dtype, rnn_config.vocab_size, rnn_config.embedding_size)
     for cell in rnn_config.cells:
         _rnn.add_cell(rnn_config.cell, **cell)
-    _rnn.set_output([None, rnn_config.vocab_size], tf.float32)
+    _rnn.set_output([None, rnn_config.vocab_size], data_type())
     _rnn.set_target([None], rnn_config.target_dtype)
     _rnn.set_loss_func(rnn_config.loss_func)
     _rnn.compile()
@@ -44,6 +43,12 @@ def build_trainer(rnn_, train_config):
 
 
 def build_model(config, train=True):
+    """
+    A helper function that wraps build_rnn and build_train to build a model
+    :param config:
+    :param train:
+    :return:
+    """
     if isinstance(config, str):
         rnn_config = RNNConfig.load(config)
         if train:

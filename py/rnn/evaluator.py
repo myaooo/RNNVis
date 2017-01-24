@@ -2,21 +2,28 @@
 Evaluator Class
 """
 
-from py.rnn.command_utils import *
+from collections import  namedtuple
+# from py.rnn.command_utils import *
+import tensorflow as tf
 from . import rnn
 
 
-class EvaluateConfig(object):
-    """
-    Configurations for Evaluation
-    """
-    def __init__(self, save_path, state, output, ):
-        self.save_path = save_path
-        self.state = state
-        self.output = output
-
-
+tf.GraphKeys.EVAL_SUMMARIES = "eval_summarys"
 _evals = [tf.GraphKeys.EVAL_SUMMARIES]
+
+
+class GenerateNode(object):
+    """
+    Node structure to store generation tree of a RNN
+    """
+    def __init__(self, word_id, prob, next_nodes=None):
+        self.word_id = word_id
+        self.prob = prob
+        self.next_nodes = next_nodes
+
+    def add_next_node(self, node):
+        assert isinstance(node, GenerateNode)
+        self.next_nodes.append(node)
 
 
 class Evaluator(object):
@@ -61,19 +68,29 @@ class Evaluator(object):
             writer = None
         self.model.init_state(sess)
         eval_ops = {"summary": self.merged_summary} if self.merged_summary is not None else {}
+        sum_ops = {"loss": self.model.loss}
         total_loss = 0
         print("Start evaluating...")
         for i in range(input_size):
-            rslts = self.model.run(
-                inputs, targets, 1, {}, sess, eval_ops=eval_ops, verbose_every=False)
+            evals, sums = self.model.run(inputs, targets, 1, sess, eval_ops=eval_ops, sum_ops=sum_ops, verbose=False)
             if record and eval_ops:
-                summary = rslts['evals'][0]["summary"]
+                summary = evals["summary"][0]
                 writer.add_summary(summary, i*self.record_every)
-            total_loss += rslts['loss']
-            if i % 1000 == 0:
+            total_loss += sums["loss"]
+            if i % 500 == 0:
                 if verbose:
                     print("[{:d}/{:d}]: avg loss:{:.3f}".format(i, input_size, total_loss/(i+1)))
         if record:
             writer.close()
         loss = total_loss / input_size
         print("Evaluate Summary: avg loss:{:.3f}".format(loss))
+
+    def generate(self, sess, seed, logdir, branch_num=3, accum_prob=0.9, neglect_prob=0.05, max_step=20):
+        writer = tf.summary.FileWriter(logdir)
+        model = self.model
+        model.init_state(sess)
+        def _generate(inputs, step):
+            outputs = model.run(inputs, )
+
+
+        tree = _generate(seed, max_step)

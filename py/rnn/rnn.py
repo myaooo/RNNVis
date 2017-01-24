@@ -7,8 +7,9 @@ import math
 import time
 import os
 
-from py.datasets.data_utils import Feeder
-from .command_utils import *
+import tensorflow as tf
+from datasets.data_utils import Feeder
+from .command_utils import data_type, config_proto
 from .evaluator import Evaluator
 from .trainer import Trainer
 
@@ -72,7 +73,7 @@ class RNNModel(object):
                 # Build TF computation Graph
                 input_shape = [None] + list(rnn.input_shape)[1:]
                 target_shape = [None] + list(rnn.target_shape)[1:]
-                self.state = self.cell.zero_state(batch_size, data_type())
+                self.state = self.cell.zero_state(batch_size, rnn.output_dtype)
                 self.input_holders = tf.placeholder(rnn.input_dtype, [num_steps] + input_shape)
                 self.target_holders = tf.placeholder(rnn.target_dtype, [num_steps] + target_shape)
                 # ugly hacking for EmbeddingWrapper Badness
@@ -99,30 +100,36 @@ class RNNModel(object):
     def rnn(self):
         return self._rnn
 
-    def run(self, inputs, targets, epoch_size, run_ops, sess, eval_ops=None, verbose_every=None):
+    def run(self, inputs, targets, epoch_size, sess, run_ops=None, eval_ops=None, sum_ops=None, verbose=None):
         """
         RNN Model's main API for running the part of graph in this model
         Note: this function can only be run after the graph is finalized
         :param inputs:
         :param targets:
         :param epoch_size:
+        :param sess:
         :param run_ops:
         :param eval_ops:
-        :param sess:
+        :param sum_ops:
         :param verbose:
         :return:
         """
+
+        if run_ops is None: run_ops = {}
+        if eval_ops is None: eval_ops = {}
+        if sum_ops is None: sum_ops = {}
+        verbose_every = math.inf if verbose is None else epoch_size//10
         # initialize state and add ops that must be run
-        if verbose_every is None or verbose_every is False:
-            verbose_every = math.inf
         if self.current_state is None:
             self.init_state(sess)
         run_ops['state'] = self.final_state
-        run_ops['loss'] = self.loss
-        total_loss = 0
-        vals = None
+        run_ops.update(eval_ops)
+        run_ops.update(sum_ops)
+        # total_loss = 0
+        # vals = None
         start_time = verbose_time = time.time()
-        evals = []
+        evals = {name: [] for name in eval_ops}
+        sums = {name: 0 for name in sum_ops}
         for i in range(epoch_size):
             feed_dict = self.feed_state(self.current_state)
             if isinstance(inputs, Feeder):
@@ -135,25 +142,30 @@ class RNNModel(object):
             # feed_dict[model.target_holders] = [targets[:, i] for i in range(model.num_steps)]
             vals = sess.run(run_ops, feed_dict)
             self.current_state = vals['state']
-            total_loss += vals['loss']
+
+            # total_loss += vals['loss']
             if eval_ops:
-                evals.append(sess.run(eval_ops, feed_dict))
-            if i % verbose_every == 0 and i!=0:
+                for name in eval_ops:
+                    evals[name].append(vals[name])
+            if sum_ops:
+                for name in sum_ops:
+                    sums[name] += vals[name]
+            if i % verbose_every == 0 and i != 0:
                 delta_time = time.time() - verbose_time
-                print("epoch[{:d}/{:d}] avg loss:{:.3f}, speed:{:.1f} wps, time: {:.1f}s".format(
-                    i, epoch_size, total_loss / i,
-                                   i * self.batch_size * self.num_steps / (time.time() - start_time), delta_time))
+                print("epoch[{:d}/{:d}] speed:{:.1f} wps, time: {:.1f}s".format(
+                    i, epoch_size, i * self.batch_size * self.num_steps / (time.time() - start_time), delta_time))
+                sum_list = ["{:s}: {:.4f}".format(name, value / i) for name, value in sums.items()]
+                if sum_list: print(', '.join(sum_list))
                 verbose_time = time.time()
         total_time = time.time() - start_time
         # Prepare for returning values
-        vals['loss'] = total_loss / epoch_size
-        vals['time'] = total_time
-        if eval_ops:
-            vals['evals'] = evals
-        if math.isfinite(verbose_every):
-            print("Epoch Summary: avg loss:{:.3f}, total time:{:.1f}s, speed:{:.1f} wps".format(
-                total_loss / epoch_size, total_time, epoch_size * self.num_steps * self.batch_size / total_time))
-        return vals
+        # vals['loss'] = total_loss / epoch_size
+        if verbose:
+            sum_str = ', '.join(["{:s}: {:.4f}".format(name, value / i) for name, value in sums.items()])
+            if sum_str: sum_str = ', '+sum_str
+            print("Epoch Summary: total time:{:.1f}s, speed:{:.1f} wps".format(
+                total_time, epoch_size * self.num_steps * self.batch_size / total_time) + sum_str)
+        return evals, sums
 
     def feed_state(self, state):
         """
@@ -179,7 +191,7 @@ class RNNModel(object):
         return {holders: data}
 
     def init_state(self, sess):
-        self.current_state = sess.run(self.state)
+        self.current_state = sess.run(self.state, )
         return self.current_state
 
     def log_ops_placement(self, ops, log_path):
@@ -398,7 +410,7 @@ class RNN(object):
             else:
                 self.finalize()
                 print("Start Running Train Graph")
-                with self.supervisor.managed_session(config=config_proto) as sess:
+                with self.supervisor.managed_session(config=config_proto()) as sess:
                     for i in range(epoch_num):
                         if verbose:
                             print("Epoch {}:".format(i))
@@ -409,7 +421,7 @@ class RNN(object):
         assert self.is_compiled
         with self.graph.as_default():
             self.finalize()
-            with self.supervisor.managed_session(config=config_proto) as sess:
+            with self.supervisor.managed_session(config=config_proto()) as sess:
                 logdir = os.path.join(self.logdir, "./evaluate") if logdir is None else logdir
                 self.evaluator.evaluate(inputs, targets, epoch_size, sess, record=True, verbose=True, logdir=logdir)
 

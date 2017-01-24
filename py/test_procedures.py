@@ -5,10 +5,10 @@ $ wget http://www.fit.vutbr.cz/~imikolov/rnnlm/simple-examples.tgz
 $ tar xvf simple-examples.tgz
 """
 
-from py.datasets.data_utils import InputProducer
-from py.datasets.ptb_reader import ptb_raw_data
-from py.rnn.command_utils import config_path, data_path, log_path
-from py.rnn.procedures import build_model
+from procedures import build_model
+from datasets.data_utils import InputProducer
+from datasets.ptb_reader import ptb_raw_data
+from rnn.command_utils import config_path, data_path, init_tf_environ
 
 
 def test_data_producer(data, batch_size, num_steps):
@@ -20,6 +20,7 @@ def test_data_producer(data, batch_size, num_steps):
 
 if __name__ == '__main__':
 
+    init_tf_environ()
     print('Building model..')
     model, train_config = build_model(config_path())
     train_steps = train_config.num_steps
