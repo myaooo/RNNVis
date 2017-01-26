@@ -8,6 +8,7 @@ import time
 import os
 
 import tensorflow as tf
+import numpy as np
 from py.datasets.data_utils import Feeder
 from .command_utils import data_type, config_proto
 from .evaluator import Evaluator
@@ -74,19 +75,20 @@ class RNNModel(object):
                 input_shape = [None] + list(rnn.input_shape)[1:]
                 target_shape = [None] + list(rnn.target_shape)[1:]
                 self.state = self.cell.zero_state(batch_size, rnn.output_dtype)
-                self.input_holders = tf.placeholder(rnn.input_dtype, [num_steps] + input_shape)
-                self.target_holders = tf.placeholder(rnn.target_dtype, [num_steps] + target_shape)
+                self.input_holders = tf.placeholder(rnn.input_dtype, [num_steps] + input_shape, "input_holders")
+                self.target_holders = tf.placeholder(rnn.target_dtype, [num_steps] + target_shape, "target_holders")
                 # ugly hacking for EmbeddingWrapper Badness
                 self.inputs = self.input_holders if not rnn.has_embedding else rnn.map_to_embedding(self.input_holders)
                 # Call TF api to create recurrent neural network
-                self.outputs, self.final_state = \
+                outputs, self.final_state = \
                     tf.nn.dynamic_rnn(self.cell, self.inputs, initial_state=self.state, time_major=True)
+                # Reshape outputs and targets into [batch_size * num_steps, feature_dims]
+                self.outputs = tf.reshape(outputs, [-1, outputs.get_shape().as_list()[2]])
+                self.targets = tf.reshape(self.target_holders, [-1])
                 if rnn.has_projcet:
                     # rnn has output project, do manual projection for speed
-                    outputs = tf.reshape(self.outputs, [-1, self.outputs.get_shape().as_list()[2]])
-                    outputs = rnn.project_output(outputs)
-                    self.targets = tf.reshape(self.target_holders, [-1])
-                    self.loss = rnn.loss_func(outputs, self.targets)
+                    self.projected_outputs = rnn.project_output(self.outputs)
+                    self.loss = rnn.loss_func(self.projected_outputs, self.targets)
                 else:
                     self.loss = rnn.loss_func(self.outputs, self.target_holders)
         # Append self to rnn's model list
@@ -100,11 +102,11 @@ class RNNModel(object):
     def rnn(self):
         return self._rnn
 
-    def run(self, inputs, targets, epoch_size, sess, run_ops=None, eval_ops=None, sum_ops=None, verbose=None):
+    def run(self, inputs, targets, epoch_size, sess, run_ops=None, eval_ops=None, sum_ops=None, verbose=False):
         """
-        RNN Model's main API for running the part of graph in this model
+        RNN Model's main API for running the model from inputs
         Note: this function can only be run after the graph is finalized
-        :param inputs:
+        :param inputs: a input producer
         :param targets:
         :param epoch_size:
         :param sess:
@@ -122,6 +124,16 @@ class RNNModel(object):
         # initialize state and add ops that must be run
         if self.current_state is None:
             self.init_state(sess)
+        # for compatible with different input type
+        if isinstance(inputs, tf.Tensor):
+            get_data = lambda x: sess.run(x)
+        elif isinstance(inputs, Feeder):
+            get_data = lambda x: [y() for y in x]
+        elif isinstance(inputs, np.ndarray):
+            get_data = lambda x: x
+        else:
+            raise TypeError("inputs mal format!")
+
         run_ops['state'] = self.final_state
         run_ops.update(eval_ops)
         run_ops.update(sum_ops)
@@ -132,13 +144,10 @@ class RNNModel(object):
         sums = {name: 0 for name in sum_ops}
         for i in range(epoch_size):
             feed_dict = self.feed_state(self.current_state)
-            if isinstance(inputs, Feeder):
-                _inputs = inputs()
-                _targets = targets()
-            else:
-                _inputs, _targets = sess.run([inputs, targets])
-            feed_dict.update(self.feed_data(_inputs, True))
-            feed_dict.update(self.feed_data(_targets, False))
+            _inputs, _targets = get_data((inputs, targets))
+            feed_dict[self.input_holders] = _inputs
+            if _targets is not None:  # when we just need infer, we don't need to have targets
+                feed_dict[self.target_holders] = _targets
             # feed_dict[model.target_holders] = [targets[:, i] for i in range(model.num_steps)]
             vals = sess.run(run_ops, feed_dict)
             self.current_state = vals['state']
@@ -186,9 +195,9 @@ class RNNModel(object):
                 feed_dict[s] = state[i]
         return feed_dict
 
-    def feed_data(self, data, inputs=True):
-        holders = self.input_holders if inputs else self.target_holders
-        return {holders: data}
+    # def feed_data(self, data, inputs=True):
+    #     holders = self.input_holders if inputs else self.target_holders
+    #     return {holders: data}
 
     def init_state(self, sess):
         self.current_state = sess.run(self.state, )
@@ -208,8 +217,35 @@ class RNNModel(object):
         tf.logging._logger.removeHandler(new_handler)
         tf.logging._logger.addHandler(_hdlr)
         print("ops placements info logged to {}".format(log_path))
-    # def update_batch_size(self, new_batch_size, sess):
-    #     sess.run(self._update_batch_size, {self._new_batch_size: new_batch_size})
+
+    def do_projection(self, outputs, sess):
+        """
+        Project the cell outputs on to word space as a probability distribution
+        :param outputs: a numpy array of shape [output_steps, feature_dims] as feed in data
+        :param sess: the TF Session to run the computation
+        :return: a numpy array of shape [output_steps, vocab_size] as the projected probability distribution
+        """
+        if not hasattr(self, 'projected_outputs'):
+            projected_outputs = outputs
+        else:
+            projected = []
+            batch_size = self.num_steps * self.batch_size  # the output Tensor has shape [num_steps*batch_size, dims]
+            output_steps = outputs.shape[0]
+            for begin in range(0, output_steps, batch_size):
+                end = begin + batch_size
+                if end > output_steps:
+                    _projected = sess.run(self.projected_outputs, {self.outputs: outputs[-batch_size:,:]})
+                    _projected = _projected[end-output_steps:,:]  # throw duplicated part
+                else:
+                    _projected = sess.run(self.projected_outputs, {self.outputs: outputs[begin:end, :]})
+                projected.append(_projected)
+            projected_outputs = np.vstack(projected)
+
+        def softmax(x, axis=1):
+            e_x = np.exp(x.T - np.max(x, axis=axis).reshape([-1, 1]))
+            return e_x / e_x.sum(axis=axis).reshape([-1, 1])
+        # do softmax
+        return softmax(projected_outputs, axis=1)
 
 
 class RNN(object):
@@ -509,3 +545,4 @@ class RNN(object):
                 return tf.matmul(outputs, project_w) + projcet_b
         else:
             return None
+

@@ -5,7 +5,7 @@ $ wget http://www.fit.vutbr.cz/~imikolov/rnnlm/simple-examples.tgz
 $ tar xvf simple-examples.tgz
 """
 
-from .procedures import build_model, init_tf_environ
+from .procedures import build_model, init_tf_environ, produce_ptb_data
 from .datasets.data_utils import InputProducer
 from .datasets.ptb_reader import ptb_raw_data
 from tensorflow import flags
@@ -27,6 +27,7 @@ def data_path():
 def log_path():
     return FLAGS.log_path
 
+
 def test_data_producer(data, batch_size, num_steps):
     # train_data = valid_data
     producer = InputProducer(data, batch_size)
@@ -39,15 +40,15 @@ if __name__ == '__main__':
     init_tf_environ()
     print('Building model..')
     model, train_config = build_model(config_path())
-    train_steps = train_config.num_steps
-    batch_size = train_config.batch_size
+    data_producers = produce_ptb_data(data_path(),train_config, valid=True, test=True)
+
     epoch_num = train_config.epoch_num
     keep_prob = train_config.keep_prob
     print('Preparing data..')
-    train_data, valid_data, test_data, vocab_size = ptb_raw_data(data_path())
+    train_data, valid_data, test_data, word_to_id = ptb_raw_data(data_path())
 
-    train_inputs, train_targets, epoch_size = test_data_producer(train_data, batch_size, train_steps)
-    valid_inputs, valid_targets, valid_epoch_size = test_data_producer(valid_data, batch_size, train_steps)
+    train_inputs, train_targets, epoch_size = data_producers[0]
+    valid_inputs, valid_targets, valid_epoch_size = data_producers[1]
 
     print('Start Training')
     model.train(train_inputs, train_targets, epoch_size, epoch_num,

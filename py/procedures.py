@@ -8,6 +8,7 @@ import tensorflow as tf
 from py.rnn.config_utils import RNNConfig, TrainConfig
 from py.rnn.command_utils import data_type
 from py.rnn.rnn import RNN
+from py.datasets.data_utils import load_data_as_ids, get_data_producer
 
 flags = tf.flags
 flags.DEFINE_integer('gpu_num', 1, "The number of gpu to use.")
@@ -73,3 +74,27 @@ def build_model(config, train=True):
         build_trainer(rnn_, train_config)
         return rnn_, train_config
     return rnn_
+
+
+def produce_data(data_paths, train_config):
+    train_steps = train_config.num_steps
+    batch_size = train_config.batch_size
+
+    data_list, word_to_id = load_data_as_ids(data_paths)
+    producers = []
+    for data in data_list:
+        producers.append(get_data_producer(data, batch_size, train_steps))
+    return producers
+
+
+def produce_ptb_data(data_path, train_config, valid=True, test=True):
+    train_path = os.path.join(data_path, "ptb.train.txt")
+    valid_path = os.path.join(data_path, "ptb.valid.txt")
+    test_path = os.path.join(data_path, "ptb.test.txt")
+    paths = [train_path]
+    if valid: paths.append(valid_path)
+    if test: paths.append(test_path)
+    producers = produce_data(paths, train_config)
+    return producers
+
+

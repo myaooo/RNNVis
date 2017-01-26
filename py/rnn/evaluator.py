@@ -5,25 +5,14 @@ Evaluator Class
 from collections import  namedtuple
 # from py.rnn.command_utils import *
 import tensorflow as tf
+import numpy as np
 from . import rnn
+from py.utils.tree import TreeNode, Tree
+from py.utils.io_utils import save2json
 
 
 tf.GraphKeys.EVAL_SUMMARIES = "eval_summarys"
 _evals = [tf.GraphKeys.EVAL_SUMMARIES]
-
-
-class GenerateNode(object):
-    """
-    Node structure to store generation tree of a RNN
-    """
-    def __init__(self, word_id, prob, next_nodes=None):
-        self.word_id = word_id
-        self.prob = prob
-        self.next_nodes = next_nodes
-
-    def add_next_node(self, node):
-        assert isinstance(node, GenerateNode)
-        self.next_nodes.append(node)
 
 
 class Evaluator(object):
@@ -84,13 +73,3 @@ class Evaluator(object):
             writer.close()
         loss = total_loss / input_size
         print("Evaluate Summary: avg loss:{:.3f}".format(loss))
-
-    def generate(self, sess, seed, logdir, branch_num=3, accum_prob=0.9, neglect_prob=0.05, max_step=20):
-        writer = tf.summary.FileWriter(logdir)
-        model = self.model
-        model.init_state(sess)
-        def _generate(inputs, step):
-            outputs = model.run(inputs, )
-
-
-        tree = _generate(seed, max_step)

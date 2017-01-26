@@ -125,3 +125,27 @@ def data_feeder(batched_data, num_steps, shift=0, name=None):
         x = tf.slice(batched_data, [i * num_steps + shift, 0], [num_steps, batch_size])
         # y = tf.slice(data, [0, i * num_steps + 1], [batch_size, num_steps])
         return x
+
+
+def load_data_as_ids(data_paths, word_to_id_path=None):
+    """
+    Load the data from a list of paths, the first file will be used to build the vocabulary.
+    :param data_paths: a list of paths
+    :param word_to_id_path: a word to ids csv file
+    :return: a list of data, each as an id numpy.ndarray, and a word_to_id dict
+    """
+    if word_to_id_path is not None:
+        raise NotImplementedError("Currently not support separate word_to_id file")
+    word_to_id = build_vocab(data_paths[0])
+    data_list = []
+    for path in data_paths:
+        data_list.append(file_to_word_ids(path, word_to_id))
+    return data_list, word_to_id
+
+
+def get_data_producer(data, batch_size, num_steps):
+    # train_data = valid_data
+    producer = InputProducer(data, batch_size)
+    inputs = producer.get_feeder(num_steps, transpose=True)
+    targets = producer.get_feeder(num_steps, offset=1, transpose=True)
+    return inputs, targets, targets.epoch_size
