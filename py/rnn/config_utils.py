@@ -3,9 +3,11 @@ Helpers for running rnn services from configurations
 """
 
 
+import os
 import yaml
 import tensorflow as tf
 from . import rnn
+from . import trainer
 
 
 __str2initializer = {
@@ -16,6 +18,12 @@ __str2initializer = {
 
 
 def get_initializer(initializer, **kwargs):
+    """
+    A helper function to get TensorFlow variable initializer
+    :param initializer: a tf.*_initializer, or a str denoting the name of the function
+    :param kwargs: the input kwargs for the initializer function
+    :return: a TF initializer
+    """
     if callable(initializer):
         return initializer(**kwargs)
     if isinstance(initializer, str):
@@ -33,6 +41,11 @@ __str2dtype = {
 
 
 def get_dtype(dtype):
+    """
+    A helper function to get tf.dtype from str
+    :param dtype: a str, e.g. "int32"
+    :return: corresponding tf.dtype
+    """
     assert isinstance(dtype, str)
     if dtype in __str2dtype:
         return __str2dtype[dtype]
@@ -47,16 +60,29 @@ __str2cell = {
 }
 
 
-def getRNNCell(cell):
-    if isinstance(cell, tf.nn.rnn_cell.RNNCell):
-        return cell
-    assert isinstance(cell, str)
-    if cell in __str2cell:
-        return __str2cell[cell]
-    return tf.nn.rnn_cell.BasicLSTMCell
+def get_rnn_cell(cell):
+    """
+    A helper function to get tf RNNCell
+    :param cell: a subclass of RNNCell or a str denoting existing implementations
+    :return: a Cell class
+    """
+    if isinstance(cell, str):
+        if cell in __str2cell:
+            return __str2cell[cell]
+    try:
+        if issubclass(cell, tf.nn.rnn_cell.RNNCell):
+            return cell
+    finally:
+        return tf.nn.rnn_cell.BasicLSTMCell
 
 
 def get_loss_func(loss_func):
+    """
+    A helper class to get model loss function from str
+    TODO: add wrappers for all the TF loss function
+    :param loss_func: a str denoting the loss function
+    :return: a callable loss_func
+    """
     if callable(loss_func):
         return loss_func
     assert isinstance(loss_func, str)
@@ -74,7 +100,7 @@ class RNNConfig(object):
                  loss_func='sequence_loss'):
         self.name = name
         self.cells = cells
-        self.cell = getRNNCell(cell_type)
+        self.cell = get_rnn_cell(cell_type)
         self.initializer = get_initializer(initializer_name, **initializer_args)
         self.input_dtype = get_dtype(input_dtype)
         self.target_dtype = get_dtype(target_dtype)
@@ -82,41 +108,65 @@ class RNNConfig(object):
         self.embedding_size = embedding_size
         self.loss_func = get_loss_func(loss_func)
 
-
     @staticmethod
-    def load(file_path):
-        with open(file_path) as f:
-            config_dict = yaml.safe_load(f)['model']
-            return RNNConfig(**config_dict)
+    def load(file_or_dict):
+        """
+        Load an RNNConfig from config file
+        :param file_or_dict: path of the config file
+        :return: an instance of RNNConfig
+        """
+        if isinstance(file_or_dict, dict):
+            config_dict = file_or_dict['model']
+        else:
+            with open(file_or_dict) as f:
+                try:
+                    config_dict = yaml.safe_load(f)['model']
+                except:
+                    raise ValueError("Malformat of config file!")
+        return RNNConfig(**config_dict)
 
 
-def build_rnn(config):
-    """
-    Build a RNN from config
-    :param config:
-    :return:
-    """
-    if isinstance(config, str):
-        config = RNNConfig.load(config)
-    assert isinstance(config, RNNConfig)
-    model = rnn.RNN(config.name, config.initializer)
-    model.set_input([None], config.input_dtype, config.vocab_size, config.embedding_size)
-    for cell in config.cells:
-        model.add_cell(config.cell, **cell)
-    model.set_output([None, config.vocab_size], tf.float32)
-    model.set_target([None], config.target_dtype)
-    model.set_loss_func(config.loss_func)
-    model.compile()
-    return model
+def parse_lr_from_config(lr):
+    if isinstance(lr, str):
+        try:
+            func = eval(lr)
+        except:
+            raise ValueError('If learning_rate is a str, it should be a lambda expression of form f(epoch) -> rate')
+
+    elif isinstance(lr, dict):
+        try:
+            func = trainer.get_lr_decay(lr['decay'], **lr['decay_args'])
+        except:
+            raise ValueError('If learning_rate is a dict, it should has keys "decay" and "decay_args"')
+    else:
+        try:
+            func = float(lr)
+        except:
+            raise ValueError('Mal-format for a input learning_rate, it should be a number, '
+                             'a str of lambda expression, or a dict specifying tf learning_rate_decay')
+    return func
 
 
 class TrainConfig(object):
     """Manage configurations for Training"""
     def __init__(self, **kwargs):
         self.__dict__.update(kwargs)
+        self.clipper = trainer.get_gradient_clipper(self.gradient_clip, **self.gradient_clip_args)
+        self.lr = parse_lr_from_config(self.learning_rate)
 
     @staticmethod
-    def load(file_path):
-        with open(file_path) as f:
-            config_dict = yaml.safe_load(f)['train']
-            return TrainConfig(**config_dict)
+    def load(file_or_dict):
+        """
+        Load an TrainConfig from config file
+        :param file_path: path of the config file
+        :return: an instance of TrainConfig
+        """
+        if isinstance(file_or_dict, dict):
+            config_dict = file_or_dict['train']
+        else:
+            with open(file_or_dict) as f:
+                try:
+                    config_dict = yaml.safe_load(f)['train']
+                except:
+                    raise ValueError("Malformat of config file!")
+        return TrainConfig(**config_dict)

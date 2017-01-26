@@ -161,10 +161,10 @@ class Trainer(object):
                     init = tf.group(tf.global_variables_initializer(),
                                     tf.local_variables_initializer())
                     self.session.run(tf.variables_initializer(
-                        tf.get_collection_ref('is_training')))
+                        tf.get_collection_ref('is_training')), )
                 except Exception as e:
                     init = tf.initialize_all_variables()
-                self.session.run(init)
+                self.session.run(init, )
 
     def fit(self, feed_dicts, n_epoch=10, val_feed_dicts=None, show_metric=False,
             snapshot_step=None, snapshot_epoch=True, shuffle_all=None,
@@ -338,7 +338,7 @@ class Trainer(object):
                             caller.on_sub_batch_end(self.training_state, i)
 
                         # All optimizers batch end
-                        self.session.run(self.incr_global_step)
+                        self.session.run(self.incr_global_step, )
                         caller.on_batch_end(self.training_state, snapshot)
 
                     # Epoch end
@@ -775,8 +775,7 @@ class TrainOp(object):
 
         feed_batch = self.train_dflow.next()
         tflearn.is_training(True, session=self.session)
-        _, train_summ_str = self.session.run([self.train, self.summ_op],
-                                             feed_batch)
+        _, train_summ_str = self.session.run([self.train, self.summ_op], feed_batch, )
 
         # Retrieve loss value from summary string
         sname = "Loss/" + self.scope_name
@@ -825,10 +824,10 @@ class TrainOp(object):
                 for vmp, vmv in zip(self.val_monitors_P, self.validation_monitor_values):
                     update_val_feed[vmp] = vmv
 
-            self.session.run(update_val_op, feed_dict=update_val_feed)
+            self.session.run(update_val_op, targets=update_val_feed, epoch_size=null, sess=null, run_ops=)
 
             # Run summary operation.
-            test_summ_str = self.session.run(self.val_summary_op)
+            test_summ_str = self.session.run(self.val_summary_op, )
 
         # Write to Tensorboard
         # TODO: Delete?
@@ -942,7 +941,7 @@ def evaluate_flow(session, ops_to_evaluate, dataflow):
     feed_batch = dataflow.next()
 
     while feed_batch:
-        r = session.run(ops_to_evaluate, feed_batch)
+        r = session.run(ops_to_evaluate, feed_batch, )
         current_batch_size = get_current_batch_size(feed_batch, dataflow)
         for i in range(len(r)):
             res[i] += r[i] * current_batch_size
@@ -981,7 +980,7 @@ def evaluate(session, op_to_evaluate, feed_dict, batch_size):
                 feed_batch[key] = slice_array(feed_dict[key], batch_ids)
             else:
                 feed_batch[key] = feed_dict[key]
-        avg += session.run(op_to_evaluate, feed_batch) / len(batches)
+        avg += session.run(op_to_evaluate, feed_batch, ) / len(batches)
     return avg
 
 
