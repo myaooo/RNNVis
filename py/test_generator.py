@@ -6,7 +6,7 @@ import os
 import tensorflow as tf
 from py.procedures import build_model, init_tf_environ
 from py.datasets.data_utils import load_data_as_ids
-from utils.io_utils import save2csv
+from py.utils.io_utils import save2csv
 
 
 flags = tf.flags
