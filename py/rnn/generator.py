@@ -22,13 +22,12 @@ class GenerateNode(TreeNode):
 
 class Generator(object):
 
-    def __init__(self, rnn_model, word_to_id):
+    def __init__(self, rnn_, word_to_id):
         """
-        :param rnn_model: The RNNModel instance to run with
+        :param rnn_: An RNN instance
         """
-        assert isinstance(rnn_model, rnn.RNNModel)
-        assert rnn_model.batch_size == 1  # currently only support one batch
-        self.model = rnn_model
+        assert isinstance(rnn_, rnn.RNN)
+        self.model = rnn_.unroll(1, 1, name='generator')
         self.word_to_id = word_to_id
         self.id_to_word = {id_: word for word, id_ in word_to_id.items()}
 
@@ -71,8 +70,10 @@ class Generator(object):
                 return
             prev_prob = node.prob
             # The second inputs is just to hold place. See the implementation of model.run()
-            outputs = model.run([node.word_id], None, 1, sess, eval_ops={'projected': model.projected_outputs})
-
+            evals, _ = model.run(np.array(node.word_id).reshape(1, 1), None, 1, sess,
+                                 eval_ops={'projected': model.projected_outputs})
+            outputs = evals['projected'][0].reshape(-1)
+            outputs = rnn.softmax(outputs)
             # Get sorted k max probs and their ids
             max_id = np.argpartition(-outputs, max_branch)[:max_branch]
             cond_probs = outputs[max_id]
