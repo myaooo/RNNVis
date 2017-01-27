@@ -104,7 +104,7 @@ class Generator(object):
             for word_id, cond_prob in zip(max_id, cond_probs):
                 new_node = GenerateNode(word_id, cond_prob*prev_prob, cond_prob)
                 tree.add_node(new_node, node)
-            for child in node.children:
+            for child in tree.get_children(node):
                 _generate(child, step+1)
 
         _generate(tree.get_root(), 0)
