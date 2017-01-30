@@ -1,0 +1,25 @@
+model:
+  name: LSTM-LARGE
+  initializer_name: random_uniform
+  initializer_args:
+    minval: -0.05
+    maxval: 0.05
+  input_dtype: int32
+  target_dtype: int32
+  vocab_size: 10000
+  embedding_size: 800
+  cell_type: BasicLSTM
+  cells:
+    - num_units: 800
+    - num_units: 800
+  loss_func: sequence_loss
+train:
+  epoch_num: 50
+  num_steps: 40
+  batch_size: 20
+  keep_prob: 0.4
+  gradient_clip: global_norm
+  gradient_clip_args:
+    clip_norm: 10.0
+  optimizer: GradientDescent
+  learning_rate: "lambda epoch: 1.1 *(1.0 if epoch < 9 else 0.85**(epoch-9))"
