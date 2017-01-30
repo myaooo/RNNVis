@@ -13,6 +13,7 @@ from py.datasets.data_utils import Feeder
 from .command_utils import data_type, config_proto
 from .evaluator import Evaluator
 from .trainer import Trainer
+from .generator import Generator
 
 BasicRNNCell = tf.nn.rnn_cell.BasicRNNCell
 BasicLSTMCell = tf.nn.rnn_cell.BasicLSTMCell
@@ -25,6 +26,19 @@ InputProjectionWrapper = tf.nn.rnn_cell.InputProjectionWrapper
 OutputProjectionWrapper = tf.nn.rnn_cell.OutputProjectionWrapper
 
 int32 = tf.int32
+
+
+def softmax(x, axis=None):
+    if axis is None:
+        x_max = np.max(x)
+        e_x = np.exp(x - x_max)
+        return e_x / np.sum(e_x)
+    if axis == 1:
+        x = x.T
+    x_max = np.max(x, axis=0)
+    e_x = np.exp(x - x_max)
+    sm = e_x / np.sum(e_x, axis=0)
+    return sm if axis == 0 else sm.T
 
 
 def sequence_loss(outputs, targets):
@@ -241,9 +255,6 @@ class RNNModel(object):
                 projected.append(_projected)
             projected_outputs = np.vstack(projected)
 
-        def softmax(x, axis=1):
-            e_x = np.exp(x.T - np.max(x, axis=axis).reshape([-1, 1]))
-            return e_x / e_x.sum(axis=axis).reshape([-1, 1])
         # do softmax
         return softmax(projected_outputs, axis=1)
 
@@ -274,6 +285,7 @@ class RNN(object):
         self.trainer = None
         self.evaluator = None
         self.validator = None
+        self.generator = None
         self.loss_func = None
         self.is_compiled = False
         self.embedding_size = None
@@ -420,6 +432,12 @@ class RNN(object):
             with tf.device("/cpu:0"):
                 self.evaluator = Evaluator(self, batch_size, record_every, log_state, log_input, log_output)
 
+    def add_generator(self, word_to_id):
+        assert self.generator is None
+        with self.graph.as_default():
+            with tf.device("/cpu:0"):
+                self.generator = Generator(self, word_to_id)
+
     def train(self, inputs, targets, epoch_size, epoch_num, valid_inputs=None, valid_targets=None,
               valid_epoch_size=None, verbose=True):
         """
@@ -460,6 +478,15 @@ class RNN(object):
             with self.supervisor.managed_session(config=config_proto()) as sess:
                 logdir = os.path.join(self.logdir, "./evaluate") if logdir is None else logdir
                 self.evaluator.evaluate(inputs, targets, epoch_size, sess, record=True, verbose=True, logdir=logdir)
+
+    def generate(self, seed_id, logdir, max_branch=3, accum_cond_prob=0.9,
+                 min_cond_prob=0.1, min_prob=0.001, max_step=10):
+        assert self.is_compiled
+        with self.graph.as_default():
+            self.finalize()
+            with self.supervisor.managed_session(config=config_proto()) as sess:
+                self.generator.generate(sess, seed_id, logdir, max_branch,
+                                        accum_cond_prob, min_cond_prob, min_prob, max_step)
 
     def save(self, path=None):
         """

@@ -22,13 +22,12 @@ class GenerateNode(TreeNode):
 
 class Generator(object):
 
-    def __init__(self, rnn_model, word_to_id):
+    def __init__(self, rnn_, word_to_id):
         """
-        :param rnn_model: The RNNModel instance to run with
+        :param rnn_: An RNN instance
         """
-        assert isinstance(rnn_model, rnn.RNNModel)
-        assert rnn_model.batch_size == 1  # currently only support one batch
-        self.model = rnn_model
+        assert isinstance(rnn_, rnn.RNN)
+        self.model = rnn_.unroll(1, 1, name='generator')
         self.word_to_id = word_to_id
         self.id_to_word = {id_: word for word, id_ in word_to_id.items()}
 
@@ -45,13 +44,26 @@ class Generator(object):
             words.append(self.id_to_word[i])
         return words
 
-    def generate(self, sess, seed, logdir, max_branch=3, accum_cond_prob=0.9,
+    def get_id_from_word(self, words):
+        """
+        Retrieve the ids from words
+        :param words: a list of words
+        :return: a list of corresponding ids
+        """
+        if isinstance(words, str):
+            return self.word_to_id[words.lower()]
+        ids = []
+        for word in words:
+            ids.append(self.word_to_id[word.lower()])
+        return ids
+
+    def generate(self, sess, seeds, logdir, max_branch=3, accum_cond_prob=0.9,
                  min_cond_prob=0.1, min_prob=0.001, max_step=10):
         """
         Generate sequence tree with given seed (a word_id) and certain requirements
         Note that the method always try to generate as much branches as possible.
         :param sess: the sess to run the model
-        :param seed: a word_id
+        :param seeds: a list of word_id or a list of words
         :param logdir: the file path to save the generating tree
         :param max_branch: the maximum number of branches at each node
         :param accum_cond_prob: the maximum accumulate conditional probability of the following branches
@@ -64,15 +76,28 @@ class Generator(object):
         model = self.model
         model.init_state(sess)
         tree = Tree()
-        tree.add_node(GenerateNode(seed, 1.0, 1.0), None)
+        # converts words into ids
+        if (not isinstance(seeds, list)) or len(seeds) < 1:
+            raise ValueError("seeds should be a list of words or ids")
+        if isinstance(seeds[0], str):
+            _seeds = self.get_id_from_word(seeds)
+            seeds = _seeds
+        parent = GenerateNode(seeds[0], 1.0, 1.0)
+        tree.add_node(parent, None)
+        for seed in seeds[1:]:
+            node = GenerateNode(seed, 1.0, 1.0)
+            tree.add_node(node, parent)
+            parent = node
 
         def _generate(node, step):
             if step > max_step:  # Already at the maximum generating step
                 return
             prev_prob = node.prob
             # The second inputs is just to hold place. See the implementation of model.run()
-            outputs = model.run([node.word_id], None, 1, sess, eval_ops={'projected': model.projected_outputs})
-
+            evals, _ = model.run(np.array(node.word_id).reshape(1, 1), None, 1, sess,
+                                 eval_ops={'projected': model.projected_outputs})
+            outputs = evals['projected'][0].reshape(-1)
+            outputs = rnn.softmax(outputs)
             # Get sorted k max probs and their ids
             max_id = np.argpartition(-outputs, max_branch)[:max_branch]
             cond_probs = outputs[max_id]
@@ -101,13 +126,14 @@ class Generator(object):
                 return
             max_id = max_id[:len(cond_probs)]
             for word_id, cond_prob in zip(max_id, cond_probs):
-                new_node = GenerateNode(word_id, cond_prob*prev_prob, cond_prob)
+                new_node = GenerateNode(int(word_id), float(cond_prob*prev_prob), float(cond_prob))
                 tree.add_node(new_node, node)
-            for child in node.children:
+            for child in tree.get_children(node):
                 _generate(child, step+1)
 
-        _generate(tree.get_root(), 0)
+        _generate(parent, len(seeds))
         for node in tree.nodes():
             node.word = self.get_word_from_id(node.word_id)
+        # print(tree.as_dict())
         save2json(tree.as_dict(), logdir)
 
