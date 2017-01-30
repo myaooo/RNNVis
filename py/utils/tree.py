@@ -128,6 +128,7 @@ class Tree(object):
         tree_dict = {'root_id': self.root_id}
         nodes = {}
         for node in self._dict.values():
+            # print(node.as_dict())
             nodes.update(node.as_dict())
         tree_dict['nodes'] = nodes
         return tree_dict
