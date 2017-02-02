@@ -34,7 +34,7 @@ if __name__ == '__main__':
 
     model, train_config = build_model(config_path())
     _, word_to_id = load_data_as_ids([os.path.join(data_path(), "ptb.train.txt")])
-    save2csv([[s, v] for s, v in word_to_id.items()], os.path.join(data_path(), 'word_to_id.csv'))
+    save2csv([[s, v] for s, v in word_to_id.items()], os.path.join(data_path(), 'word_to_id.csv'), " ")
     model.add_generator(word_to_id)
     model.restore()
     model.generate(['I', 'like'], 'test.json', max_branch=3, accum_cond_prob=0.9,

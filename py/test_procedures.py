@@ -7,7 +7,6 @@ $ tar xvf simple-examples.tgz
 
 from .procedures import build_model, init_tf_environ, produce_ptb_data
 from .datasets.data_utils import InputProducer
-from .datasets.ptb_reader import ptb_raw_data
 from tensorflow import flags
 
 flags.DEFINE_string("config_path", None, "The path of the model configuration file")
@@ -40,13 +39,12 @@ if __name__ == '__main__':
     init_tf_environ()
     print('Building model..')
     model, train_config = build_model(config_path())
-    data_producers = produce_ptb_data(data_path(),train_config, valid=True, test=True)
 
     epoch_num = train_config.epoch_num
     keep_prob = train_config.keep_prob
-    print('Preparing data..')
-    train_data, valid_data, test_data, word_to_id = ptb_raw_data(data_path())
 
+    print('Preparing data..')
+    data_producers = produce_ptb_data(data_path(), train_config, valid=True, test=True)
     train_inputs, train_targets, epoch_size = data_producers[0]
     valid_inputs, valid_targets, valid_epoch_size = data_producers[1]
 
