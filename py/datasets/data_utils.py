@@ -58,6 +58,23 @@ class InputProducer(object):
         return Feeder(self.data, num_steps, offset, epoch_num, transpose)
 
 
+def split(data_list, fractions=None, shuffle=False):
+    if shuffle:
+        raise NotImplementedError("No support of text data shuffling!")
+    if fractions is None:
+        fractions = [0.9, 0.05, 0.05]
+    assert sum(fractions) <= 1.0
+    total_size = len(data_list)
+    splitted = []
+    start = 0.0
+    for i in fractions:
+        end = start + i
+        splitted.append(data_list[int(start*total_size):int(end*total_size)])
+        start = end
+        # print(start)
+    return splitted
+
+
 def read_words(filename):
     with tf.gfile.GFile(filename, "r") as f:
         return f.read().decode("utf-8").replace("\n", "<eos>").split()
