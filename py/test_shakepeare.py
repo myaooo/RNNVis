@@ -42,7 +42,7 @@ if __name__ == '__main__':
     keep_prob = train_config.keep_prob
     print('Preparing data..')
     processor = PlainTextProcessor(data_path())
-    processor.tag_rare_word(1, 10000)
+    processor.tag_rare_word(1, train_config.vocab_size)
     processor.save()
     split_data = split(processor.flat_ids, [0.9, 0.05, 0.05])
     train, valid, test = tuple(split_data)
