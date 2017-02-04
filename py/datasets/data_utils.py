@@ -114,34 +114,34 @@ def data_batcher(raw_data, batch_size):
     return data
 
 
-def data_feeder(batched_data, num_steps, shift=0, name=None):
-    """Iterate on the raw data. Borrowed from TensorFlow code
-
-    This returns Tensors that are drawn from raw_data.
-
-    Args:
-    raw_data: data with shape [batch_len, batch_size]
-    num_steps: int, the number of unrolls.
-    name: the name of this operation (optional).
-
-    Returns:
-    A Tensor shaped [num_steps, batch_size].
-
-    """
-    with tf.name_scope(name, "data_feeder", [batched_data, num_steps]):
-        batch_len = tf.shape(batched_data)[0]
-        batch_size = tf.shape(batched_data)[1]
-        epoch_size = (batch_len - 1) // num_steps
-        # assertion = tf.assert_positive(
-        #     epoch_size,
-        #     message="epoch_size == 0, decrease batch_size or num_steps")
-        # with tf.control_dependencies([assertion]):
-        #     epoch_size = tf.identity(epoch_size, name="epoch_size")
-
-        i = tf.train.range_input_producer(epoch_size, shuffle=False).dequeue()
-        x = tf.slice(batched_data, [i * num_steps + shift, 0], [num_steps, batch_size])
-        # y = tf.slice(data, [0, i * num_steps + 1], [batch_size, num_steps])
-        return x
+# def data_feeder(batched_data, num_steps, shift=0, name=None):
+#     """Iterate on the raw data. Borrowed from TensorFlow code
+#
+#     This returns Tensors that are drawn from raw_data.
+#
+#     Args:
+#     raw_data: data with shape [batch_len, batch_size]
+#     num_steps: int, the number of unrolls.
+#     name: the name of this operation (optional).
+#
+#     Returns:
+#     A Tensor shaped [num_steps, batch_size].
+#
+#     """
+#     with tf.name_scope(name, "data_feeder", [batched_data, num_steps]):
+#         batch_len = tf.shape(batched_data)[0]
+#         batch_size = tf.shape(batched_data)[1]
+#         epoch_size = (batch_len - 1) // num_steps
+#         # assertion = tf.assert_positive(
+#         #     epoch_size,
+#         #     message="epoch_size == 0, decrease batch_size or num_steps")
+#         # with tf.control_dependencies([assertion]):
+#         #     epoch_size = tf.identity(epoch_size, name="epoch_size")
+#
+#         i = tf.train.range_input_producer(epoch_size, shuffle=False).dequeue()
+#         x = tf.slice(batched_data, [i * num_steps + shift, 0], [num_steps, batch_size])
+#         # y = tf.slice(data, [0, i * num_steps + 1], [batch_size, num_steps])
+#         return x
 
 
 def load_data_as_ids(data_paths, word_to_id_path=None):

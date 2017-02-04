@@ -15,6 +15,7 @@ flags = tf.flags
 flags.DEFINE_string("config_path", None, "The path of the model configuration file")
 flags.DEFINE_string("data_path", None, "The path of the input data")
 flags.DEFINE_string("log_path", None, "The path to save the log")
+flags.DEFINE_integer('gpu_num', 1, "The code of the gpu to use, -1 to use no gpu.")
 FLAGS = flags.FLAGS
 
 
@@ -48,7 +49,7 @@ def test_lr_decay(epoch):
 
 if __name__ == '__main__':
 
-    init_tf_environ()
+    init_tf_environ(FLAGS.gpu_num)
     train_steps = 20
     batch_size = 20
     epoch_num = 20

@@ -11,6 +11,7 @@ flags = tf.flags
 flags.DEFINE_string("config_path", None, "The path of the model configuration file")
 flags.DEFINE_string("data_path", None, "The path of the input data")
 flags.DEFINE_string("log_path", None, "The path to save the log")
+flags.DEFINE_integer('gpu_num', -1, "The code of the gpu to use, -1 to use no gpu.")
 FLAGS = flags.FLAGS
 
 
@@ -25,6 +26,7 @@ def data_path():
 def log_path():
     return FLAGS.log_path
 
+
 def test_data_producer(data, batch_size, num_steps):
     # train_data = valid_data
     producer = InputProducer(data, batch_size)
@@ -32,8 +34,9 @@ def test_data_producer(data, batch_size, num_steps):
     targets = producer.get_feeder(num_steps, offset=1, transpose=True)
     return inputs, targets, inputs.epoch_size
 
+
 if __name__ == '__main__':
-    init_tf_environ()
+    init_tf_environ(FLAGS.gpu_num)
     print('Preparing data')
     train_data, valid_data, test_data, vocab_size = ptb_raw_data(data_path())
 

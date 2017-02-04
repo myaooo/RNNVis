@@ -8,7 +8,7 @@ import tensorflow as tf
 import numpy as np
 from . import rnn
 from py.utils.tree import TreeNode, Tree
-from py.utils.io_utils import save2json
+from py.utils.io_utils import dict2json
 
 
 tf.GraphKeys.EVAL_SUMMARIES = "eval_summarys"

@@ -1,12 +1,11 @@
 """
-The data required for this example is in the data/ dir of the
-PTB datasets from Tomas Mikolov's webpage:
-$ wget http://www.fit.vutbr.cz/~imikolov/rnnlm/simple-examples.tgz
-$ tar xvf simple-examples.tgz
+Tests text_processor and training on tiny shakespeare data
 """
 
-from .procedures import build_model, init_tf_environ, produce_ptb_data
-from .datasets.data_utils import InputProducer
+
+from .procedures import build_model, init_tf_environ
+from .datasets.data_utils import InputProducer, split
+from .datasets.text_processor import PlainTextProcessor
 from tensorflow import flags
 
 flags.DEFINE_string("config_path", None, "The path of the model configuration file")
@@ -40,14 +39,21 @@ if __name__ == '__main__':
     init_tf_environ(FLAGS.gpu_num)
     print('Building model..')
     model, train_config = build_model(config_path())
-
     epoch_num = train_config.epoch_num
     keep_prob = train_config.keep_prob
-
     print('Preparing data..')
-    data_producers = produce_ptb_data(data_path(), train_config, valid=True, test=True)
-    train_inputs, train_targets, epoch_size = data_producers[0]
-    valid_inputs, valid_targets, valid_epoch_size = data_producers[1]
+    processor = PlainTextProcessor(data_path())
+    processor.tag_rare_word(1, train_config.vocab_size)
+    processor.save()
+    split_data = split(processor.flat_ids, [0.9, 0.05, 0.05])
+    train, valid, test = tuple(split_data)
+    # print(valid)
+
+    train_inputs, train_targets, epoch_size = test_data_producer(train, train_config.batch_size, train_config.num_steps)
+    valid_inputs, valid_targets, valid_epoch_size = \
+        test_data_producer(valid, train_config.batch_size, train_config.num_steps)
+    test_inputs, test_targets, test_epoch_size = \
+        test_data_producer(test, 1, train_config.num_steps)
 
     print('Start Training')
     model.train(train_inputs, train_targets, epoch_size, epoch_num,

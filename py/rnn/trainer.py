@@ -116,7 +116,7 @@ class Trainer(object):
         if callable(learning_rate):
             self.decay = learning_rate
         else:
-            self._lr = learning_rate
+            self._lr = tf.Variable(learning_rate, dtype=tf.float32, trainable=False)
             self.decay = None
         with tf.name_scope("Train"):
             if self.decay is not None:

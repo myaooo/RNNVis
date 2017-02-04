@@ -10,13 +10,18 @@ from py.rnn.command_utils import data_type
 from py.rnn.rnn import RNN
 from py.datasets.data_utils import load_data_as_ids, get_data_producer
 
-flags = tf.flags
-flags.DEFINE_integer('gpu_num', 1, "The number of gpu to use.")
-FLAGS = flags.FLAGS
 
-
-def init_tf_environ():
-    os.environ["CUDA_VISIBLE_DEVICES"] = str(FLAGS.gpu_num)
+def init_tf_environ(gpu_num=-1):
+    """
+    Init Cuda environments, which specify which gpu to use
+    :param gpu_num:
+    :return:
+    """
+    if gpu_num == -1:
+        cuda_devices = ""
+    else:
+        cuda_devices = str(gpu_num)
+    os.environ["CUDA_VISIBLE_DEVICES"] = cuda_devices
     # if FLAGS.gpu_num == 0 else "0,1,2,3"[:(FLAGS.gpu_num * 2 - 1)]
 
 
