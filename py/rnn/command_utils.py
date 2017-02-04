@@ -36,7 +36,7 @@ def data_type():
 
 def config_proto():
     gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=FLAGS.gpu_memory)
-    return tf.ConfigProto(device_count={"GPU": FLAGS.gpu_num}, gpu_options=gpu_options)
+    return tf.ConfigProto(gpu_options=gpu_options)
 
 
 # Nvidia-smi GPU memory parsing.
