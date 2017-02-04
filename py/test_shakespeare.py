@@ -11,6 +11,7 @@ from tensorflow import flags
 flags.DEFINE_string("config_path", None, "The path of the model configuration file")
 flags.DEFINE_string("data_path", None, "The path of the input data")
 flags.DEFINE_string("log_path", None, "The path to save the log")
+flags.DEFINE_integer('gpu_num', 1, "The code of the gpu to use, -1 to use no gpu.")
 FLAGS = flags.FLAGS
 
 
@@ -35,14 +36,14 @@ def test_data_producer(data, batch_size, num_steps):
 
 if __name__ == '__main__':
 
-    init_tf_environ()
+    init_tf_environ(FLAGS.gpu_num)
     print('Building model..')
     model, train_config = build_model(config_path())
     epoch_num = train_config.epoch_num
     keep_prob = train_config.keep_prob
     print('Preparing data..')
     processor = PlainTextProcessor(data_path())
-    processor.tag_rare_word(1, model.vocab_size)
+    processor.tag_rare_word(1, train_config.vocab_size)
     processor.save()
     split_data = split(processor.flat_ids, [0.9, 0.05, 0.05])
     train, valid, test = tuple(split_data)
