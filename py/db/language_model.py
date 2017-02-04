@@ -1,5 +1,5 @@
 """
-Use MongoDB to manage all the datasets
+Use MongoDB to manage all the language modeling datasets
 """
 
 import os
@@ -9,7 +9,6 @@ from py.utils.io_utils import dict2json, get_path
 from py.datasets.data_utils import load_data_as_ids, split
 from py.datasets.text_processor import PlainTextProcessor
 from py.db import mongo
-
 
 db_name = 'language_model'
 collections = {

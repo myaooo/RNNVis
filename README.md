@@ -4,3 +4,23 @@ A visualization tool for understanding and debugging RNNs.
 ## Goals
 The major goal of this project is to explore possible ways to help better unerstanding of RNN models (Vanilla RNN, LSTM, GRU, etc.)
 and help practitioners to debug their model and data, and help reasearchers improve model architecture and performances.
+
+## Setup
+
+1. Install TensorFlow r0.12 (gpu is also supported)
+
+2. to install all the dependency packages, under the project dir, run:
+ 
+    `pip install -r requirements.txt` 
+
+3. Data sets are already in the cached_data dir.
+
+## Usage
+
+1. Run tests on PTB datasets to see whether the code runs normally: 
+
+    `python -m py.test_language_model --config_path=./config/lstm.yml --data_path=./cached_data/simple-examples/data`
+
+2. For a well performed model, and use pre-defined procedures, run:
+
+    `python -m py.test_procedures --config_path=./config/lstm-large3.yml --data_path=./cached_data/simple-examples/data`
