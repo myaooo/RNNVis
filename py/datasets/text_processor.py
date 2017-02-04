@@ -3,7 +3,7 @@ Helper class and functions for text data using ![NLTK](www.nltk.org)
 """
 
 from collections import Counter
-from py.utils.io_utils import path_exists, save2csv, save2text, text2list, csv2list
+from py.utils.io_utils import path_exists, lists2csv, save2text, text2list, csv2list
 
 
 class PlainTextProcessor(object):
@@ -131,17 +131,17 @@ class PlainTextProcessor(object):
             name = self.file_path
         ids = name+'.ids.csv'
         print('saving ids to {:s}'.format(ids))
-        save2csv(self.ids, ids, delimiter=' ')
+        lists2csv(self.ids, ids, delimiter=' ')
         dictionary = name+'.dict.csv'
         print('saving dictionary to {:s}'.format(dictionary))
-        save2csv([[word, i] for word, i in self.word_to_id.items()], dictionary, " ")
+        lists2csv([[word, i] for word, i in self.word_to_id.items()], dictionary, " ")
 
     @staticmethod
     def load(text_file):
         ids = text_file + '.ids.csv'
         dictionary = text_file + '.dict.csv'
         proc = PlainTextProcessor(text_file)
-        proc._ids = save2csv(ids, " ")
+        proc._ids = lists2csv(ids, " ")
         dict_list = csv2list(dictionary, " ")
         proc._word_to_id = {e[0]: e[1] for e in dict_list}
         return proc
