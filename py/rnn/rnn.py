@@ -479,14 +479,14 @@ class RNN(object):
                 logdir = os.path.join(self.logdir, "./evaluate") if logdir is None else logdir
                 self.evaluator.evaluate(inputs, targets, epoch_size, sess, record=True, verbose=True, logdir=logdir)
 
-    def generate(self, seed_id, logdir, max_branch=3, accum_cond_prob=0.9,
-                 min_cond_prob=0.1, min_prob=0.001, max_step=10):
+    def generate(self, seed_id, logdir, max_branch=1, accum_cond_prob=0.9,
+                 min_cond_prob=0.0, min_prob=0.0, max_step=20):
         assert self.is_compiled
         with self.graph.as_default():
             self.finalize()
             with self.supervisor.managed_session(config=config_proto()) as sess:
-                self.generator.generate(sess, seed_id, logdir, max_branch,
-                                        accum_cond_prob, min_cond_prob, min_prob, max_step)
+                return self.generator.generate(sess, seed_id, logdir, max_branch,
+                                               accum_cond_prob, min_cond_prob, min_prob, max_step)
 
     def save(self, path=None):
         """

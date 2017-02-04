@@ -135,5 +135,5 @@ class Generator(object):
         for node in tree.nodes():
             node.word = self.get_word_from_id(node.word_id)
         # print(tree.as_dict())
-        dict2json(tree.as_dict(), logdir)
+        return dict2json(tree.as_dict(), logdir)
 

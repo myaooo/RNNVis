@@ -19,7 +19,7 @@ def get_path(path, file_name=None):
     :param file_name: an optional file name under the path
     :return: an abs path of the request file / path
     """
-    _p = os.path.join(base_dir, path)
+    _p = os.path.abspath(os.path.join(base_dir, path))
     if file_name:
         return os.path.join(_p, file_name)
     return _p
@@ -49,7 +49,7 @@ def dict2json(dict_, file_path=None):
     with io.StringIO() as s_io:
         json.dump(dict_, s_io)
         if file_path is None:
-            return s_io
+            return s_io.getvalue()
         write2file(s_io, file_path, 'w')
 
 
