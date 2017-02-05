@@ -5,9 +5,13 @@ Use MongoDB to manage all the language modeling datasets
 import os
 import json
 import pickle
+import hashlib
 
 import yaml
 import numpy as np
+from pymongo import ReturnDocument
+from bson.binary import Binary
+from bson.objectid import ObjectId
 
 from py.utils.io_utils import dict2json, get_path
 from py.datasets.data_utils import load_data_as_ids, split
@@ -25,27 +29,34 @@ collections = {
               'data': (list, '', 'a list of word_ids (int32), valid data')},
     'test': {'name': (str, 'unique', 'name of the dataset'),
              'data': (list, '', 'a list of word_ids (int32), test data')},
-    'eval': {'word_to_id': (str, '', 'name of the dataset'),
+    'eval': {'name': (str, '', 'name of the dataset'),
              'tag': (str, 'unique', 'a unique tag of hash of the evaluating text sequence'),
              'data': (list, '', 'a list of word_ids (int32), eval text'),
              'model': (str, '', 'the identifier of the model that the sequence evaluated on'),
              'records': (list, '', 'a list of ObjectIds of the records')},
     'record': {'word_id': (str, '', 'word_id in the word_to_id values'),
-               'state': (np.ndarray, 'optional', 'hidden state np.ndarray')},
+               'state': (np.ndarray, 'optional', 'hidden state np.ndarray'),
+               'state_c': (np.ndarray, 'optional', 'hidden state np.ndarray'),
+               'state_h': (np.ndarray, 'optional', 'hidden state np.ndarray'),
+               'output': (np.ndarray, '', 'raw output (unprojected)')},
+    'model': {'name': (str, '', 'identifier of a trained model'),
+              'data_name': (str, '', 'name of the datasets that the model uses')}
 }
 
 db_hdlr = mongo[db_name]
 
 
-def get_data_by_name(name):
+def get_datasets_by_name(name, fields=None):
     complete_data = {}
-    for c_name in ['word_to_id', 'train', 'valid', 'test']:
+    fields = ['word_to_id', 'train', 'valid', 'test'] if fields is None else fields
+    for c_name in fields:
         results = db_hdlr[c_name].find_one({'name': name})
         if results is None:
             print('WARN: No data in collection {:s} of db {:s} named {:s}'.format(c_name, db_name, name))
             return None
         complete_data[c_name] = results['data']
-    complete_data['word_to_id'] = json.loads(complete_data['word_to_id'])
+    if 'word_to_id' in complete_data:
+        complete_data['word_to_id'] = json.loads(complete_data['word_to_id'])
     return complete_data
 
 
@@ -112,8 +123,8 @@ def _insert_one_if_not_exists(c_name, filter_, data):
 
 
 def _replace_one_if_exists(c_name, filter_, data):
-    results = db_hdlr[c_name].replace_one(filter_, data, upsert=True)
-    if results.upserted_id is None:
+    results = db_hdlr[c_name].find_one_and_replace(filter_, data, upsert=True, return_document=ReturnDocument.AFTER)
+    if results is not None:
         print('WARN: a document with signature {:s} in the collection {:s} of db {:s} has been replaced'
               .format(str(filter_), c_name, db_name))
     return results
@@ -133,6 +144,92 @@ def seed_db():
                 store_ptb(data_dir, seed['name'])
             elif seed['type'] == 'text':
                 store_plain_text(data_dir, seed['name'], **seed['scheme'])
+
+
+def insert_evaluation(data_name, model_name, eval_text_tokens):
+    """
+    Add an evaluation record to the 'eval' collection, with given data_name, model_name and a list of word tokens
+    :param data_name: name of the datasets, should be in word_to_id collection
+    :param model_name: name of the model, identifier
+    :param eval_text_tokens: a list of word tokens
+    :return: the ObjectId of the inserted evaluation document
+    """
+    word_to_id = get_datasets_by_name(data_name, ['word_to_id'])['word_to_id']
+    try:
+        eval_ids = [word_to_id[token] for token in eval_text_tokens]
+    except:
+        print('token and dictionary not match!')
+        raise
+    tag = hash_tag_str(eval_text_tokens)
+    filt = {'name': db_name, 'tag': tag, 'model': model_name}
+    data = {'data': eval_ids}
+    data.update(filt)
+    doc = _replace_one_if_exists('eval', filt, data)
+    return doc['_id']
+
+
+def push_evaluation_record(eval_id, record):
+    """
+    Add a detailed record (of one step) of evaluation into db, and update the corresponding doc in 'eval'
+    :param eval_id: the ObjectId returned by insert_evaluation()
+    :param record: a dict of record to be inserted
+    :return: a pair of results (insert_one_result, update_result)
+    """
+    # check
+    assert 'word_id' in record
+    # convert np.ndarry into binary
+    for key, value in record.items():
+        if isinstance(value, np.ndarray):
+            record[key] = Binary(pickle.dumps(value, protocol=3))
+        elif isinstance(value, str):
+            pass
+        else:
+            print('Unkown type {:s}'.format(str(type(value))))
+    result = db_hdlr['record'].insert_one(record)
+    update_result = db_hdlr['eval'].update_one({'_id', eval_id}, {'$push': {'records': result.inserted_id}})
+    return result, update_result
+
+
+def query_evaluation_record(eval_, range_, data_name=None, model_name=None):
+    """
+    Query for the evaluation records
+    :param eval_: a eval_id of type ObjectId, or a list of tokens, or a hash tag of the tokens
+    :param range_: a range object, specifying the range of indices of records
+    :param data_name: optional, when `eval` is not a ObjectId, this field should be filled
+    :param model_name: optional, when `eval` is not a ObjectId, this field should be filled
+    :return: a list of records
+    """
+    if isinstance(eval_, ObjectId):
+        # ignoring data_name and model_name
+        eval_record = db_hdlr['eval'].find_one({'_id': eval_})
+    else:
+        if isinstance(eval_, list):
+            try:
+                tag = hash_tag_str(eval_)
+            except:
+                print("Unable to hash the eval_ list!")
+                raise
+        elif isinstance(eval_, str):
+            tag = eval_
+        else:
+            raise TypeError("Expecting type ObjectId, list or str, but receive type {:s}".format(str(type(eval_))))
+        eval_record = db_hdlr['eval'].find_one({'tag':tag, 'name': data_name, 'model': model_name})
+    ids = eval_record['records']
+    records = []
+    for i in range_:
+        record = db_hdlr['record'].find_one({'_id': ids[i]})
+        for name, value in record:
+            if isinstance(value, Binary):
+                record[name] = pickle.loads(value)
+        records.append(record)
+    return records
+
+
+
+def hash_tag_str(text_list):
+    """Use hashlib.md5 to tag a hash str of a list of text"""
+    return hashlib.md5(" ".join(text_list).encode()).hexdigest()
+
 
 if __name__ == '__main__':
     # store_ptb(get_path('cached_data/simple-examples/data'))

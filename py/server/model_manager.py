@@ -36,14 +36,14 @@ class ModelManager(object):
             config_file = get_path(_config_dir, self.available_models[name]['config'])
             model, _ = build_model(config_file)
             data_name = self.available_models[name]['data']
-            data = language_model.get_data_by_name(data_name)
+            data = language_model.get_datasets_by_name(data_name)
             if data is None:
                 if name == 'PTB':
                     language_model.store_ptb(get_path('cached_data/simple-examples/data'), data_name)
                 elif name == 'Shakespeare':
                     language_model.store_plain_text(get_path('cached_data/tinyshakespeare.txt', data_name),
                                                     'shakespeare', {'train': 0.9, 'valid': 0.05, 'test': 0.05})
-                data = language_model.get_data_by_name(self.available_models[name]['data'])
+                data = language_model.get_datasets_by_name(self.available_models[name]['data'])
             model.add_generator(data['word_to_id'])
             if not train:
                 # If not training, the model should already be trained
