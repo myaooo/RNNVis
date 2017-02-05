@@ -21,5 +21,7 @@ train:
   gradient_clip: global_norm
   gradient_clip_args:
     clip_norm: 15.0
-  optimizer: Adam
+  optimizer: Momentum
+  optimizer_args:
+    momentum: 0.7
   learning_rate: 0.01
