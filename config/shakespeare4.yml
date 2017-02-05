@@ -7,11 +7,11 @@ model:
   input_dtype: int32
   target_dtype: int32
   vocab_size: 8000
-  embedding_size: 1000
+  embedding_size: 500
   cell_type: BasicLSTM
   cells:
-    - num_units: 1500
-    - num_units: 1500
+    - num_units: 500
+    - num_units: 500
   loss_func: sequence_loss
 train:
   epoch_num: 50
@@ -24,4 +24,4 @@ train:
   optimizer: Momentum
   optimizer_args:
     momentum: 0.7
-  learning_rate: 0.01
+  learning_rate: "lambda epoch: 0.01 * (1.0 if epoch < 5 else 0.95** (epoch-5))"
