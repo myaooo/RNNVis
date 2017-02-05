@@ -22,9 +22,16 @@ class ModelManager(object):
 
     def __init__(self):
         self.models = {}
-        self.data= {}
+        self.data = {}
 
     def get_model(self, name, train=False):
+        if name in self.models:
+            return self.models[name]
+        else:
+            flag = self._load_model(name, train)
+            return self.models[name] if flag else None
+
+    def _load_model(self, name, train=False):
         if name in self.available_models:
             config_file = get_path(_config_dir, self.available_models[name]['config'])
             model, _ = build_model(config_file)
@@ -44,10 +51,10 @@ class ModelManager(object):
                 model.restore()
             self.models[name] = model
             self.data[name] = data
+            return True
         else:
             print('WARN: Cannot find model with name {:s}'.format(name))
-            return None
-        return model
+            return False
 
     def model_generate(self, name, seeds, max_branch=1, accum_cond_prob=0.9,
                        min_cond_prob=0.0, min_prob=0.0, max_step=10):

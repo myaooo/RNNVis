@@ -128,9 +128,10 @@ class Trainer(object):
             # self.initializer = initializer
             self.global_step = tf.Variable(0, trainable=False)
             if gradient_clipper is None:
-                self.train_op = self.optimizer.minimize(self.model.loss, self.global_step)
+                self.train_op = self.optimizer.minimize(self.model.loss, self.global_step,
+                                                        colocate_gradients_with_ops=True)
             else:
-                grads_and_vars = self.optimizer.compute_gradients(self.model.loss)
+                grads_and_vars = self.optimizer.compute_gradients(self.model.loss, colocate_gradients_with_ops=True)
                 grads, tvars = zip(*grads_and_vars)
                 self.clipped_grads = gradient_clipper(grads)
                 self.train_op = self.optimizer.apply_gradients(
