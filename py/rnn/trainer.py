@@ -13,7 +13,7 @@ _str2optimizers = {
 }
 
 
-def get_optimizer(optimizer):
+def get_optimizer(optimizer, **kwargs):
     """
     Simple helper to get TensorFlow Optimizer
     :param optimizer: a str specifying the name of the optimizer to use,
@@ -22,13 +22,13 @@ def get_optimizer(optimizer):
     """
     if isinstance(optimizer, str):
         if optimizer in _str2optimizers:
-            return _str2optimizers[optimizer]
+            optimizer = _str2optimizers[optimizer]
     try:
         if issubclass(optimizer, tf.train.Optimizer):
-            return optimizer
+            pass
     except:
         raise ValueError('optimizer should be an instance of tf.train.Optimizer or a key in _str2optimizer!')
-
+    return lambda lr: optimizer(lr, **kwargs)
 
 _str2clipper = {
     'value': tf.clip_by_value,
@@ -123,7 +123,7 @@ class Trainer(object):
                 self._lr = tf.Variable(self.decay(0.0), dtype=tf.float32, trainable=False)
                 self._new_lr = tf.placeholder(tf.float32, shape=())
                 self._update_lr = tf.assign(self._lr, self._new_lr, name='update_lr')
-            self.optimizer = get_optimizer(optimizer)(self._lr)
+            self.optimizer = optimizer(self._lr)
             # self.initializer = initializer
             self.global_step = tf.Variable(0, trainable=False)
             if gradient_clipper is None:
