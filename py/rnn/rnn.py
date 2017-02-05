@@ -163,6 +163,9 @@ class RNNModel(object):
             if _targets is not None:  # when we just need infer, we don't need to have targets
                 feed_dict[self.target_holders] = _targets
             # feed_dict[model.target_holders] = [targets[:, i] for i in range(model.num_steps)]
+            # for debug
+            # vv = sess.run(eval_ops, feed_dict)
+            # clipped_grads = vv['clipped_grads']
             vals = sess.run(run_ops, feed_dict)
             self.current_state = vals['state']
 

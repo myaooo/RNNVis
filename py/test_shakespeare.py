@@ -3,9 +3,9 @@ Tests text_processor and training on tiny shakespeare data
 """
 
 
-from .procedures import build_model, init_tf_environ
-from .datasets.data_utils import InputProducer, split
-from .datasets.text_processor import PlainTextProcessor
+from py.procedures import build_model, init_tf_environ
+from py.datasets.data_utils import InputProducer, split
+from py.datasets.text_processor import PlainTextProcessor
 from tensorflow import flags
 
 flags.DEFINE_string("config_path", None, "The path of the model configuration file")

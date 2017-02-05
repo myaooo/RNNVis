@@ -53,12 +53,12 @@ def get_gradient_clipper(clipper, *args, **kwargs):
         return clipper
     # workaround of global_norm clipper, since it returns two variable with the second one as a scalar tensor
     if clipper == 'global_norm':
-        return lambda t: tf.clip_by_global_norm(t, *args, **kwargs)[0]
+        return lambda t_list: tf.clip_by_global_norm(t_list, *args, **kwargs)[0]
     if clipper in _str2clipper:
         clipper = _str2clipper[clipper]
     else:
         raise ValueError('clipper should be a callable function or a given key in _str2clipper!')
-    return lambda t: clipper(t, *args, **kwargs)
+    return lambda t_list: [clipper(t, *args, **kwargs) for t in t_list]
 
 
 _str2decay = {
@@ -128,12 +128,13 @@ class Trainer(object):
             # self.initializer = initializer
             self.global_step = tf.Variable(0, trainable=False)
             if gradient_clipper is None:
-                self.train_op = self.optimizer(self._lr).minimize(self.model.loss, self.global_step)
+                self.train_op = self.optimizer.minimize(self.model.loss, self.global_step)
             else:
-                tvars = tf.trainable_variables()
-                grads = gradient_clipper(tf.gradients(self.model.loss, tvars))
+                grads_and_vars = self.optimizer.compute_gradients(self.model.loss)
+                grads, tvars = zip(*grads_and_vars)
+                self.clipped_grads = gradient_clipper(grads)
                 self.train_op = self.optimizer.apply_gradients(
-                    zip(grads, tvars),
+                    list(zip(self.clipped_grads, tvars)),
                     global_step=self.global_step)
 
     def update_lr(self, sess, epoch_size):
@@ -180,6 +181,7 @@ class Trainer(object):
         run_ops = {'train_op': self.train_op}
         sum_ops = {'loss': self.model.loss}
         self.model.init_state(sess)
-        self.model.run(inputs, targets, epoch_size, sess, run_ops, sum_ops=sum_ops, verbose=verbose)
+        self.model.run(inputs, targets, epoch_size, sess, run_ops,  # eval_ops={'clipped_grads': self.clipped_grads},
+                       sum_ops=sum_ops, verbose=verbose)
         self.update_lr(sess, epoch_size)
 
