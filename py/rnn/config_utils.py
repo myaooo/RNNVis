@@ -154,7 +154,8 @@ class TrainConfig(object):
         self.clipper = trainer.get_gradient_clipper(self.gradient_clip, **self.gradient_clip_args)
         if hasattr(self, 'optimizer_args'):
             self.optimizer = trainer.get_optimizer(self.optimizer, **self.optimizer_args)
-        self.optimizer = trainer.get_optimizer(self.optimizer)
+        else:
+            self.optimizer = trainer.get_optimizer(self.optimizer)
         self.lr = parse_lr_from_config(self.learning_rate)
 
     @staticmethod

@@ -27,7 +27,8 @@ def get_optimizer(optimizer, **kwargs):
         if issubclass(optimizer, tf.train.Optimizer):
             pass
     except:
-        raise ValueError('optimizer should be an instance of tf.train.Optimizer or a key in _str2optimizer!')
+        raise TypeError('optimizer mal type {:s}. Should be an instance of tf.train.Optimizer or a str!'.
+                        format(str(type(optimizer))))
     return lambda lr: optimizer(lr, **kwargs)
 
 _str2clipper = {
