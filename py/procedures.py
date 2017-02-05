@@ -6,21 +6,19 @@ Pre-defined procedures for running rnn, evaluating and recording
 import os
 import tensorflow as tf
 from py.rnn.config_utils import RNNConfig, TrainConfig
-from py.rnn.command_utils import data_type
+from py.rnn.command_utils import data_type, pick_gpu_lowest_memory
 from py.rnn.rnn import RNN
 from py.datasets.data_utils import load_data_as_ids, get_data_producer
 
 
-def init_tf_environ(gpu_num=-1):
+def init_tf_environ(gpu_num=0):
     """
-    Init Cuda environments, which specify which gpu to use
+    Init CUDA environments, which the number of gpu to use
     :param gpu_num:
     :return:
     """
-    if gpu_num == -1:
-        cuda_devices = ""
-    else:
-        cuda_devices = str(gpu_num)
+    best_gpus = pick_gpu_lowest_memory(gpu_num)
+    cuda_devices = ",".join([str(e) for e in best_gpus])
     os.environ["CUDA_VISIBLE_DEVICES"] = cuda_devices
     # if FLAGS.gpu_num == 0 else "0,1,2,3"[:(FLAGS.gpu_num * 2 - 1)]
 
