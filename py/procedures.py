@@ -25,6 +25,7 @@ def init_tf_environ(gpu_num=0):
             cuda_devices = ",".join([str(e) for e in best_gpus])
         except:
             raise ValueError("Cannot find gpu devices!")
+    print("Using gpu device: {:s}".format(cuda_devices))
     os.environ["CUDA_VISIBLE_DEVICES"] = cuda_devices
     # if FLAGS.gpu_num == 0 else "0,1,2,3"[:(FLAGS.gpu_num * 2 - 1)]
 
