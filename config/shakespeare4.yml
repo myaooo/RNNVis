@@ -1,0 +1,27 @@
+model:
+  name: SHAKESPEARE-4
+  initializer_name: random_uniform
+  initializer_args:
+    minval: -0.03
+    maxval: 0.03
+  input_dtype: int32
+  target_dtype: int32
+  vocab_size: 8000
+  embedding_size: 500
+  cell_type: BasicLSTM
+  cells:
+    - num_units: 500
+    - num_units: 500
+  loss_func: sequence_loss
+train:
+  epoch_num: 50
+  num_steps: 40
+  batch_size: 20
+  keep_prob: 0.4
+  gradient_clip: global_norm
+  gradient_clip_args:
+    clip_norm: 15.0
+  optimizer: Momentum
+  optimizer_args:
+    momentum: 0.7
+  learning_rate: "lambda epoch: 0.01 * (1.0 if epoch < 5 else 0.95** (epoch-5))"

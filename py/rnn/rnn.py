@@ -7,10 +7,13 @@ import math
 import time
 import os
 
+import tensorflow as tf
+import numpy as np
 from py.datasets.data_utils import Feeder
-from .command_utils import *
+from .command_utils import data_type, config_proto
 from .evaluator import Evaluator
 from .trainer import Trainer
+from .generator import Generator
 
 BasicRNNCell = tf.nn.rnn_cell.BasicRNNCell
 BasicLSTMCell = tf.nn.rnn_cell.BasicLSTMCell
@@ -23,6 +26,19 @@ InputProjectionWrapper = tf.nn.rnn_cell.InputProjectionWrapper
 OutputProjectionWrapper = tf.nn.rnn_cell.OutputProjectionWrapper
 
 int32 = tf.int32
+
+
+def softmax(x, axis=None):
+    if axis is None:
+        x_max = np.max(x)
+        e_x = np.exp(x - x_max)
+        return e_x / np.sum(e_x)
+    if axis == 1:
+        x = x.T
+    x_max = np.max(x, axis=0)
+    e_x = np.exp(x - x_max)
+    sm = e_x / np.sum(e_x, axis=0)
+    return sm if axis == 0 else sm.T
 
 
 def sequence_loss(outputs, targets):
@@ -72,20 +88,21 @@ class RNNModel(object):
                 # Build TF computation Graph
                 input_shape = [None] + list(rnn.input_shape)[1:]
                 target_shape = [None] + list(rnn.target_shape)[1:]
-                self.state = self.cell.zero_state(batch_size, data_type())
-                self.input_holders = tf.placeholder(rnn.input_dtype, [num_steps] + input_shape)
-                self.target_holders = tf.placeholder(rnn.target_dtype, [num_steps] + target_shape)
+                self.state = self.cell.zero_state(batch_size, rnn.output_dtype)
+                self.input_holders = tf.placeholder(rnn.input_dtype, [num_steps] + input_shape, "input_holders")
+                self.target_holders = tf.placeholder(rnn.target_dtype, [num_steps] + target_shape, "target_holders")
                 # ugly hacking for EmbeddingWrapper Badness
                 self.inputs = self.input_holders if not rnn.has_embedding else rnn.map_to_embedding(self.input_holders)
                 # Call TF api to create recurrent neural network
-                self.outputs, self.final_state = \
+                outputs, self.final_state = \
                     tf.nn.dynamic_rnn(self.cell, self.inputs, initial_state=self.state, time_major=True)
+                # Reshape outputs and targets into [batch_size * num_steps, feature_dims]
+                self.outputs = tf.reshape(outputs, [-1, outputs.get_shape().as_list()[2]])
+                self.targets = tf.reshape(self.target_holders, [-1])
                 if rnn.has_projcet:
                     # rnn has output project, do manual projection for speed
-                    outputs = tf.reshape(self.outputs, [-1, self.outputs.get_shape().as_list()[2]])
-                    self.outputs = rnn.project_output(outputs)
-                    self.targets = tf.reshape(self.target_holders, [-1])
-                    self.loss = rnn.loss_func(self.outputs, self.targets)
+                    self.projected_outputs = rnn.project_output(self.outputs)
+                    self.loss = rnn.loss_func(self.projected_outputs, self.targets)
                 else:
                     self.loss = rnn.loss_func(self.outputs, self.target_holders)
         # Append self to rnn's model list
@@ -99,61 +116,81 @@ class RNNModel(object):
     def rnn(self):
         return self._rnn
 
-    def run(self, inputs, targets, epoch_size, run_ops, sess, eval_ops=None, verbose_every=None):
+    def run(self, inputs, targets, epoch_size, sess, run_ops=None, eval_ops=None, sum_ops=None, verbose=False):
         """
-        RNN Model's main API for running the part of graph in this model
-        Note: this function can only be run after the graph is finalized
-        :param inputs:
-        :param targets:
-        :param epoch_size:
-        :param run_ops:
-        :param eval_ops:
-        :param sess:
+        RNN Model's main API for running the model from inputs
+        Note: this function can only be run after the graph is finalized.
+        When inputs and targets are numpy.ndarray, the epoch_size should be 1,
+            or the model will run on the same data again and again.
+        :param inputs: a input Feeder instance, a auto produce Tensor, or a numpy.ndarray
+        :param targets: should be same type as inputs.
+        :param epoch_size: how many iterations that the looping will be run (the size of the input queue)
+        :param sess: the tf.Session to run the model
+        :param run_ops: a dict containing all the ops that will be run but not logged
+        :param eval_ops: a dict containing all the ops that will be logged but not verbosed
+        :param sum_ops: a dict containing all the ops that will be verbosed. All ops in this dict should be scalar.
         :param verbose:
-        :return:
+        :return: a pair of dicts (evals, sums), each containing running results of eval_ops and sum_ops,
+            result of each op in the dict is stored as a list.
         """
+
+        if run_ops is None: run_ops = {}
+        if eval_ops is None: eval_ops = {}
+        if sum_ops is None: sum_ops = {}
+        verbose_every = epoch_size//10 if verbose else math.inf
         # initialize state and add ops that must be run
-        if verbose_every is None or verbose_every is False:
-            verbose_every = math.inf
         if self.current_state is None:
             self.init_state(sess)
+        # for compatible with different input type
+        if isinstance(inputs, tf.Tensor):
+            get_data = lambda x: sess.run(x)
+        elif isinstance(inputs, Feeder):
+            get_data = lambda x: [y() for y in x]
+        elif isinstance(inputs, np.ndarray):
+            get_data = lambda x: x
+        else:
+            raise TypeError("inputs mal format!")
+
         run_ops['state'] = self.final_state
-        run_ops['loss'] = self.loss
-        total_loss = 0
-        vals = None
+        run_ops.update(eval_ops)
+        run_ops.update(sum_ops)
+        # total_loss = 0
+        # vals = None
         start_time = verbose_time = time.time()
-        evals = []
+        evals = {name: [] for name in eval_ops}
+        sums = {name: 0 for name in sum_ops}
         for i in range(epoch_size):
             feed_dict = self.feed_state(self.current_state)
-            if isinstance(inputs, Feeder):
-                _inputs = inputs()
-                _targets = targets()
-            else:
-                _inputs, _targets = sess.run([inputs, targets])
-            feed_dict.update(self.feed_data(_inputs, True))
-            feed_dict.update(self.feed_data(_targets, False))
-            # feed_dict[model.target_holders] = [targets[:, i] for i in range(model.num_steps)]
+            _inputs, _targets = get_data((inputs, targets))
+            feed_dict[self.input_holders] = _inputs
+            if _targets is not None:  # when we just need infer, we don't need to have targets
+                feed_dict[self.target_holders] = _targets
+
             vals = sess.run(run_ops, feed_dict)
             self.current_state = vals['state']
-            total_loss += vals['loss']
+
             if eval_ops:
-                evals.append(sess.run(eval_ops, feed_dict))
-            if i % verbose_every == 0 and i!=0:
+                for name in eval_ops:
+                    evals[name].append(vals[name])
+            if sum_ops:
+                for name in sum_ops:
+                    sums[name] += vals[name]
+            if i % verbose_every == 0 and i != 0:
                 delta_time = time.time() - verbose_time
-                print("epoch[{:d}/{:d}] avg loss:{:.3f}, speed:{:.1f} wps, time: {:.1f}s".format(
-                    i, epoch_size, total_loss / i,
-                                   i * self.batch_size * self.num_steps / (time.time() - start_time), delta_time))
+                print("epoch[{:d}/{:d}] speed:{:.1f} wps, time: {:.1f}s".format(
+                    i, epoch_size, i * self.batch_size * self.num_steps / (time.time() - start_time), delta_time))
+                sum_list = ["{:s}: {:.4f}".format(name, value / i) for name, value in sums.items()]
+                if sum_list: print(', '.join(sum_list))
                 verbose_time = time.time()
         total_time = time.time() - start_time
         # Prepare for returning values
-        vals['loss'] = total_loss / epoch_size
-        vals['time'] = total_time
-        if eval_ops:
-            vals['evals'] = evals
-        if math.isfinite(verbose_every):
-            print("Epoch Summary: avg loss:{:.3f}, total time:{:.1f}s, speed:{:.1f} wps".format(
-                total_loss / epoch_size, total_time, epoch_size * self.num_steps * self.batch_size / total_time))
-        return vals
+        # vals['loss'] = total_loss / epoch_size
+        if verbose:
+            sum_str = ', '.join(["{:s}: {:.4f}".format(name, value / i) for name, value in sums.items()])
+            if sum_str: sum_str = ', '+sum_str
+            print("Epoch Summary: total time:{:.1f}s, speed:{:.1f} wps".format(
+                total_time, epoch_size * self.num_steps * self.batch_size / total_time) + sum_str)
+        return evals, sums
 
     def feed_state(self, state):
         """
@@ -174,12 +211,12 @@ class RNNModel(object):
                 feed_dict[s] = state[i]
         return feed_dict
 
-    def feed_data(self, data, inputs=True):
-        holders = self.input_holders if inputs else self.target_holders
-        return {holders: data}
+    # def feed_data(self, data, inputs=True):
+    #     holders = self.input_holders if inputs else self.target_holders
+    #     return {holders: data}
 
     def init_state(self, sess):
-        self.current_state = sess.run(self.state)
+        self.current_state = sess.run(self.state, )
         return self.current_state
 
     def log_ops_placement(self, ops, log_path):
@@ -196,8 +233,32 @@ class RNNModel(object):
         tf.logging._logger.removeHandler(new_handler)
         tf.logging._logger.addHandler(_hdlr)
         print("ops placements info logged to {}".format(log_path))
-    # def update_batch_size(self, new_batch_size, sess):
-    #     sess.run(self._update_batch_size, {self._new_batch_size: new_batch_size})
+
+    def do_projection(self, outputs, sess):
+        """
+        Project the cell outputs on to word space as a probability distribution
+        :param outputs: a numpy array of shape [output_steps, feature_dims] as feed in data
+        :param sess: the TF Session to run the computation
+        :return: a numpy array of shape [output_steps, vocab_size] as the projected probability distribution
+        """
+        if not hasattr(self, 'projected_outputs'):
+            projected_outputs = outputs
+        else:
+            projected = []
+            batch_size = self.num_steps * self.batch_size  # the output Tensor has shape [num_steps*batch_size, dims]
+            output_steps = outputs.shape[0]
+            for begin in range(0, output_steps, batch_size):
+                end = begin + batch_size
+                if end > output_steps:
+                    _projected = sess.run(self.projected_outputs, {self.outputs: outputs[-batch_size:,:]})
+                    _projected = _projected[end-output_steps:,:]  # throw duplicated part
+                else:
+                    _projected = sess.run(self.projected_outputs, {self.outputs: outputs[begin:end, :]})
+                projected.append(_projected)
+            projected_outputs = np.vstack(projected)
+
+        # do softmax
+        return softmax(projected_outputs, axis=1)
 
 
 class RNN(object):
@@ -226,6 +287,7 @@ class RNN(object):
         self.trainer = None
         self.evaluator = None
         self.validator = None
+        self.generator = None
         self.loss_func = None
         self.is_compiled = False
         self.embedding_size = None
@@ -287,7 +349,7 @@ class RNN(object):
         assert not self.is_compiled
         self.cell_list.append(cell(*args, **kwargs))
 
-    def compile(self):
+    def compile(self, evaluate=True):
         """
         Compile the model. Should be called before training or running the model.
         Basically, this function just do checkings on model configurations,
@@ -310,9 +372,10 @@ class RNN(object):
         # All done
         self.is_compiled = True
         # Create a default evaluator
-        with self.graph.as_default():
-            with tf.device("/cpu:0"):
-                self.evaluator = Evaluator(self, batch_size=1, logdir=os.path.join(self.logdir, "./evaluate"))
+        if evaluate:
+            with self.graph.as_default():
+                with tf.device("/cpu:0"):
+                    self.evaluator = Evaluator(self, batch_size=1)
 
     def unroll(self, batch_size, num_steps, keep_prob=None, name=None):
         """
@@ -354,6 +417,29 @@ class RNN(object):
         with self.graph.as_default():
             self.validator = Evaluator(self, batch_size, num_steps, False, False, False)
 
+    def add_evaluator(self, batch_size=1, record_every=1, log_state=True, log_input=True, log_output=True):
+        """
+        Explicitly add evaluator instead of using the default one. You must explicitly call compile(evaluate=False)
+            before calling this function
+        :param batch_size: default to be 1
+        :param record_every: record frequency
+        :param log_state: flag of state logging
+        :param log_input: flag of input logging
+        :param log_output: flag of output logging
+        :param logdir: logging directory
+        :return:
+        """
+        assert self.evaluator is None
+        with self.graph.as_default():
+            with tf.device("/cpu:0"):
+                self.evaluator = Evaluator(self, batch_size, record_every, log_state, log_input, log_output)
+
+    def add_generator(self, word_to_id):
+        assert self.generator is None
+        with self.graph.as_default():
+            with tf.device("/cpu:0"):
+                self.generator = Generator(self, word_to_id)
+
     def train(self, inputs, targets, epoch_size, epoch_num, valid_inputs=None, valid_targets=None,
               valid_epoch_size=None, verbose=True):
         """
@@ -363,36 +449,51 @@ class RNN(object):
         :param targets: should be of size [num_seq, seq_length, ...]
         :param epoch_size: the size of an epoch
         :param epoch_num: number of training epochs
-        :param batch_size: batch_size
-        :param validation_set: Validation set, should be (input, output)
-        :param validation_batch_size: batch_size of validation set
+        :param valid_inputs: Validation input data
+        :param valid_targets: Validation target data
+        :param valid_epoch_size: batch_size of validation set
+        :param verbose: Print training information if True
         :return: None
         """
         assert self.is_compiled
         assert self.trainer is not None
         with self.graph.as_default():
-            if valid_inputs is None:
-                # Only needs to run training graph
-                self.finalize()
-                print("Start Running Train Graph")
-                self.trainer.train(inputs, targets, epoch_size, epoch_num, self.supervisor)
-            else:
-                self.finalize()
-                print("Start Running Train Graph")
-                with self.supervisor.managed_session(config=config_proto) as sess:
+            self.finalize()
+            print("Start Running Train Graph")
+            with self.sess as sess:
+                if valid_inputs is None:
+                    # Only needs to run training graph
+                    self.trainer.train(sess, inputs, targets, epoch_size, epoch_num)
+                else:
                     for i in range(epoch_num):
                         if verbose:
                             print("Epoch {}:".format(i))
-                        self.trainer.train_one_epoch(inputs, targets, epoch_size, sess, verbose=verbose)
-                        self.validator.evaluate(valid_inputs, valid_targets, valid_epoch_size, sess, verbose=False)
-                        self.trainer.update_lr(sess)
+                        self.trainer.train_one_epoch(sess, inputs, targets, epoch_size, verbose=verbose)
+                        self.validator.evaluate(sess, valid_inputs, valid_targets, valid_epoch_size, verbose=False)
 
-    def evaluate(self, inputs, targets, epoch_size):
+    def evaluate(self, inputs, targets, epoch_size, logdir=None):
         assert self.is_compiled
         with self.graph.as_default():
             self.finalize()
-            with self.supervisor.managed_session(config=config_proto) as sess:
-                self.evaluator.evaluate(inputs, targets, epoch_size, sess, record=True, verbose=True)
+            with self.sess as sess:
+                logdir = os.path.join(self.logdir, "./evaluate") if logdir is None else logdir
+                self.evaluator.evaluate(sess, inputs, targets, epoch_size, record=True, verbose=True, logdir=logdir)
+
+    def generate(self, seed_id, logdir, max_branch=1, accum_cond_prob=0.9,
+                 min_cond_prob=0.0, min_prob=0.0, max_step=20):
+        assert self.is_compiled
+        with self.graph.as_default():
+            self.finalize()
+            with self.sess as sess:
+                return self.generator.generate(sess, seed_id, logdir, max_branch,
+                                               accum_cond_prob, min_cond_prob, min_prob, max_step)
+
+    def run_with_context(self, func, *args, **kwargs):
+        assert self.is_compiled
+        with self.graph.as_default():
+            self.finalize()
+            with self.sess as sess:
+                func(sess, *args, **kwargs)
 
     def save(self, path=None):
         """
@@ -431,7 +532,7 @@ class RNN(object):
 
     @property
     def finalized(self):
-        return False if self.supervisor is None else False
+        return False if self.supervisor is None else True
 
     @property
     def cell(self):
@@ -448,6 +549,11 @@ class RNN(object):
     @property
     def has_projcet(self):
         return self.cell_list[-1].output_size != self.output_shape[-1]
+
+    @property
+    def sess(self):
+        assert self.finalized
+        return self.supervisor.managed_session(config=config_proto())
 
     def map_to_embedding(self, inputs):
         """
@@ -478,3 +584,4 @@ class RNN(object):
                 return tf.matmul(outputs, project_w) + projcet_b
         else:
             return None
+

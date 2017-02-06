@@ -2,23 +2,24 @@ model:
   name: LSTM-PTB
   initializer_name: random_uniform
   initializer_args:
-    minval: -0.1
-    maxval: 0.1
+    minval: -0.05
+    maxval: 0.05
   input_dtype: int32
   target_dtype: int32
   vocab_size: 10000
-  embedding_size: 200
+  embedding_size: 600
   cell_type: BasicLSTM
   cells:
-    - num_units: 200
-    - num_units: 200
+    - num_units: 600
+    - num_units: 600
   loss_func: sequence_loss
 train:
-  epoch_num: 2
+  epoch_num: 40
   num_steps: 40
   batch_size: 20
-  keep_prob: 1.0
+  keep_prob: 0.5
   gradient_clip: global_norm
   gradient_clip_args:
-    clip_norm: 5.0
+    clip_norm: 10.0
   optimizer: GradientDescent
+  learning_rate: "lambda epoch: 1.1 *(1.0 if epoch < 6 else 0.8**(epoch-6))"

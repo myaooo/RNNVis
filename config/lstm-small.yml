@@ -1,0 +1,25 @@
+model:
+  name: LSTM-S
+  initializer_name: random_uniform
+  initializer_args:
+    minval: -0.1
+    maxval: 0.1
+  input_dtype: int32
+  target_dtype: int32
+  vocab_size: 10000
+  embedding_size: 400
+  cell_type: BasicLSTM
+  cells:
+    - num_units: 200
+    - num_units: 200
+  loss_func: sequence_loss
+train:
+  epoch_num: 20
+  num_steps: 20
+  batch_size: 40
+  keep_prob: 1.0
+  gradient_clip: global_norm
+  gradient_clip_args:
+    clip_norm: 5.0
+  optimizer: GradientDescent
+  learning_rate: "lambda epoch: 1.0 if epoch < 4 else 0.6**(epoch-4)"

@@ -3,6 +3,7 @@ Helpers for running rnn services from configurations
 """
 
 
+import os
 import yaml
 import tensorflow as tf
 from . import rnn
@@ -108,35 +109,42 @@ class RNNConfig(object):
         self.loss_func = get_loss_func(loss_func)
 
     @staticmethod
-    def load(file_path):
+    def load(file_or_dict):
         """
         Load an RNNConfig from config file
-        :param file_path: path of the config file
+        :param file_or_dict: path of the config file
         :return: an instance of RNNConfig
         """
-        with open(file_path) as f:
-            config_dict = yaml.safe_load(f)['model']
-            return RNNConfig(**config_dict)
+        if isinstance(file_or_dict, dict):
+            config_dict = file_or_dict['model']
+        else:
+            with open(file_or_dict) as f:
+                try:
+                    config_dict = yaml.safe_load(f)['model']
+                except:
+                    raise ValueError("Malformat of config file!")
+        return RNNConfig(**config_dict)
 
 
-def build_rnn(config):
-    """
-    Build a RNN from config
-    :param config: path of the config file or a RNNConfig instance
-    :return: a compiled model
-    """
-    if isinstance(config, str):
-        config = RNNConfig.load(config)
-    assert isinstance(config, RNNConfig)
-    model = rnn.RNN(config.name, config.initializer)
-    model.set_input([None], config.input_dtype, config.vocab_size, config.embedding_size)
-    for cell in config.cells:
-        model.add_cell(config.cell, **cell)
-    model.set_output([None, config.vocab_size], tf.float32)
-    model.set_target([None], config.target_dtype)
-    model.set_loss_func(config.loss_func)
-    model.compile()
-    return model
+def parse_lr_from_config(lr):
+    if isinstance(lr, str):
+        try:
+            func = eval(lr)
+        except:
+            raise ValueError('If learning_rate is a str, it should be a lambda expression of form f(epoch) -> rate')
+
+    elif isinstance(lr, dict):
+        try:
+            func = trainer.get_lr_decay(lr['decay'], **lr['decay_args'])
+        except:
+            raise ValueError('If learning_rate is a dict, it should has keys "decay" and "decay_args"')
+    else:
+        try:
+            func = float(lr)
+        except:
+            raise ValueError('Mal-format for a input learning_rate, it should be a number, '
+                             'a str of lambda expression, or a dict specifying tf learning_rate_decay')
+    return func
 
 
 class TrainConfig(object):
@@ -144,14 +152,25 @@ class TrainConfig(object):
     def __init__(self, **kwargs):
         self.__dict__.update(kwargs)
         self.clipper = trainer.get_gradient_clipper(self.gradient_clip, **self.gradient_clip_args)
+        if hasattr(self, 'optimizer_args'):
+            self.optimizer = trainer.get_optimizer(self.optimizer, **self.optimizer_args)
+        else:
+            self.optimizer = trainer.get_optimizer(self.optimizer)
+        self.lr = parse_lr_from_config(self.learning_rate)
 
     @staticmethod
-    def load(file_path):
+    def load(file_or_dict):
         """
         Load an TrainConfig from config file
         :param file_path: path of the config file
         :return: an instance of TrainConfig
         """
-        with open(file_path) as f:
-            config_dict = yaml.safe_load(f)['train']
-            return TrainConfig(**config_dict)
+        if isinstance(file_or_dict, dict):
+            config_dict = file_or_dict['train']
+        else:
+            with open(file_or_dict) as f:
+                try:
+                    config_dict = yaml.safe_load(f)['train']
+                except:
+                    raise ValueError("Malformat of config file!")
+        return TrainConfig(**config_dict)

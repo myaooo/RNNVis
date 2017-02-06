@@ -7,9 +7,30 @@ $ tar xvf simple-examples.tgz
 
 from py.datasets.data_utils import InputProducer
 from py.datasets.ptb_reader import ptb_raw_data
-from py.rnn.command_utils import config_path, data_path, log_path
-from py.rnn.config_utils import build_rnn, TrainConfig
-from py.rnn.trainer import get_gradient_clipper
+from py.procedures import init_tf_environ
+import py.rnn.rnn as rnn
+import py.rnn.trainer as trainer
+import py.rnn.config_utils as config
+import tensorflow as tf
+
+flags = tf.flags
+flags.DEFINE_string("config_path", None, "The path of the model configuration file")
+flags.DEFINE_string("data_path", None, "The path of the input data")
+flags.DEFINE_string("log_path", None, "The path to save the log")
+flags.DEFINE_integer('gpu_num', 0, "The number of the gpu to use, 0 to use no gpu.")
+FLAGS = flags.FLAGS
+
+
+def config_path():
+    return FLAGS.config_path
+
+
+def data_path():
+    return FLAGS.data_path
+
+
+def log_path():
+    return FLAGS.log_path
 
 
 def test_data_producer(data, batch_size, num_steps):
@@ -20,31 +41,37 @@ def test_data_producer(data, batch_size, num_steps):
     return inputs, targets, targets.epoch_size
 
 
-def test_lr_decay(global_step):
+def test_lr_decay(epoch):
     base_lr = 1.0
-    max_step = 1100*4
-    if global_step < max_step:
+    max_epoch = 4.0
+    if epoch < max_epoch:
         return base_lr
     else:
-        return base_lr * 0.5 ** ((global_step-max_step)/1100)
+        return base_lr * 0.5 ** (epoch - max_epoch)
 
 if __name__ == '__main__':
 
-    train_config = TrainConfig.load(config_path())
-    logdir = log_path()
-    train_steps = train_config.num_steps
-    batch_size = train_config.batch_size
-    epoch_num = train_config.epoch_num
-    keep_prob = train_config.keep_prob
+    init_tf_environ(FLAGS.gpu_num)
+    train_steps = 20
+    batch_size = 20
+    epoch_num = 20
+    keep_prob = 1.0
     print('Preparing data')
     train_data, valid_data, test_data, vocab_size = ptb_raw_data(data_path())
 
     train_inputs, train_targets, epoch_size = test_data_producer(train_data, batch_size, train_steps)
     valid_inputs, valid_targets, valid_epoch_size = test_data_producer(valid_data, batch_size, train_steps)
 
-    model = build_rnn(config_path())
-    model.add_trainer(batch_size, train_steps, keep_prob, train_config.optimizer, test_lr_decay,
-                      clipper=train_config.clipper)
+    model = rnn.RNN('LSTM', config.get_initializer('random_uniform', minval=-0.1, maxval=0.1), "models/LSTM")
+    model.add_cell(rnn.BasicLSTMCell, num_units=200)
+    model.add_cell(rnn.BasicLSTMCell, num_units=200)
+    model.set_input([None], tf.int32, 10000, 200)
+    model.set_output([None, 10000], tf.float32)
+    model.set_target([None], tf.int32)
+    model.set_loss_func(config.get_loss_func("sequence_loss"))
+    model.compile()
+    model.add_trainer(batch_size, train_steps, keep_prob, trainer.get_optimizer("GradientDescent"), test_lr_decay,
+                      trainer.get_gradient_clipper("global_norm", clip_norm=5.0))
     model.add_validator(batch_size, train_steps)
     print('Start Training')
     model.train(train_inputs, train_targets, epoch_size, epoch_num,

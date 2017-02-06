@@ -2,26 +2,29 @@
 Tests the restore of trained model
 """
 import tensorflow as tf
-from py.rnn.command_utils import data_path
-from py.rnn.config_utils import build_rnn
-from py.rnn.command_utils import config_path
-from py.datasets.data_utils import InputProducer
-from py.datasets.ptb_reader import ptb_raw_data
+from py.procedures import build_model, init_tf_environ
+from py.rnn.evaluator import Recorder
+from py.db.language_model import get_datasets_by_name
 
 
-def test_data_producer(data, batch_size, num_steps):
-    # train_data = valid_data
-    producer = InputProducer(data, batch_size)
-    inputs = producer.get_feeder(num_steps, transpose=True)
-    targets = producer.get_feeder(num_steps, offset=1, transpose=True)
-    return inputs, targets, inputs.epoch_size
+flags = tf.flags
+flags.DEFINE_string("config_path", None, "The path of the model configuration file")
+flags.DEFINE_integer('gpu_num', 0, "The number of the gpu to use, 0 to use no gpu.")
+FLAGS = flags.FLAGS
+
+
+def config_path():
+    return FLAGS.config_path
+
 
 if __name__ == '__main__':
+    init_tf_environ(FLAGS.gpu_num)
     print('Preparing data')
-    train_data, valid_data, test_data, vocab_size = ptb_raw_data(data_path())
+    datasets = get_datasets_by_name('ptb', ['test'])
+    test_data = datasets['test']
 
-    inputs, targets, epoch_size = test_data_producer(test_data, 1, 1)
-
-    model2 = build_rnn(config_path())
+    model2 = build_model(config_path(), False)
     model2.restore()
-    model2.evaluate(inputs, targets, epoch_size)
+    model2.run_with_context(model2.evaluator.evaluate_and_record,
+                            [test_data[:1000]], [test_data[1:1001]],
+                            Recorder('ptb', model2.name), verbose=True)
