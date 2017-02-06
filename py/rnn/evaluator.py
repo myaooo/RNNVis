@@ -2,13 +2,15 @@
 Evaluator Class
 """
 
-from collections import  namedtuple
-# from py.rnn.command_utils import *
+from collections import defaultdict
+
 import tensorflow as tf
 import numpy as np
-from . import rnn
-from py.utils.tree import TreeNode, Tree
-from py.utils.io_utils import dict2json
+
+from py.rnn import rnn
+from py.db.language_model import insert_evaluation, push_evaluation_records
+from py.datasets.data_utils import InputProducer, Feeder
+
 
 
 tf.GraphKeys.EVAL_SUMMARIES = "eval_summarys"
@@ -28,48 +30,131 @@ class Evaluator(object):
         self.log_input = log_input
         self.log_output = log_output
         self.model = rnn_.unroll(batch_size, record_every, name='EvaluateModel')
-        self.summary_ops = []
-        # self.logdir = logdir if logdir is not None else rnn_.logdir
-        # self.writer = tf.summary.FileWriter(self.logdir)
+        summary_ops = defaultdict(list)
         if log_state:
-            for i, s in enumerate(self.model.state):
+            for s in self.model.state:
                 # s is tuple
                 if isinstance(s, tf.nn.rnn_cell.LSTMStateTuple):
-                    self.summary_ops.append(tf.summary.tensor_summary("state_layer_{}_c".format(i), s.c, collections=_evals))
-                    self.summary_ops.append(tf.summary.tensor_summary("state_layer_{}_h".format(i), s.h, collections=_evals))
+                    summary_ops['state_c'].append(s.c)
+                    summary_ops['state_h'].append(s.h)
                 else:
-                    self.summary_ops.append(tf.summary.tensor_summary("state_layer_{}".format(i), s, collections=_evals))
+                    summary_ops['state'].append(s)
+            for name, states in summary_ops.items():
+                # states is a list of tensor of shape [batch_size, n_units], we want the second axis to be layer
+                summary_ops[name] = tf.stack(states, axis=1)
         if log_input:
-            self.summary_ops.append(tf.summary.tensor_summary("input", self.model.input_holders, collections=_evals))
+            summary_ops['input'] = self.model.input_holders
             if rnn_.map_to_embedding:
-                self.summary_ops.append(tf.summary.tensor_summary("input_embedding", self.model.inputs, collections=_evals))
+                summary_ops['input_embedding'] = self.model.inputs
         if log_output:
-            self.summary_ops.append(tf.summary.tensor_summary("output", self.model.outputs, collections=_evals))
-        if len(self.summary_ops) == 0:
-            self.merged_summary = None
-        else:
-            self.merged_summary = tf.summary.merge(self.summary_ops, _evals, "eval_summaries")
+            summary_ops['output'] = self.model.outputs
+        self.summary_ops = summary_ops
 
-    def evaluate(self, inputs, targets, input_size, sess, record=False, verbose=True, logdir=None):
-        if record:
-            writer = tf.summary.FileWriter(logdir)
-        else:
-            writer = None
+    def evaluate(self, sess, inputs, targets, input_size, record=False, verbose=True, logdir=None):
+        """
+        Evaluate on the test or valid data
+        :param inputs: a Feeder instance
+        :param targets: a Fedder instance
+        :param input_size: size of the input
+        :param sess: tf.Session to run the computation
+        :param record: deprecated
+        :param verbose: verbosity
+        :param logdir: deprecated
+        :return:
+        """
+
         self.model.init_state(sess)
-        eval_ops = {"summary": self.merged_summary} if self.merged_summary is not None else {}
+        eval_ops = self.summary_ops
         sum_ops = {"loss": self.model.loss}
         total_loss = 0
         print("Start evaluating...")
         for i in range(input_size):
             evals, sums = self.model.run(inputs, targets, 1, sess, eval_ops=eval_ops, sum_ops=sum_ops, verbose=False)
-            if record and eval_ops:
-                summary = evals["summary"][0]
-                writer.add_summary(summary, i*self.record_every)
             total_loss += sums["loss"]
             if i % 500 == 0:
                 if verbose:
                     print("[{:d}/{:d}]: avg loss:{:.3f}".format(i, input_size, total_loss/(i+1)))
-        if record:
-            writer.close()
         loss = total_loss / input_size
         print("Evaluate Summary: avg loss:{:.3f}".format(loss))
+
+    def evaluate_and_record(self, sess, inputs, targets, recorder, verbose=True):
+        """
+        A similar method like evaluate.
+        Evaluate model's performance on a sequence of inputs and targets,
+        and record the detailed information with recorder.
+        :param inputs: an object convertible to a numpy ndarray, with 2D shape [batch_size, length],
+            elements are word_ids of int type
+        :param targets: same as inputs, no loss will be calculated if targets is None
+        :param sess: the sess to run the computation
+        :param recorder: an object with method `start(inputs, targets)` and `record(record_message)`
+        :param verbose: verbosity
+        :return:
+        """
+        try:
+            inputs = np.array(inputs)
+        except:
+            raise TypeError('Unable to convert inputs of type {:s} into numpy array!'.format(str(type(inputs))))
+        if targets is None:
+            pass
+        else:
+            try:
+                targets = np.array(targets)
+            except:
+                raise TypeError('Unable to convert targets of type {:s} into numpy array!'.format(str(type(targets))))
+        recorder.start(inputs, targets)
+        input_size = inputs.shape[1]
+        if input_size > 10000:
+            print("WARN: inputs too long, might take some time.")
+        eval_ops = self.summary_ops
+        for i in range(input_size):
+            inputs_ = inputs[:, i:(i+1)]
+            targets_ = None if targets is None else targets[:, i:(i+1)]
+            evals, _ = self.model.run(inputs_, targets_, 1, sess, eval_ops=eval_ops, verbose=False)
+            recorder.record(evals)
+            if verbose and i % (input_size // 10) == 0 and i != 0:
+                print("[{:d}/{:d}] completed".format(i, input_size))
+        print("Evaluation done!")
+
+
+class Recorder(object):
+
+    def __init__(self, data_name, model_name, flush_every=100):
+        self.data_name = data_name
+        self.model_name = model_name
+        self.eval_doc_id = []
+        self.buffer = defaultdict(list)
+        self.batch_size = 1
+        self.inputs = None
+        self.flush_every = flush_every
+        self.step = 0
+
+    def start(self, inputs, targets):
+        """
+        prepare the recording
+        :param inputs: should be a 2D numpy.ndarray of shape [batch_size, input_length], each elem is a word_id
+        :param targets: currently not used.
+        :return: None
+        """
+        assert isinstance(inputs, np.ndarray) and inputs.ndim == 2
+        self.batch_size = inputs.shape[0]
+        self.inputs = inputs
+        for i in range(inputs.shape[0]):
+            self.eval_doc_id.append(insert_evaluation(self.data_name, self.model_name, inputs[i, :].tolist()))
+
+    def record(self, record_message):
+        """
+        Record one step of information, note that there is a batch of them
+        :param record_message: a dict, with keys as summary_names,
+            and each value as corresponding record info [batch_size, ....]
+        :return:
+        """
+        records = [{name: value[i] for name, value in record_message.items()} for i in range(self.batch_size)]
+        for i, record in enumerate(records):
+            record['word_id'] = int(self.inputs[i, self.step])
+        self.buffer['records'] += records
+        self.buffer['eval_ids'] += self.eval_doc_id
+        if len(self.buffer['eval_ids']) >= self.flush_every:
+            self.flush()
+
+    def flush(self):
+        push_evaluation_records(self.buffer.pop('eval_ids'), self.buffer.pop('records'))

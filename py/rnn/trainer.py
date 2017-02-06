@@ -145,7 +145,7 @@ class Trainer(object):
         new_lr = self.decay(float(global_step)/epoch_size)
         sess.run(self._update_lr, feed_dict={self._new_lr: new_lr})
 
-    def train(self, inputs, targets, epoch_size, epoch_num, sess, verbose=True):
+    def train(self, sess, inputs, targets, epoch_size, epoch_num, verbose=True):
         """
         Training using given input and target data
         :param inputs: a Tensor of shape [num_step, batch_size (, feature_size)] produced using data_utils.data_feeder
@@ -157,15 +157,14 @@ class Trainer(object):
         :return: None
         """
 
-        with sess:
-            for i in range(epoch_num):
-                if verbose:
-                    print("Epoch:{:d}".format(i))
-                    print("lr:{:.3f}".format( self._lr.eval(sess)))
-                self.train_one_epoch(inputs, targets, epoch_size, sess, verbose=verbose)
-                self.update_lr(sess, epoch_size)
+        for i in range(epoch_num):
+            if verbose:
+                print("Epoch:{:d}".format(i))
+                print("lr:{:.3f}".format( self._lr.eval(sess)))
+            self.train_one_epoch(inputs, targets, epoch_size, sess, verbose=verbose)
+            self.update_lr(sess, epoch_size)
 
-    def train_one_epoch(self, inputs, targets, epoch_size, sess, verbose=True):
+    def train_one_epoch(self, sess, inputs, targets, epoch_size, verbose=True):
         """
         Run one epoch of training (validating)
         :param inputs: same as above

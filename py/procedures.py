@@ -90,7 +90,7 @@ def produce_data(data_paths, train_config):
     train_steps = train_config.num_steps
     batch_size = train_config.batch_size
 
-    data_list, word_to_id = load_data_as_ids(data_paths)
+    data_list, word_to_id, id_to_word = load_data_as_ids(data_paths)
     producers = []
     for data in data_list:
         producers.append(get_data_producer(data, batch_size, train_steps))

@@ -23,18 +23,20 @@ db_name = 'language_model'
 collections = {
     'word_to_id': {'name': (str, 'unique', 'name of the dataset'),
                    'data': (str, '', 'a json str, encoding word to id mapping')},
+    'id_to_word': {'name': (str, 'unique', 'name of the dataset'),
+                   'data': (list, '', 'a list of str')},
     'train': {'name': (str, 'unique', 'name of the dataset'),
-              'data': (list, '', 'a list of word_ids (int32), train data')},
+              'data': (list, '', 'a list of word_ids (int), train data')},
     'valid': {'name': (str, 'unique', 'name of the dataset'),
-              'data': (list, '', 'a list of word_ids (int32), valid data')},
+              'data': (list, '', 'a list of word_ids (int), valid data')},
     'test': {'name': (str, 'unique', 'name of the dataset'),
-             'data': (list, '', 'a list of word_ids (int32), test data')},
+             'data': (list, '', 'a list of word_ids (int), test data')},
     'eval': {'name': (str, '', 'name of the dataset'),
              'tag': (str, 'unique', 'a unique tag of hash of the evaluating text sequence'),
-             'data': (list, '', 'a list of word_ids (int32), eval text'),
+             'data': (list, '', 'a list of word_ids (int), eval text'),
              'model': (str, '', 'the identifier of the model that the sequence evaluated on'),
              'records': (list, '', 'a list of ObjectIds of the records')},
-    'record': {'word_id': (str, '', 'word_id in the word_to_id values'),
+    'record': {'word_id': (int, '', 'word_id in the word_to_id values'),
                'state': (np.ndarray, 'optional', 'hidden state np.ndarray'),
                'state_c': (np.ndarray, 'optional', 'hidden state np.ndarray'),
                'state_h': (np.ndarray, 'optional', 'hidden state np.ndarray'),
@@ -48,7 +50,7 @@ db_hdlr = mongo[db_name]
 
 def get_datasets_by_name(name, fields=None):
     complete_data = {}
-    fields = ['word_to_id', 'train', 'valid', 'test'] if fields is None else fields
+    fields = ['word_to_id', 'id_to_word', 'train', 'valid', 'test'] if fields is None else fields
     for c_name in fields:
         results = db_hdlr[c_name].find_one({'name': name})
         if results is None:
@@ -73,7 +75,7 @@ def store_ptb(data_path, name='ptb', upsert=False):
     test_path = os.path.join(data_path, "ptb.test.txt")
     paths = [train_path, valid_path, test_path]
 
-    data_list, word_to_id = load_data_as_ids(paths)
+    data_list, word_to_id, id_to_word = load_data_as_ids(paths)
     train, valid, test = data_list
     word_to_id_json = dict2json(word_to_id)
     if upsert:
@@ -82,6 +84,7 @@ def store_ptb(data_path, name='ptb', upsert=False):
         insertion = _insert_one_if_not_exists
 
     insertion('word_to_id', {'name': name}, {'name': name, 'data': word_to_id_json})
+    insertion('id_to_word', {'name': name}, {'name': name, 'data': id_to_word})
     insertion('train', {'name': name}, {'name': name, 'data': train})
     insertion('valid', {'name': name}, {'name': name, 'data': valid})
     insertion('test', {'name': name}, {'name': name, 'data': test})
@@ -112,6 +115,7 @@ def store_plain_text(data_path, name, split_scheme, min_freq=1, max_vocab=10000,
         if c_name in split_data:
             insertion(c_name, {'name': name}, {'name': name, 'data': split_data[c_name]})
     insertion('word_to_id', {'name': name}, {'name': name, 'data': dict2json(processor.word_to_id)})
+    insertion('id_to_word', {'name': name}, {'name': name, 'data': processor.id_to_word})
 
 
 def _insert_one_if_not_exists(c_name, filter_, data):
@@ -138,12 +142,12 @@ def seed_db():
     config_dir = get_path('config/db', 'lm.yml')
     with open(config_dir, 'r') as f:
         config = yaml.safe_load(f)['datasets']
-        for seed in config:
-            data_dir = get_path('cached_data', seed['dir'])
-            if seed['type'] == 'ptb':
-                store_ptb(data_dir, seed['name'])
-            elif seed['type'] == 'text':
-                store_plain_text(data_dir, seed['name'], **seed['scheme'])
+    for seed in config:
+        data_dir = get_path('cached_data', seed['dir'])
+        if seed['type'] == 'ptb':
+            store_ptb(data_dir, seed['name'])
+        elif seed['type'] == 'text':
+            store_plain_text(data_dir, seed['name'], **seed['scheme'])
 
 
 def insert_evaluation(data_name, model_name, eval_text_tokens):
@@ -151,46 +155,66 @@ def insert_evaluation(data_name, model_name, eval_text_tokens):
     Add an evaluation record to the 'eval' collection, with given data_name, model_name and a list of word tokens
     :param data_name: name of the datasets, should be in word_to_id collection
     :param model_name: name of the model, identifier
-    :param eval_text_tokens: a list of word tokens
+    :param eval_text_tokens: a list of word tokens, or a list of word_ids
     :return: the ObjectId of the inserted evaluation document
     """
-    word_to_id = get_datasets_by_name(data_name, ['word_to_id'])['word_to_id']
-    try:
-        eval_ids = [word_to_id[token] for token in eval_text_tokens]
-    except:
-        print('token and dictionary not match!')
-        raise
+    assert isinstance(eval_text_tokens, list)
+    if isinstance(eval_text_tokens[0], int):
+        id_to_word = get_datasets_by_name(data_name, ['id_to_word'])['id_to_word']
+        eval_ids = eval_text_tokens
+        try:
+            eval_text_tokens = [id_to_word[i] for i in eval_ids]
+        except:
+            print('word id of input eval text and dictionary not match!')
+            raise
+    elif isinstance(eval_text_tokens[0], str):
+        word_to_id = get_datasets_by_name(data_name, ['word_to_id'])['word_to_id']
+        try:
+            eval_ids = [word_to_id[token] for token in eval_text_tokens]
+        except:
+            print('token and dictionary not match!')
+            raise
+    else:
+        raise TypeError('The input eval text should be a list of int or a list of str! But its of type {}'
+                        .format(type(eval_text_tokens[0])))
     tag = hash_tag_str(eval_text_tokens)
-    filt = {'name': db_name, 'tag': tag, 'model': model_name}
+    filt = {'name': data_name, 'tag': tag, 'model': model_name}
     data = {'data': eval_ids}
     data.update(filt)
     doc = _replace_one_if_exists('eval', filt, data)
     return doc['_id']
 
 
-def push_evaluation_record(eval_id, record):
+def push_evaluation_records(eval_ids, records):
     """
     Add a detailed record (of one step) of evaluation into db, and update the corresponding doc in 'eval'
-    :param eval_id: the ObjectId returned by insert_evaluation()
-    :param record: a dict of record to be inserted
-    :return: a pair of results (insert_one_result, update_result)
+    :param eval_ids: a list, with each element as the ObjectId returned by insert_evaluation()
+    :param records: a list, with each element as a dict of record to be inserted,
+        record and eval_id must match for each element
+    :return: a pair of results (insert_many_result, update_result)
     """
     # check
-    assert 'word_id' in record
-    # convert np.ndarry into binary
-    for key, value in record.items():
-        if isinstance(value, np.ndarray):
-            record[key] = Binary(pickle.dumps(value, protocol=3))
-        elif isinstance(value, str):
-            pass
-        else:
-            print('Unkown type {:s}'.format(str(type(value))))
-    result = db_hdlr['record'].insert_one(record)
-    update_result = db_hdlr['eval'].update_one({'_id', eval_id}, {'$push': {'records': result.inserted_id}})
-    return result, update_result
+    for record in records:
+        if 'word_id' not in record:
+            raise KeyError('there is no key named "word_id" in record!')
+        # convert np.ndarry into binary
+        for key, value in record.items():
+            if isinstance(value, np.ndarray):
+                record[key] = Binary(pickle.dumps(value, protocol=3))
+            elif isinstance(value, str) or isinstance(value, int):
+                pass
+            else:
+                print('Unkown type {:s}'.format(str(type(value))))
+
+    results = db_hdlr['record'].insert_many(records)
+    update_results = []
+    for i, eval_id in enumerate(eval_ids):
+        update_results.append(db_hdlr['eval'].update_one({'_id': eval_id},
+                                                         {'$push': {'records': results.inserted_ids[i]}}))
+    return results, update_results
 
 
-def query_evaluation_record(eval_, range_, data_name=None, model_name=None):
+def query_evaluation_records(eval_, range_, data_name=None, model_name=None):
     """
     Query for the evaluation records
     :param eval_: a eval_id of type ObjectId, or a list of tokens, or a hash tag of the tokens
@@ -223,7 +247,6 @@ def query_evaluation_record(eval_, range_, data_name=None, model_name=None):
                 record[name] = pickle.loads(value)
         records.append(record)
     return records
-
 
 
 def hash_tag_str(text_list):

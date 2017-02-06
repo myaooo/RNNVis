@@ -89,7 +89,7 @@ def build_vocab(filename):
     words, _ = list(zip(*count_pairs))
     word_to_id = dict(zip(words, range(len(words))))
 
-    return word_to_id
+    return word_to_id, words
 
 
 def file_to_word_ids(filename, word_to_id):
@@ -149,15 +149,17 @@ def load_data_as_ids(data_paths, word_to_id_path=None):
     Load the data from a list of paths, the first file will be used to build the vocabulary.
     :param data_paths: a list of paths
     :param word_to_id_path: a word to ids csv file
-    :return: a list of data, each as an id numpy.ndarray, and a word_to_id dict
+    :return: a tuple of (data_list, word_to_id, id_to_word):
+        a list of data, each as an id numpy.ndarray, corresponds to the data in each path in the data_paths,
+        and a word_to_id dict, and a word list, with index as their ids
     """
     if word_to_id_path is not None:
         raise NotImplementedError("Currently not support separate word_to_id file")
-    word_to_id = build_vocab(data_paths[0])
+    word_to_id, id_to_word = build_vocab(data_paths[0])
     data_list = []
     for path in data_paths:
         data_list.append(file_to_word_ids(path, word_to_id))
-    return data_list, word_to_id
+    return data_list, word_to_id, id_to_word
 
 
 def get_data_producer(data, batch_size, num_steps):

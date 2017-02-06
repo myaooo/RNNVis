@@ -40,7 +40,7 @@ def ptb_raw_data(data_path=None):
     test_path = os.path.join(data_path, "ptb.test.txt")
     paths = [train_path, valid_path, test_path]
 
-    data_list, word_to_id = load_data_as_ids(paths)
+    data_list, word_to_id, id_to_word = load_data_as_ids(paths)
     data_list.append(word_to_id)
 
     return tuple(data_list)

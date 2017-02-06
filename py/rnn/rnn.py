@@ -119,16 +119,19 @@ class RNNModel(object):
     def run(self, inputs, targets, epoch_size, sess, run_ops=None, eval_ops=None, sum_ops=None, verbose=False):
         """
         RNN Model's main API for running the model from inputs
-        Note: this function can only be run after the graph is finalized
-        :param inputs: a input producer
-        :param targets:
-        :param epoch_size:
-        :param sess:
-        :param run_ops:
-        :param eval_ops:
-        :param sum_ops:
+        Note: this function can only be run after the graph is finalized.
+        When inputs and targets are numpy.ndarray, the epoch_size should be 1,
+            or the model will run on the same data again and again.
+        :param inputs: a input Feeder instance, a auto produce Tensor, or a numpy.ndarray
+        :param targets: should be same type as inputs.
+        :param epoch_size: how many iterations that the looping will be run (the size of the input queue)
+        :param sess: the tf.Session to run the model
+        :param run_ops: a dict containing all the ops that will be run but not logged
+        :param eval_ops: a dict containing all the ops that will be logged but not verbosed
+        :param sum_ops: a dict containing all the ops that will be verbosed. All ops in this dict should be scalar.
         :param verbose:
-        :return:
+        :return: a pair of dicts (evals, sums), each containing running results of eval_ops and sum_ops,
+            result of each op in the dict is stored as a list.
         """
 
         if run_ops is None: run_ops = {}
@@ -162,14 +165,10 @@ class RNNModel(object):
             feed_dict[self.input_holders] = _inputs
             if _targets is not None:  # when we just need infer, we don't need to have targets
                 feed_dict[self.target_holders] = _targets
-            # feed_dict[model.target_holders] = [targets[:, i] for i in range(model.num_steps)]
-            # for debug
-            # vv = sess.run(eval_ops, feed_dict)
-            # clipped_grads = vv['clipped_grads']
+
             vals = sess.run(run_ops, feed_dict)
             self.current_state = vals['state']
 
-            # total_loss += vals['loss']
             if eval_ops:
                 for name in eval_ops:
                     evals[name].append(vals[name])
@@ -459,37 +458,42 @@ class RNN(object):
         assert self.is_compiled
         assert self.trainer is not None
         with self.graph.as_default():
-            if valid_inputs is None:
-                # Only needs to run training graph
-                self.finalize()
-                print("Start Running Train Graph")
-                self.trainer.train(inputs, targets, epoch_size, epoch_num, self.supervisor)
-            else:
-                self.finalize()
-                print("Start Running Train Graph")
-                with self.supervisor.managed_session(config=config_proto()) as sess:
+            self.finalize()
+            print("Start Running Train Graph")
+            with self.sess as sess:
+                if valid_inputs is None:
+                    # Only needs to run training graph
+                    self.trainer.train(sess, inputs, targets, epoch_size, epoch_num)
+                else:
                     for i in range(epoch_num):
                         if verbose:
                             print("Epoch {}:".format(i))
-                        self.trainer.train_one_epoch(inputs, targets, epoch_size, sess, verbose=verbose)
-                        self.validator.evaluate(valid_inputs, valid_targets, valid_epoch_size, sess, verbose=False)
+                        self.trainer.train_one_epoch(sess, inputs, targets, epoch_size, verbose=verbose)
+                        self.validator.evaluate(sess, valid_inputs, valid_targets, valid_epoch_size, verbose=False)
 
     def evaluate(self, inputs, targets, epoch_size, logdir=None):
         assert self.is_compiled
         with self.graph.as_default():
             self.finalize()
-            with self.supervisor.managed_session(config=config_proto()) as sess:
+            with self.sess as sess:
                 logdir = os.path.join(self.logdir, "./evaluate") if logdir is None else logdir
-                self.evaluator.evaluate(inputs, targets, epoch_size, sess, record=True, verbose=True, logdir=logdir)
+                self.evaluator.evaluate(sess, inputs, targets, epoch_size, record=True, verbose=True, logdir=logdir)
 
     def generate(self, seed_id, logdir, max_branch=1, accum_cond_prob=0.9,
                  min_cond_prob=0.0, min_prob=0.0, max_step=20):
         assert self.is_compiled
         with self.graph.as_default():
             self.finalize()
-            with self.supervisor.managed_session(config=config_proto()) as sess:
+            with self.sess as sess:
                 return self.generator.generate(sess, seed_id, logdir, max_branch,
                                                accum_cond_prob, min_cond_prob, min_prob, max_step)
+
+    def run_with_context(self, func, *args, **kwargs):
+        assert self.is_compiled
+        with self.graph.as_default():
+            self.finalize()
+            with self.sess as sess:
+                func(sess, *args, **kwargs)
 
     def save(self, path=None):
         """
@@ -528,7 +532,7 @@ class RNN(object):
 
     @property
     def finalized(self):
-        return False if self.supervisor is None else False
+        return False if self.supervisor is None else True
 
     @property
     def cell(self):
@@ -545,6 +549,11 @@ class RNN(object):
     @property
     def has_projcet(self):
         return self.cell_list[-1].output_size != self.output_shape[-1]
+
+    @property
+    def sess(self):
+        assert self.finalized
+        return self.supervisor.managed_session(config=config_proto())
 
     def map_to_embedding(self, inputs):
         """

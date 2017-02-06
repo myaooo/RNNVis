@@ -3,15 +3,13 @@ Tests the restore of trained model
 """
 import tensorflow as tf
 from py.procedures import build_model, init_tf_environ
-from py.datasets.data_utils import InputProducer
-from py.datasets.ptb_reader import ptb_raw_data
+from py.rnn.evaluator import Recorder
+from py.db.language_model import get_datasets_by_name
 
 
 flags = tf.flags
 flags.DEFINE_string("config_path", None, "The path of the model configuration file")
-flags.DEFINE_string("data_path", None, "The path of the input data")
-flags.DEFINE_string("log_path", None, "The path to save the log")
-flags.DEFINE_integer('gpu_num', -1, "The code of the gpu to use, -1 to use no gpu.")
+flags.DEFINE_integer('gpu_num', 0, "The number of the gpu to use, 0 to use no gpu.")
 FLAGS = flags.FLAGS
 
 
@@ -19,29 +17,14 @@ def config_path():
     return FLAGS.config_path
 
 
-def data_path():
-    return FLAGS.data_path
-
-
-def log_path():
-    return FLAGS.log_path
-
-
-def test_data_producer(data, batch_size, num_steps):
-    # train_data = valid_data
-    producer = InputProducer(data, batch_size)
-    inputs = producer.get_feeder(num_steps, transpose=True)
-    targets = producer.get_feeder(num_steps, offset=1, transpose=True)
-    return inputs, targets, inputs.epoch_size
-
-
 if __name__ == '__main__':
     init_tf_environ(FLAGS.gpu_num)
     print('Preparing data')
-    train_data, valid_data, test_data, vocab_size = ptb_raw_data(data_path())
-
-    inputs, targets, epoch_size = test_data_producer(test_data, 1, 1)
+    datasets = get_datasets_by_name('ptb', ['test'])
+    test_data = datasets['test']
 
     model2 = build_model(config_path(), False)
     model2.restore()
-    model2.evaluate(inputs, targets, epoch_size)
+    model2.run_with_context(model2.evaluator.evaluate_and_record,
+                            [test_data[:1000]], [test_data[1:1001]],
+                            Recorder('ptb', model2.name), verbose=True)

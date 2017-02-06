@@ -17,7 +17,7 @@ flags = tf.flags
 flags.DEFINE_string("config_path", None, "The path of the model configuration file")
 flags.DEFINE_string("data_path", None, "The path of the input data")
 flags.DEFINE_string("log_path", None, "The path to save the log")
-flags.DEFINE_integer('gpu_num', 1, "The code of the gpu to use, -1 to use no gpu.")
+flags.DEFINE_integer('gpu_num', 0, "The number of the gpu to use, 0 to use no gpu.")
 FLAGS = flags.FLAGS
 
 
