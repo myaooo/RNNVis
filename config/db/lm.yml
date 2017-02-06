@@ -1,0 +1,16 @@
+datasets:
+  # Datasets and path configurations. Used for initializing the db
+  # The default base dir for all datasets is under cached_data/
+  - name: ptb
+    type: ptb
+    dir: simple-examples/data
+  - name: shakespeare
+    type: text
+    dir: tinyshakespeare.txt
+    scheme:
+      split_scheme:
+        train: 0.9
+        valid: 0.05
+        test: 0.05
+      min_freq: 1
+      max_vocab: 10000

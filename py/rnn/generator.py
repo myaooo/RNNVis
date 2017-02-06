@@ -4,7 +4,7 @@ A generator take a seed word and generate sequence / sequence tree using the tra
 
 import numpy as np
 from . import rnn
-from py.utils.io_utils import save2json
+from py.utils.io_utils import dict2json
 from py.utils.tree import TreeNode, Tree
 
 
@@ -135,5 +135,5 @@ class Generator(object):
         for node in tree.nodes():
             node.word = self.get_word_from_id(node.word_id)
         # print(tree.as_dict())
-        save2json(tree.as_dict(), logdir)
+        return dict2json(tree.as_dict(), logdir)
 

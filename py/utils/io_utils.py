@@ -8,6 +8,23 @@ import io
 import csv
 
 
+base_dir = os.path.join(os.path.realpath(__file__), '../../../')
+
+
+def get_path(path, file_name=None):
+    """
+    A helper function that get the real/abs path of a file on disk, with the project dir as the base dir.
+    Note: there is no checking on the illegality of the args!
+    :param path: a relative path to base_dir, optional file_name to use
+    :param file_name: an optional file name under the path
+    :return: an abs path of the request file / path
+    """
+    _p = os.path.abspath(os.path.join(base_dir, path))
+    if file_name:
+        return os.path.join(_p, file_name)
+    return _p
+
+
 def write2file(s_io, file_path, mode):
     """
     This is a wrapper function for writing files to disks,
@@ -28,13 +45,15 @@ def write2file(s_io, file_path, mode):
             f.write(s_io)
 
 
-def save2json(dict_, file_path):
+def dict2json(dict_, file_path=None):
     with io.StringIO() as s_io:
         json.dump(dict_, s_io)
+        if file_path is None:
+            return s_io.getvalue()
         write2file(s_io, file_path, 'w')
 
 
-def save2csv(list_of_list, file_path, delimiter=','):
+def lists2csv(list_of_list, file_path, delimiter=','):
     with io.StringIO() as s_io:
         writer = csv.writer(s_io, delimiter=delimiter)
         for ls in list_of_list:

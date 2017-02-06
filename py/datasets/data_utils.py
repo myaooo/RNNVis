@@ -89,7 +89,7 @@ def build_vocab(filename):
     words, _ = list(zip(*count_pairs))
     word_to_id = dict(zip(words, range(len(words))))
 
-    return word_to_id
+    return word_to_id, words
 
 
 def file_to_word_ids(filename, word_to_id):
@@ -114,34 +114,34 @@ def data_batcher(raw_data, batch_size):
     return data
 
 
-def data_feeder(batched_data, num_steps, shift=0, name=None):
-    """Iterate on the raw data. Borrowed from TensorFlow code
-
-    This returns Tensors that are drawn from raw_data.
-
-    Args:
-    raw_data: data with shape [batch_len, batch_size]
-    num_steps: int, the number of unrolls.
-    name: the name of this operation (optional).
-
-    Returns:
-    A Tensor shaped [num_steps, batch_size].
-
-    """
-    with tf.name_scope(name, "data_feeder", [batched_data, num_steps]):
-        batch_len = tf.shape(batched_data)[0]
-        batch_size = tf.shape(batched_data)[1]
-        epoch_size = (batch_len - 1) // num_steps
-        # assertion = tf.assert_positive(
-        #     epoch_size,
-        #     message="epoch_size == 0, decrease batch_size or num_steps")
-        # with tf.control_dependencies([assertion]):
-        #     epoch_size = tf.identity(epoch_size, name="epoch_size")
-
-        i = tf.train.range_input_producer(epoch_size, shuffle=False).dequeue()
-        x = tf.slice(batched_data, [i * num_steps + shift, 0], [num_steps, batch_size])
-        # y = tf.slice(data, [0, i * num_steps + 1], [batch_size, num_steps])
-        return x
+# def data_feeder(batched_data, num_steps, shift=0, name=None):
+#     """Iterate on the raw data. Borrowed from TensorFlow code
+#
+#     This returns Tensors that are drawn from raw_data.
+#
+#     Args:
+#     raw_data: data with shape [batch_len, batch_size]
+#     num_steps: int, the number of unrolls.
+#     name: the name of this operation (optional).
+#
+#     Returns:
+#     A Tensor shaped [num_steps, batch_size].
+#
+#     """
+#     with tf.name_scope(name, "data_feeder", [batched_data, num_steps]):
+#         batch_len = tf.shape(batched_data)[0]
+#         batch_size = tf.shape(batched_data)[1]
+#         epoch_size = (batch_len - 1) // num_steps
+#         # assertion = tf.assert_positive(
+#         #     epoch_size,
+#         #     message="epoch_size == 0, decrease batch_size or num_steps")
+#         # with tf.control_dependencies([assertion]):
+#         #     epoch_size = tf.identity(epoch_size, name="epoch_size")
+#
+#         i = tf.train.range_input_producer(epoch_size, shuffle=False).dequeue()
+#         x = tf.slice(batched_data, [i * num_steps + shift, 0], [num_steps, batch_size])
+#         # y = tf.slice(data, [0, i * num_steps + 1], [batch_size, num_steps])
+#         return x
 
 
 def load_data_as_ids(data_paths, word_to_id_path=None):
@@ -149,15 +149,17 @@ def load_data_as_ids(data_paths, word_to_id_path=None):
     Load the data from a list of paths, the first file will be used to build the vocabulary.
     :param data_paths: a list of paths
     :param word_to_id_path: a word to ids csv file
-    :return: a list of data, each as an id numpy.ndarray, and a word_to_id dict
+    :return: a tuple of (data_list, word_to_id, id_to_word):
+        a list of data, each as an id numpy.ndarray, corresponds to the data in each path in the data_paths,
+        and a word_to_id dict, and a word list, with index as their ids
     """
     if word_to_id_path is not None:
         raise NotImplementedError("Currently not support separate word_to_id file")
-    word_to_id = build_vocab(data_paths[0])
+    word_to_id, id_to_word = build_vocab(data_paths[0])
     data_list = []
     for path in data_paths:
         data_list.append(file_to_word_ids(path, word_to_id))
-    return data_list, word_to_id
+    return data_list, word_to_id, id_to_word
 
 
 def get_data_producer(data, batch_size, num_steps):

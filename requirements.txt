@@ -1,2 +1,5 @@
 pyyaml==3.12
 flask==0.12
+nltk==3.2.2
+pymongo==3.4.0
+

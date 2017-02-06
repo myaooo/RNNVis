@@ -12,6 +12,7 @@ from tensorflow import flags
 flags.DEFINE_string("config_path", None, "The path of the model configuration file")
 flags.DEFINE_string("data_path", None, "The path of the input data")
 flags.DEFINE_string("log_path", None, "The path to save the log")
+flags.DEFINE_integer('gpu_num', 0, "The number of the gpu to use, 0 to use no gpu.")
 FLAGS = flags.FLAGS
 
 
@@ -36,7 +37,7 @@ def test_data_producer(data, batch_size, num_steps):
 
 if __name__ == '__main__':
 
-    init_tf_environ()
+    init_tf_environ(FLAGS.gpu_num)
     print('Building model..')
     model, train_config = build_model(config_path())
 

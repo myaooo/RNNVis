@@ -6,17 +6,27 @@ Pre-defined procedures for running rnn, evaluating and recording
 import os
 import tensorflow as tf
 from py.rnn.config_utils import RNNConfig, TrainConfig
-from py.rnn.command_utils import data_type
+from py.rnn.command_utils import data_type, pick_gpu_lowest_memory
 from py.rnn.rnn import RNN
 from py.datasets.data_utils import load_data_as_ids, get_data_producer
 
-flags = tf.flags
-flags.DEFINE_integer('gpu_num', 1, "The number of gpu to use.")
-FLAGS = flags.FLAGS
 
-
-def init_tf_environ():
-    os.environ["CUDA_VISIBLE_DEVICES"] = str(FLAGS.gpu_num)
+def init_tf_environ(gpu_num=0):
+    """
+    Init CUDA environments, which the number of gpu to use
+    :param gpu_num:
+    :return:
+    """
+    if gpu_num == 0:
+        cuda_devices = ""
+    else:
+        try:
+            best_gpus = pick_gpu_lowest_memory(gpu_num)
+            cuda_devices = ",".join([str(e) for e in best_gpus])
+        except:
+            raise ValueError("Cannot find gpu devices!")
+    print("Using gpu device: {:s}".format(cuda_devices))
+    os.environ["CUDA_VISIBLE_DEVICES"] = cuda_devices
     # if FLAGS.gpu_num == 0 else "0,1,2,3"[:(FLAGS.gpu_num * 2 - 1)]
 
 
@@ -80,7 +90,7 @@ def produce_data(data_paths, train_config):
     train_steps = train_config.num_steps
     batch_size = train_config.batch_size
 
-    data_list, word_to_id = load_data_as_ids(data_paths)
+    data_list, word_to_id, id_to_word = load_data_as_ids(data_paths)
     producers = []
     for data in data_list:
         producers.append(get_data_producer(data, batch_size, train_steps))

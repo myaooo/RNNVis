@@ -152,6 +152,10 @@ class TrainConfig(object):
     def __init__(self, **kwargs):
         self.__dict__.update(kwargs)
         self.clipper = trainer.get_gradient_clipper(self.gradient_clip, **self.gradient_clip_args)
+        if hasattr(self, 'optimizer_args'):
+            self.optimizer = trainer.get_optimizer(self.optimizer, **self.optimizer_args)
+        else:
+            self.optimizer = trainer.get_optimizer(self.optimizer)
         self.lr = parse_lr_from_config(self.learning_rate)
 
     @staticmethod
