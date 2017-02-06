@@ -9,11 +9,12 @@ import os
 
 import tensorflow as tf
 import numpy as np
+
 from py.datasets.data_utils import Feeder
-from .command_utils import data_type, config_proto
-from .evaluator import Evaluator
-from .trainer import Trainer
-from .generator import Generator
+from py.rnn.command_utils import data_type, config_proto
+from py.rnn.evaluator import Evaluator, Recorder
+from py.rnn.trainer import Trainer
+from py.rnn.generator import Generator
 
 BasicRNNCell = tf.nn.rnn_cell.BasicRNNCell
 BasicLSTMCell = tf.nn.rnn_cell.BasicLSTMCell
@@ -349,7 +350,7 @@ class RNN(object):
         assert not self.is_compiled
         self.cell_list.append(cell(*args, **kwargs))
 
-    def compile(self, evaluate=True):
+    def compile(self, evaluate=False):
         """
         Compile the model. Should be called before training or running the model.
         Basically, this function just do checkings on model configurations,
@@ -419,7 +420,7 @@ class RNN(object):
 
     def add_evaluator(self, batch_size=1, record_every=1, log_state=True, log_input=True, log_output=True):
         """
-        Explicitly add evaluator instead of using the default one. You must explicitly call compile(evaluate=False)
+        Explicitly add evaluator instead of using the default one. You must call compile(evaluate=False)
             before calling this function
         :param batch_size: default to be 1
         :param record_every: record frequency
@@ -471,22 +472,46 @@ class RNN(object):
                         self.trainer.train_one_epoch(sess, inputs, targets, epoch_size, verbose=verbose)
                         self.validator.evaluate(sess, valid_inputs, valid_targets, valid_epoch_size, verbose=False)
 
-    def evaluate(self, inputs, targets, epoch_size, logdir=None):
-        assert self.is_compiled
-        with self.graph.as_default():
-            self.finalize()
-            with self.sess as sess:
-                logdir = os.path.join(self.logdir, "./evaluate") if logdir is None else logdir
-                self.evaluator.evaluate(sess, inputs, targets, epoch_size, record=True, verbose=True, logdir=logdir)
+    def evaluate(self, *args, **kwargs):
+        """
+        Wrapped method of Evaluator.evaluate
+        :param args: see Evaluator.evaluate method
+        :param kwargs: see Evaluator.evaluate method
+        :return:
+        """
+        self.run_with_context(self.evaluator.evaluate, *args, **kwargs)
+        # assert self.is_compiled
+        # with self.graph.as_default():
+        #     self.finalize()
+        #     with self.sess as sess:
+        #         self.evaluator.evaluate(sess, *args, **kwargs)
 
-    def generate(self, seed_id, logdir, max_branch=1, accum_cond_prob=0.9,
-                 min_cond_prob=0.0, min_prob=0.0, max_step=20):
-        assert self.is_compiled
-        with self.graph.as_default():
-            self.finalize()
-            with self.sess as sess:
-                return self.generator.generate(sess, seed_id, logdir, max_branch,
-                                               accum_cond_prob, min_cond_prob, min_prob, max_step)
+    def generate(self, *args, **kwargs):
+        """
+        Wrapped method of Generator.generate
+        :param args: see Generator.generate method
+        :param kwargs: see Generator.generate method
+        :return:
+        """
+        self.run_with_context(self.generator.generate, *args, **kwargs)
+        # assert self.is_compiled
+        # with self.graph.as_default():
+        #     self.finalize()
+        #     with self.sess as sess:
+        #         return self.generator.generate(sess, seed_id, logdir, max_branch,
+        #                                        accum_cond_prob, min_cond_prob, min_prob, max_step)
+
+    def evaluate_and_record(self, datasets, *args, **kwargs):
+        """
+        Wrapped method of Evaluator.evaluate_and_record
+        :param datasets: the name of the datasets in mongodb
+        :param args: see Evaluator.evaluate_and_record method
+        :param kwargs: see Evaluator.evaluate_and_record method
+        :return:
+        """
+        recorder = Recorder(datasets, self.name)
+        kwargs['recorder'] = recorder
+        self.run_with_context(self.evaluator.evaluate_and_record, *args, **kwargs)
 
     def run_with_context(self, func, *args, **kwargs):
         assert self.is_compiled
@@ -525,7 +550,7 @@ class RNN(object):
         :return: None
         """
         if self.finalized:
-            print("Graph has already been finalized!")
+            # print("Graph has already been finalized!")
             return False
         self.supervisor = tf.train.Supervisor(self.graph, logdir=self.logdir)
         return True

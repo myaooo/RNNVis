@@ -58,7 +58,7 @@ class Generator(object):
         return ids
 
     def generate(self, sess, seeds, logdir, max_branch=3, accum_cond_prob=0.9,
-                 min_cond_prob=0.1, min_prob=0.001, max_step=10):
+                 min_cond_prob=0.1, min_prob=0.001, max_step=10, neg_word_ids=None):
         """
         Generate sequence tree with given seed (a word_id) and certain requirements
         Note that the method always try to generate as much branches as possible.
@@ -70,11 +70,13 @@ class Generator(object):
         :param min_cond_prob: the minimum conditional probability of each branch
         :param min_prob: the minimum probability of a branch (note that this indicates a multiplication along the tree)
         :param max_step: the step to generate
-        :return:
+        :param neg_word_ids: a set of neglected words' ids.
+        :return: a json
         """
 
         model = self.model
         model.init_state(sess)
+        # Initialize the tree and inserts the seeds node
         tree = Tree()
         # converts words into ids
         if (not isinstance(seeds, list)) or len(seeds) < 1:
@@ -88,6 +90,7 @@ class Generator(object):
             node = GenerateNode(seed, 1.0, 1.0)
             tree.add_node(node, parent)
             parent = node
+        neg_word_ids = set(neg_word_ids)  # converts to set for easier `in` statement
 
         def _generate(node, step):
             if step > max_step:  # Already at the maximum generating step
@@ -97,9 +100,17 @@ class Generator(object):
             evals, _ = model.run(np.array(node.word_id).reshape(1, 1), None, 1, sess,
                                  eval_ops={'projected': model.projected_outputs})
             outputs = evals['projected'][0].reshape(-1)
+            # do softmax so that outputs represents probs
             outputs = rnn.softmax(outputs)
-            # Get sorted k max probs and their ids
-            max_id = np.argpartition(-outputs, max_branch)[:max_branch]
+            # Get sorted k max probs and their ids,
+            # since we will neglect some of them latter, we first get a bit more of the top k
+            max_id = np.argpartition(-outputs, max_branch)[:(max_branch+len(neg_word_ids))]
+            del_ids = []
+            for i, id_ in enumerate(max_id):
+                if int(id_) in neg_word_ids:
+                    del_ids.append(i)
+            max_id = np.delete(max_id, del_ids)
+            max_id = max_id[:max_branch]
             cond_probs = outputs[max_id]
             # Sort the cond_probs for later filtering use
             sort_indice = np.argsort(-cond_probs)

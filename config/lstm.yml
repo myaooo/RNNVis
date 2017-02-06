@@ -23,3 +23,4 @@ train:
     clip_norm: 10.0
   optimizer: GradientDescent
   learning_rate: "lambda epoch: 1.1 *(1.0 if epoch < 6 else 0.8**(epoch-6))"
+

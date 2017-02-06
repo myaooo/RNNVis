@@ -50,7 +50,7 @@ class Evaluator(object):
             summary_ops['output'] = self.model.outputs
         self.summary_ops = summary_ops
 
-    def evaluate(self, sess, inputs, targets, input_size, record=False, verbose=True, logdir=None):
+    def evaluate(self, sess, inputs, targets, input_size, verbose=True):
         """
         Evaluate on the test or valid data
         :param inputs: a Feeder instance
