@@ -3,7 +3,7 @@ class PrefixTree():
 
     def __init__(self, filename):
         self.filename = filename
-    
+
     def construct(self):
         """Construct prefix tree"""
         pass
