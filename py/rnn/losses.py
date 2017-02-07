@@ -5,6 +5,8 @@ Defines all losses related functions
 import numpy as np
 import tensorflow as tf
 
+from py.rnn.varlen_support import cost
+
 
 def softmax(x, axis=None):
     if axis is None:

@@ -14,6 +14,12 @@ and help practitioners to debug their model and data, and help reasearchers impr
     `pip install -r requirements.txt` 
 
 3. Data sets are already in the cached_data dir.
+ 
+   To set up the mongodb, you must first have mongodb installed on your system and have a `mongod` instance running.
+   
+   Then, run
+   
+   `python -m py.main seeddb`
 
 ## Usage
 

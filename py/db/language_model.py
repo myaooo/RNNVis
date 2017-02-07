@@ -144,10 +144,13 @@ def seed_db():
         config = yaml.safe_load(f)['datasets']
     for seed in config:
         data_dir = get_path('cached_data', seed['dir'])
+        print('seeding {:s} data'.format(seed['name']))
         if seed['type'] == 'ptb':
             store_ptb(data_dir, seed['name'])
         elif seed['type'] == 'text':
             store_plain_text(data_dir, seed['name'], **seed['scheme'])
+        else:
+            print('cannot find corresponding seed functions')
 
 
 def insert_evaluation(data_name, model_name, eval_text_tokens):

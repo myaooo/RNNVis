@@ -25,6 +25,7 @@ def main(args=None):
         app.run(debug=args.debug)
     elif args.method == 'seeddb':
         seed_db()
+        print("Seeding Done.")
 
 
 if __name__ == "__main__":
