@@ -4,6 +4,7 @@ A generator take a seed word and generate sequence / sequence tree using the tra
 
 import numpy as np
 from . import rnn
+from . import losses
 from py.utils.io_utils import dict2json
 from py.utils.tree import TreeNode, Tree
 
@@ -75,7 +76,7 @@ class Generator(object):
         """
 
         model = self.model
-        model.init_state(sess)
+        model.reset_state()
         # Initialize the tree and inserts the seeds node
         tree = Tree()
         # converts words into ids
@@ -101,7 +102,7 @@ class Generator(object):
                                  eval_ops={'projected': model.projected_outputs})
             outputs = evals['projected'][0].reshape(-1)
             # do softmax so that outputs represents probs
-            outputs = rnn.softmax(outputs)
+            outputs = losses.softmax(outputs)
             # Get sorted k max probs and their ids,
             # since we will neglect some of them latter, we first get a bit more of the top k
             max_id = np.argpartition(-outputs, max_branch)[:(max_branch+len(neg_word_ids))]

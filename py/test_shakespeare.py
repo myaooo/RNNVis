@@ -4,7 +4,7 @@ Tests text_processor and training on tiny shakespeare data
 
 
 from py.procedures import build_model, init_tf_environ
-from py.datasets.data_utils import InputProducer, split
+from py.datasets.data_utils import get_data_producer, split
 from py.datasets.text_processor import PlainTextProcessor
 from tensorflow import flags
 
@@ -27,13 +27,6 @@ def log_path():
     return FLAGS.log_path
 
 
-def test_data_producer(data, batch_size, num_steps):
-    # train_data = valid_data
-    producer = InputProducer(data, batch_size)
-    inputs = producer.get_feeder(num_steps, transpose=True)
-    targets = producer.get_feeder(num_steps, offset=1, transpose=True)
-    return inputs, targets, targets.epoch_size
-
 if __name__ == '__main__':
 
     init_tf_environ(FLAGS.gpu_num)
@@ -49,11 +42,11 @@ if __name__ == '__main__':
     train, valid, test = tuple(split_data)
     # print(valid)
 
-    train_inputs, train_targets, epoch_size = test_data_producer(train, train_config.batch_size, train_config.num_steps)
+    train_inputs, train_targets, epoch_size = get_data_producer(train, train_config.batch_size, train_config.num_steps)
     valid_inputs, valid_targets, valid_epoch_size = \
-        test_data_producer(valid, train_config.batch_size, train_config.num_steps)
+        get_data_producer(valid, train_config.batch_size, train_config.num_steps)
     test_inputs, test_targets, test_epoch_size = \
-        test_data_producer(test, 1, train_config.num_steps)
+        get_data_producer(test, 1, train_config.num_steps)
 
     print('Start Training')
     model.train(train_inputs, train_targets, epoch_size, epoch_num,

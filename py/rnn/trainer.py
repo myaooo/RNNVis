@@ -137,15 +137,17 @@ class Trainer(object):
                 self.train_op = self.optimizer.apply_gradients(
                     list(zip(self.clipped_grads, tvars)),
                     global_step=self.global_step)
+        self.current_epoch = 0
 
-    def update_lr(self, sess, epoch_size):
+    def update_lr(self, sess, epoch_num):
         if self.decay is None:
             return
-        global_step = tf.train.global_step(sess, self.global_step)
-        new_lr = self.decay(float(global_step)/epoch_size)
+        self.current_epoch += epoch_num
+        # global_step = tf.train.global_step(sess, self.global_step)
+        new_lr = self.decay(self.current_epoch)
         sess.run(self._update_lr, feed_dict={self._new_lr: new_lr})
 
-    def train(self, sess, inputs, targets, epoch_size, epoch_num, verbose=True):
+    def train(self, sess, inputs, targets, epoch_size, epoch_num, verbose=True, refresh_state=False):
         """
         Training using given input and target data
         :param inputs: a Tensor of shape [num_step, batch_size (, feature_size)] produced using data_utils.data_feeder
@@ -154,34 +156,33 @@ class Trainer(object):
         :param epoch_num: number of training epochs
         :param sess: the session used to run the training
         :param verbose: whether print training information
+        :param refresh_state: denote whether needs to re-initialize the state after each loop
         :return: None
         """
 
         for i in range(epoch_num):
             if verbose:
                 print("Epoch:{:d}".format(i))
-                print("lr:{:.3f}".format( self._lr.eval(sess)))
-            self.train_one_epoch(inputs, targets, epoch_size, sess, verbose=verbose)
-            self.update_lr(sess, epoch_size)
+                print("lr:{:.3f}".format(self._lr.eval(sess)))
+            self.train_one_epoch(inputs, targets, epoch_size, sess, verbose=verbose, refresh_state=refresh_state)
+            self.update_lr(sess, 1)
 
-    def train_one_epoch(self, sess, inputs, targets, epoch_size, verbose=True):
+    def train_one_epoch(self, sess, inputs, targets, epoch_size, verbose=True, refresh_state=False):
         """
         Run one epoch of training (validating)
         :param inputs: same as above
         :param targets: same as above
         :param epoch_size: same as above
-        :param run_ops: the specified TF ops to run
         :param sess: the tf.Session to run the training(validating) graph
-        :param valid: if True, run validating graph
         :param verbose: flag of printing mid results
-        :return: avg. results
+        :param refresh_state: denote whether needs to re-initialize the state after each loop
+        :return: None
         """
         if verbose:
             print("lr:{:.3f}".format(self._lr.eval(sess)))
         run_ops = {'train_op': self.train_op}
         sum_ops = {'loss': self.model.loss}
-        self.model.init_state(sess)
+        self.model.reset_state()
         self.model.run(inputs, targets, epoch_size, sess, run_ops,  # eval_ops={'clipped_grads': self.clipped_grads},
-                       sum_ops=sum_ops, verbose=verbose)
-        self.update_lr(sess, epoch_size)
-
+                       sum_ops=sum_ops, verbose=verbose, refresh_state=refresh_state)
+        self.update_lr(sess, 1)

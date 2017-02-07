@@ -8,6 +8,7 @@ import yaml
 import tensorflow as tf
 from . import rnn
 from . import trainer
+from . import losses
 
 
 __str2initializer = {
@@ -87,8 +88,8 @@ def get_loss_func(loss_func):
         return loss_func
     assert isinstance(loss_func, str)
     if loss_func == 'sequence_loss':
-        return rnn.sequence_loss
-    return rnn.sequence_loss
+        return losses.sequence_loss
+    return losses.sequence_loss
 
 
 class RNNConfig(object):

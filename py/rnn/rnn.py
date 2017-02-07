@@ -15,6 +15,8 @@ from py.rnn.command_utils import data_type, config_proto
 from py.rnn.evaluator import Evaluator, Recorder
 from py.rnn.trainer import Trainer
 from py.rnn.generator import Generator
+from py.rnn.losses import softmax
+from py.rnn.varlen_support import sequence_length
 
 BasicRNNCell = tf.nn.rnn_cell.BasicRNNCell
 BasicLSTMCell = tf.nn.rnn_cell.BasicLSTMCell
@@ -27,39 +29,6 @@ InputProjectionWrapper = tf.nn.rnn_cell.InputProjectionWrapper
 OutputProjectionWrapper = tf.nn.rnn_cell.OutputProjectionWrapper
 
 int32 = tf.int32
-
-
-def softmax(x, axis=None):
-    if axis is None:
-        x_max = np.max(x)
-        e_x = np.exp(x - x_max)
-        return e_x / np.sum(e_x)
-    if axis == 1:
-        x = x.T
-    x_max = np.max(x, axis=0)
-    e_x = np.exp(x - x_max)
-    sm = e_x / np.sum(e_x, axis=0)
-    return sm if axis == 0 else sm.T
-
-
-def sequence_loss(outputs, targets):
-    """
-    Weighted cross-entropy loss for a sequence of logits (per example).
-    :param outputs: a 2D Tensor of shape [batch_size, output_size]
-    :param targets: a 1D int32 Tensors of shape [batch_size]
-    :return: a scalar tensor denoting the average loss of each example
-    """
-    if len(outputs.get_shape()) == 2:
-        flatten_shape = tf.shape(targets)
-    elif len(outputs.get_shape()) == 3:
-        shape = outputs.get_shape().as_list()
-        outputs = tf.reshape(outputs, [-1, shape[2]])
-        targets = tf.reshape(targets, [-1])
-        flatten_shape = tf.shape(targets)
-    else:
-        raise ValueError("outputs must be 2D or 3D tensor!")
-    _loss = tf.nn.seq2seq.sequence_loss([outputs], [targets], [tf.ones(flatten_shape, dtype=data_type())])
-    return _loss
 
 
 class RNNModel(object):
@@ -80,23 +49,26 @@ class RNNModel(object):
         self.current_state = None
         # Ugly hackings for DropoutWrapper
         if keep_prob is not None:
-            cell_list = [DropOutWrapper(cell, input_keep_prob=keep_prob, output_keep_prob=keep_prob) for cell in rnn.cell_list]
+            cell_list = [DropOutWrapper(cell, input_keep_prob=keep_prob, output_keep_prob=keep_prob)
+                         for cell in rnn.cell_list]
             self._cell = MultiRNNCell(cell_list, state_is_tuple=True)
         # The abstract name scope is not that easily dealt with, try to make the transparent to user
         with tf.name_scope(name):
             reuse = rnn.need_reuse
             with tf.variable_scope(rnn.name, reuse=reuse, initializer=rnn.initializer):
                 # Build TF computation Graph
-                input_shape = [None] + list(rnn.input_shape)[1:]
-                target_shape = [None] + list(rnn.target_shape)[1:]
-                self.state = self.cell.zero_state(batch_size, rnn.output_dtype)
-                self.input_holders = tf.placeholder(rnn.input_dtype, [num_steps] + input_shape, "input_holders")
-                self.target_holders = tf.placeholder(rnn.target_dtype, [num_steps] + target_shape, "target_holders")
+                input_shape = [None] + [num_steps] + list(rnn.input_shape)[1:]
+                target_shape = [None] + [num_steps] + list(rnn.target_shape)[1:]
+                self.input_holders = tf.placeholder(rnn.input_dtype,  input_shape, "input_holders")
+                self.target_holders = tf.placeholder(rnn.target_dtype, target_shape, "target_holders")
+                self.batch_size = tf.shape(self.input_holders)[0]
+                self.state = self.cell.zero_state(self.batch_size, rnn.output_dtype)
                 # ugly hacking for EmbeddingWrapper Badness
                 self.inputs = self.input_holders if not rnn.has_embedding else rnn.map_to_embedding(self.input_holders)
                 # Call TF api to create recurrent neural network
                 outputs, self.final_state = \
-                    tf.nn.dynamic_rnn(self.cell, self.inputs, initial_state=self.state, time_major=True)
+                    tf.nn.dynamic_rnn(self.cell, self.inputs, sequence_length=sequence_length(self.inputs),
+                                      initial_state=self.state, dtype=data_type(), time_major=False)
                 # Reshape outputs and targets into [batch_size * num_steps, feature_dims]
                 self.outputs = tf.reshape(outputs, [-1, outputs.get_shape().as_list()[2]])
                 self.targets = tf.reshape(self.target_holders, [-1])
@@ -117,13 +89,14 @@ class RNNModel(object):
     def rnn(self):
         return self._rnn
 
-    def run(self, inputs, targets, epoch_size, sess, run_ops=None, eval_ops=None, sum_ops=None, verbose=False):
+    def run(self, inputs, targets, epoch_size, sess, run_ops=None, eval_ops=None, sum_ops=None, verbose=False,
+            refresh_state=False):
         """
         RNN Model's main API for running the model from inputs
         Note: this function can only be run after the graph is finalized.
         When inputs and targets are numpy.ndarray, the epoch_size should be 1,
             or the model will run on the same data again and again.
-        :param inputs: a input Feeder instance, a auto produce Tensor, or a numpy.ndarray
+        :param inputs: a input Feeder instance, or a numpy.ndarray
         :param targets: should be same type as inputs.
         :param epoch_size: how many iterations that the looping will be run (the size of the input queue)
         :param sess: the tf.Session to run the model
@@ -131,6 +104,7 @@ class RNNModel(object):
         :param eval_ops: a dict containing all the ops that will be logged but not verbosed
         :param sum_ops: a dict containing all the ops that will be verbosed. All ops in this dict should be scalar.
         :param verbose:
+        :param refresh_state: initialize state to zero state after each run in the loop
         :return: a pair of dicts (evals, sums), each containing running results of eval_ops and sum_ops,
             result of each op in the dict is stored as a list.
         """
@@ -140,17 +114,20 @@ class RNNModel(object):
         if sum_ops is None: sum_ops = {}
         verbose_every = epoch_size//10 if verbose else math.inf
         # initialize state and add ops that must be run
-        if self.current_state is None:
-            self.init_state(sess)
         # for compatible with different input type
-        if isinstance(inputs, tf.Tensor):
-            get_data = lambda x: sess.run(x)
-        elif isinstance(inputs, Feeder):
+        # if isinstance(inputs, tf.Tensor):
+        #     get_data = lambda x: sess.run(x)
+        # el
+        if isinstance(inputs, Feeder):
             get_data = lambda x: [y() for y in x]
         elif isinstance(inputs, np.ndarray):
             get_data = lambda x: x
         else:
             raise TypeError("inputs mal format!")
+        batch_size = inputs.shape[0]
+
+        if self.current_state is None:
+            self.init_state(sess, batch_size)
 
         run_ops['state'] = self.final_state
         run_ops.update(eval_ops)
@@ -161,6 +138,8 @@ class RNNModel(object):
         evals = {name: [] for name in eval_ops}
         sums = {name: 0 for name in sum_ops}
         for i in range(epoch_size):
+            if refresh_state:
+                self.init_state(sess, batch_size)
             feed_dict = self.feed_state(self.current_state)
             _inputs, _targets = get_data((inputs, targets))
             feed_dict[self.input_holders] = _inputs
@@ -216,9 +195,13 @@ class RNNModel(object):
     #     holders = self.input_holders if inputs else self.target_holders
     #     return {holders: data}
 
-    def init_state(self, sess):
-        self.current_state = sess.run(self.state, )
-        return self.current_state
+    def init_state(self, sess, batch_size):
+        self.current_state = sess.run(self.state, {self.batch_size: batch_size})
+        return
+
+    def reset_state(self):
+        self.current_state = None
+        return
 
     def log_ops_placement(self, ops, log_path):
         # Print ops assignments for debugging
@@ -251,8 +234,8 @@ class RNNModel(object):
             for begin in range(0, output_steps, batch_size):
                 end = begin + batch_size
                 if end > output_steps:
-                    _projected = sess.run(self.projected_outputs, {self.outputs: outputs[-batch_size:,:]})
-                    _projected = _projected[end-output_steps:,:]  # throw duplicated part
+                    _projected = sess.run(self.projected_outputs, {self.outputs: outputs[-batch_size:, :]})
+                    _projected = _projected[end-output_steps:, :]  # throw duplicated part
                 else:
                     _projected = sess.run(self.projected_outputs, {self.outputs: outputs[begin:end, :]})
                 projected.append(_projected)
@@ -275,7 +258,7 @@ class RNN(object):
         :return: a empty RNN model
         """
         self.name = name
-        self.initializer = initializer if initializer is not None else tf.random_uniform_initializer(-0.1,0.1)
+        self.initializer = initializer if initializer is not None else tf.random_uniform_initializer(-0.1, 0.1)
         self.input_shape = None
         self.input_dtype = None
         self.output_shape = None
@@ -442,7 +425,7 @@ class RNN(object):
                 self.generator = Generator(self, word_to_id)
 
     def train(self, inputs, targets, epoch_size, epoch_num, valid_inputs=None, valid_targets=None,
-              valid_epoch_size=None, verbose=True):
+              valid_epoch_size=None, verbose=True, refresh_state=False):
         """
         Training using given input and target data
         TODO: Clean up this messy function
@@ -464,13 +447,16 @@ class RNN(object):
             with self.sess as sess:
                 if valid_inputs is None:
                     # Only needs to run training graph
-                    self.trainer.train(sess, inputs, targets, epoch_size, epoch_num)
+                    self.trainer.train(sess, inputs, targets, epoch_size, epoch_num,
+                                       verbose=verbose, refresh_state=refresh_state)
                 else:
                     for i in range(epoch_num):
                         if verbose:
                             print("Epoch {}:".format(i))
-                        self.trainer.train_one_epoch(sess, inputs, targets, epoch_size, verbose=verbose)
-                        self.validator.evaluate(sess, valid_inputs, valid_targets, valid_epoch_size, verbose=False)
+                        self.trainer.train_one_epoch(sess, inputs, targets, epoch_size, verbose=verbose,
+                                                     refresh_state=refresh_state)
+                        self.validator.evaluate(sess, valid_inputs, valid_targets, valid_epoch_size,
+                                                verbose=False, refresh_state=refresh_state)
 
     def evaluate(self, *args, **kwargs):
         """
@@ -479,12 +465,8 @@ class RNN(object):
         :param kwargs: see Evaluator.evaluate method
         :return:
         """
+        assert self.evaluator is not None
         self.run_with_context(self.evaluator.evaluate, *args, **kwargs)
-        # assert self.is_compiled
-        # with self.graph.as_default():
-        #     self.finalize()
-        #     with self.sess as sess:
-        #         self.evaluator.evaluate(sess, *args, **kwargs)
 
     def generate(self, *args, **kwargs):
         """
@@ -493,13 +475,8 @@ class RNN(object):
         :param kwargs: see Generator.generate method
         :return:
         """
+        assert self.generator is not None
         self.run_with_context(self.generator.generate, *args, **kwargs)
-        # assert self.is_compiled
-        # with self.graph.as_default():
-        #     self.finalize()
-        #     with self.sess as sess:
-        #         return self.generator.generate(sess, seed_id, logdir, max_branch,
-        #                                        accum_cond_prob, min_cond_prob, min_prob, max_step)
 
     def evaluate_and_record(self, datasets, *args, **kwargs):
         """

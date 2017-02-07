@@ -50,7 +50,7 @@ class Evaluator(object):
             summary_ops['output'] = self.model.outputs
         self.summary_ops = summary_ops
 
-    def evaluate(self, sess, inputs, targets, input_size, verbose=True):
+    def evaluate(self, sess, inputs, targets, input_size, verbose=True, refresh_state=False):
         """
         Evaluate on the test or valid data
         :param inputs: a Feeder instance
@@ -63,13 +63,14 @@ class Evaluator(object):
         :return:
         """
 
-        self.model.init_state(sess)
+        self.model.reset_state()
         eval_ops = self.summary_ops
         sum_ops = {"loss": self.model.loss}
         total_loss = 0
         print("Start evaluating...")
         for i in range(input_size):
-            evals, sums = self.model.run(inputs, targets, 1, sess, eval_ops=eval_ops, sum_ops=sum_ops, verbose=False)
+            evals, sums = self.model.run(inputs, targets, self.record_every, sess, eval_ops=eval_ops, sum_ops=sum_ops,
+                                         verbose=False, refresh_state=refresh_state)
             total_loss += sums["loss"]
             if i % 500 == 0:
                 if verbose:
@@ -77,7 +78,7 @@ class Evaluator(object):
         loss = total_loss / input_size
         print("Evaluate Summary: avg loss:{:.3f}".format(loss))
 
-    def evaluate_and_record(self, sess, inputs, targets, recorder, verbose=True):
+    def evaluate_and_record(self, sess, inputs, targets, recorder, verbose=True, refresh_state=False):
         """
         A similar method like evaluate.
         Evaluate model's performance on a sequence of inputs and targets,
@@ -106,10 +107,12 @@ class Evaluator(object):
         if input_size > 10000:
             print("WARN: inputs too long, might take some time.")
         eval_ops = self.summary_ops
+        self.model.reset_state()
         for i in range(input_size):
             inputs_ = inputs[:, i:(i+1)]
             targets_ = None if targets is None else targets[:, i:(i+1)]
-            evals, _ = self.model.run(inputs_, targets_, 1, sess, eval_ops=eval_ops, verbose=False)
+            evals, _ = self.model.run(inputs_, targets_, self.record_every, sess, eval_ops=eval_ops,
+                                      verbose=False, refresh_state=refresh_state)
             recorder.record(evals)
             if verbose and i % (input_size // 10) == 0 and i != 0:
                 print("[{:d}/{:d}] completed".format(i, input_size))
