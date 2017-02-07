@@ -57,9 +57,8 @@ class Evaluator(object):
         :param targets: a Fedder instance
         :param input_size: size of the input
         :param sess: tf.Session to run the computation
-        :param record: deprecated
         :param verbose: verbosity
-        :param logdir: deprecated
+        :param refresh_state: True if you want to refresh hidden state after each loop
         :return:
         """
 
@@ -75,7 +74,7 @@ class Evaluator(object):
             if i % 500 == 0:
                 if verbose:
                     print("[{:d}/{:d}]: avg loss:{:.3f}".format(i, input_size, total_loss/(i+1)))
-        loss = total_loss / input_size
+        loss = total_loss / (input_size * self.record_every)
         print("Evaluate Summary: avg loss:{:.3f}".format(loss))
 
     def evaluate_and_record(self, sess, inputs, targets, recorder, verbose=True, refresh_state=False):

@@ -6,6 +6,9 @@ import os
 import json
 import io
 import csv
+from urllib.request import urlretrieve
+
+from zipfile import ZipFile
 
 
 base_dir = os.path.join(os.path.realpath(__file__), '../../../')
@@ -34,10 +37,7 @@ def write2file(s_io, file_path, mode):
     :param mode: the writing mode to use
     :return: None
     """
-    full_path = os.path.abspath(file_path)
-    dir_name = os.path.dirname(full_path)
-    if not os.path.exists(dir_name):
-        os.makedirs(dir_name)
+    before_save(file_path)
     with open(file_path, mode) as f:
         if isinstance(s_io, io.StringIO):
             f.write(s_io.getvalue())
@@ -61,11 +61,13 @@ def lists2csv(list_of_list, file_path, delimiter=','):
         write2file(s_io, file_path, 'w')
 
 
-def csv2list(file_path, delimiter=',', mode='r'):
+def csv2list(file_path, delimiter=',', mode='r', skip=0):
     lists = []
     assert_file_exists(file_path)
     with open(file_path, mode, newline='') as f:
         csv_reader = csv.reader(f, delimiter=delimiter)
+        for i in range(skip):
+            next(csv_reader)
         for row in csv_reader:
             lists.append(row)
     return lists
@@ -103,3 +105,25 @@ def assert_path_exists(file_or_dir):
         return
     else:
         raise LookupError("Cannot find file or dir: {:s}".format(os.path.abspath(file_or_dir)))
+
+
+def before_save(file_or_dir):
+    dir_name = os.path.dirname(os.path.abspath(file_or_dir))
+    if not os.path.exists(dir_name):
+        os.makedirs(dir_name)
+
+
+def download(url, path):
+    """
+    Download zip file from url and extract all the files under path
+    :param url:
+    :param path:
+    :return:
+    """
+    before_save(path)
+    urlretrieve(url, path)
+
+
+def unzip(file_path, path):
+    zip_file = ZipFile(file_path)
+    zip_file.extractall(path)
