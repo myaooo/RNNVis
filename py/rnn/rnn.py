@@ -169,7 +169,7 @@ class RNNModel(object):
             sum_str = ', '.join(["{:s}: {:.4f}".format(name, value / i) for name, value in sums.items()])
             if sum_str: sum_str = ', '+sum_str
             print("Epoch Summary: total time:{:.1f}s, speed:{:.1f} wps".format(
-                total_time, epoch_size * self.num_steps * self.batch_size / total_time) + sum_str)
+                total_time, epoch_size * self.num_steps * batch_size / total_time) + sum_str)
         return evals, sums
 
     def feed_state(self, state):
