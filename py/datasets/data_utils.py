@@ -155,7 +155,7 @@ class SentenceProducer(object):
     A convenient input data producer which provide sentence level inputs,
         the num_steps are directly set by the max_length of the sentence
     """
-    def __init__(self, raw_data, batch_size):
+    def __init__(self, raw_data, batch_size, max_length=None):
         """
         :param raw_data: a list of lists, with each element as word_id (int), or a word_embedding (list or ndarray)
             each nested list represents a sentence
@@ -167,7 +167,7 @@ class SentenceProducer(object):
         raw_data = raw_data[:self.sentence_num]
         self.sentence_length = [len(l) for l in raw_data]
 
-        self.num_steps = max(self.sentence_length)
+        self.num_steps = max(self.sentence_length) if max_length is None else max_length
         if isinstance(raw_data[0][0], int):
             self.embedding = False
             # Do －1 paddings if word_id
@@ -258,8 +258,8 @@ def get_lm_data_producer(data, batch_size, num_steps, transpose=False):
     return inputs, targets, targets.epoch_size
 
 
-def get_sp_data_producer(data, label, batch_size, transpose=False):
-    s_producer = SentenceProducer(data, batch_size)
+def get_sp_data_producer(data, label, batch_size, num_steps=None, transpose=False):
+    s_producer = SentenceProducer(data, batch_size, num_steps)
     inputs = s_producer.get_feeder(transpose=transpose)
     targets = ListFeeder(label, batch_size)
     return inputs, targets, targets.epoch_size

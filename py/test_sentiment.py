@@ -34,11 +34,11 @@ if __name__ == '__main__':
     valid = datasets['valid']
     test = datasets['test']
     train_inputs, train_targets, epoch_size = get_sp_data_producer(train['data'], train['label'],
-                                                                   train_config.batch_size)
+                                                                   train_config.batch_size, train_config.num_steps)
     valid_inputs, valid_targets, valid_epoch_size = get_sp_data_producer(valid['data'], valid['label'],
-                                                                         train_config.batch_size)
+                                                                         train_config.batch_size, train_config.num_steps)
     test_inputs, test_targets, test_epoch_size = get_sp_data_producer(test['data'], test['label'],
-                                                                      train_config.batch_size)
+                                                                      train_config.batch_size, train_config.num_steps)
 
     print('Start Training')
     model.train(train_inputs, train_targets, epoch_size, epoch_num,

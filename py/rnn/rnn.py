@@ -28,7 +28,9 @@ DropOutWrapper = tf.nn.rnn_cell.DropoutWrapper
 InputProjectionWrapper = tf.nn.rnn_cell.InputProjectionWrapper
 OutputProjectionWrapper = tf.nn.rnn_cell.OutputProjectionWrapper
 
-int32 = tf.int32
+tf.GraphKeys.INPUTS = 'myinputs'
+
+_input_and_global = [tf.GraphKeys.GLOBAL_VARIABLES, tf.GraphKeys.INPUTS]
 
 
 class RNNModel(object):
@@ -36,11 +38,15 @@ class RNNModel(object):
     A RNN Model unrolled from a RNN instance
     """
     def __init__(self, rnn, batch_size, num_steps, keep_prob=None, name=None):
+        """
+        Create an unrolled rnn model with TF tensors
+        :param rnn:
+        :param batch_size:
+        :param num_steps:
+        :param keep_prob:
+        :param name:
+        """
         assert isinstance(rnn, RNN)
-        # if batch_size is None:
-        #     batch_size = tf.Variable(20, dtype=tf.int32, trainable=False)
-        #     self._new_batch_size = tf.placeholder(tf.int32, shape=())
-        #     self._update_batch_size = tf.assign(batch_size, self._new_batch_size, name="update_batch_size")
         self._rnn = rnn
         self._cell = rnn.cell
         self.batch_size = batch_size
@@ -57,8 +63,12 @@ class RNNModel(object):
             reuse = rnn.need_reuse
             with tf.variable_scope(rnn.name, reuse=reuse, initializer=rnn.initializer):
                 # Build TF computation Graph
-                input_shape = [None] + [num_steps] + list(rnn.input_shape)[1:]
-                self.input_holders = tf.placeholder(rnn.input_dtype,  input_shape, "input_holders")
+                input_shape = [batch_size] + [num_steps] + list(rnn.input_shape)[1:]
+                # self.input_holders = tf.placeholder(rnn.input_dtype, input_shape, "input_holders")
+                zero_initializer = tf.constant_initializer(value=0, dtype=rnn.input_dtype)
+                self.input_holders = tf.Variable(zero_initializer(shape=input_shape), trainable=False,
+                                                 collections=_input_and_global, name='input_holders')
+                # self.input_holders = tf.Variable(np.zeros(input_shape))
                 self.batch_size = tf.shape(self.input_holders)[0]
                 self.state = self.cell.zero_state(self.batch_size, rnn.output_dtype)
                 # ugly hacking for EmbeddingWrapper Badness
@@ -70,10 +80,13 @@ class RNNModel(object):
                                       initial_state=self.state, dtype=data_type(), time_major=False)
                 if rnn.use_last_output:
                     self.outputs = last_relevant(self.outputs, self.input_length)
-                    target_shape = [None] + list(rnn.target_shape)[1:]
+                    target_shape = [batch_size] + list(rnn.target_shape)[1:]
                 else:
-                    target_shape = [None] + [num_steps] + list(rnn.target_shape)[1:]
-                self.target_holders = tf.placeholder(rnn.target_dtype, target_shape, "target_holders")
+                    target_shape = [batch_size] + [num_steps] + list(rnn.target_shape)[1:]
+                # self.target_holders = tf.placeholder(rnn.target_dtype, target_shape, "target_holders")
+                zero_initializer = tf.constant_initializer(value=0, dtype=rnn.target_dtype)
+                self.target_holders = tf.Variable(zero_initializer(shape=target_shape), trainable=False,
+                                                  collections=_input_and_global, name='target_holders')
                 if rnn.has_projcet:
                     # Reshape outputs and targets into [batch_size * num_steps, feature_dims]
                     outputs = tf.reshape(self.outputs, [-1, self.outputs.get_shape().as_list()[-1]])
