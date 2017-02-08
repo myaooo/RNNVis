@@ -28,7 +28,7 @@ def get_path(path, file_name=None):
     return _p
 
 
-def write2file(s_io, file_path, mode):
+def write2file(s_io, file_path, mode, encoding=None):
     """
     This is a wrapper function for writing files to disks,
     it will automatically check for dir existence and create dir or file if needed
@@ -38,7 +38,7 @@ def write2file(s_io, file_path, mode):
     :return: None
     """
     before_save(file_path)
-    with open(file_path, mode) as f:
+    with open(file_path, mode, encoding=encoding) as f:
         if isinstance(s_io, io.StringIO):
             f.write(s_io.getvalue())
         else:
@@ -53,18 +53,18 @@ def dict2json(dict_, file_path=None):
         write2file(s_io, file_path, 'w')
 
 
-def lists2csv(list_of_list, file_path, delimiter=','):
+def lists2csv(list_of_list, file_path, delimiter=',', encoding=None):
     with io.StringIO() as s_io:
         writer = csv.writer(s_io, delimiter=delimiter)
         for ls in list_of_list:
             writer.writerow([str(i) for i in ls])
-        write2file(s_io, file_path, 'w')
+        write2file(s_io, file_path, 'w', encoding=encoding)
 
 
-def csv2list(file_path, delimiter=',', mode='r', skip=0):
+def csv2list(file_path, delimiter=',', mode='r', encoding=None, skip=0):
     lists = []
     assert_file_exists(file_path)
-    with open(file_path, mode, newline='') as f:
+    with open(file_path, mode, newline='', encoding=encoding) as f:
         csv_reader = csv.reader(f, delimiter=delimiter)
         for i in range(skip):
             next(csv_reader)

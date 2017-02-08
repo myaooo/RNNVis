@@ -89,6 +89,8 @@ def get_loss_func(loss_func):
     assert isinstance(loss_func, str)
     if loss_func == 'sequence_loss':
         return losses.sequence_loss
+    if loss_func == 'sentence_loss':
+        return losses.sentence_loss
     return losses.sequence_loss
 
 
@@ -98,13 +100,15 @@ class RNNConfig(object):
     """
     def __init__(self, name='RNN', initializer_name=None, initializer_args=None, vocab_size=1000, embedding_size=50,
                  input_dtype='int32', target_dtype='int32', cells=None, cell_type='BasicLSTM',
-                 loss_func='sequence_loss'):
+                 loss_func='sequence_loss', target_size=None, use_last_output=False):
         self.name = name
         self.cells = cells
         self.cell = get_rnn_cell(cell_type)
         self.initializer = get_initializer(initializer_name, **initializer_args)
         self.input_dtype = get_dtype(input_dtype)
         self.target_dtype = get_dtype(target_dtype)
+        self.target_size = target_size if target_size is None else int(target_size)
+        self.use_last_output = use_last_output
         self.vocab_size = vocab_size
         self.embedding_size = embedding_size
         self.loss_func = get_loss_func(loss_func)

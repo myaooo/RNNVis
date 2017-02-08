@@ -5,7 +5,7 @@ Defines all losses related functions
 import numpy as np
 import tensorflow as tf
 
-from py.rnn.varlen_support import cost
+from py.rnn.varlen_support import last_relevant
 
 
 def softmax(x, axis=None):
@@ -41,5 +41,5 @@ def sequence_loss(outputs, targets):
     return _loss
 
 
-def sentence_loss(outputs, targets):
-    pass
+def sentence_loss(last_outputs, targets):
+    return sequence_loss(last_outputs, targets)

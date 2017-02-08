@@ -25,12 +25,24 @@ def sequence_length(sequence):
     return length
 
 
+def flatten_var_length(sequences):
+    """
+
+    :param sequences: a 2D Tensor with shape [batch_size, max_length] of type tf.int32, with -1 masking
+    :param length: the length tensor of shape [batch_size]
+    :return:
+    """
+    used = tf.reshape(tf.sign(sequences + 1), [-1])
+    flat = tf.reshape(sequences, [-1])
+    return tf.boolean_mask(flat, used)
+
+
 def last_relevant(output, length):
     """
     When dealing with variable length inputs, we will only be interested in the last relevant output
-    :param output: a Tensor of shape [batch_size, max_length(, embedding_size)]
+    :param output: a Tensor of shape [batch_size, max_length, feature_size]
     :param length: the length Tensor returned by sequence_length
-    :return:
+    :return: the last outputs in the sequences, a 2D Tensor with shape [batch_size, feature_size]
     """
     batch_size = tf.shape(output)[0]
     max_length = tf.shape(output)[1]
@@ -51,3 +63,4 @@ def cost(output, target):
     cross_entropy = tf.reduce_sum(cross_entropy, reduction_indices=1)
     cross_entropy /= tf.reduce_sum(mask, reduction_indices=1)
     return tf.reduce_mean(cross_entropy)
+

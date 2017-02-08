@@ -40,7 +40,8 @@ class Evaluator(object):
                 else:
                     summary_ops['state'].append(s)
             for name, states in summary_ops.items():
-                # states is a list of tensor of shape [batch_size, n_units], we want the second axis to be layer
+                # states is a list of tensor of shape [batch_size, n_units],
+                # we want the stacked shape to be [batch_size, n_layer, n_units]
                 summary_ops[name] = tf.stack(states, axis=1)
         if log_input:
             summary_ops['input'] = self.model.input_holders

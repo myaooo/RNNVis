@@ -4,7 +4,6 @@ Helper function to download and processing Stanford Sentiment Treebank datasets
 
 import os
 from py.utils.io_utils import download, unzip, get_path
-from shutil import move
 
 sst_url = "http://nlp.stanford.edu/~socherr/stanfordSentimentTreebank.zip"
 
@@ -24,4 +23,4 @@ def download_sst(path):
 
 
 if __name__ == '__main__':
-    download_sst(get_path('cached_data/sentiment/'))
+    download_sst(get_path('cached_data/'))

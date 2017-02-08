@@ -16,7 +16,7 @@ from py.rnn.evaluator import Evaluator, Recorder
 from py.rnn.trainer import Trainer
 from py.rnn.generator import Generator
 from py.rnn.losses import softmax
-from py.rnn.varlen_support import sequence_length
+from py.rnn.varlen_support import sequence_length, last_relevant
 
 BasicRNNCell = tf.nn.rnn_cell.BasicRNNCell
 BasicLSTMCell = tf.nn.rnn_cell.BasicLSTMCell
@@ -58,24 +58,29 @@ class RNNModel(object):
             with tf.variable_scope(rnn.name, reuse=reuse, initializer=rnn.initializer):
                 # Build TF computation Graph
                 input_shape = [None] + [num_steps] + list(rnn.input_shape)[1:]
-                target_shape = [None] + [num_steps] + list(rnn.target_shape)[1:]
                 self.input_holders = tf.placeholder(rnn.input_dtype,  input_shape, "input_holders")
-                self.target_holders = tf.placeholder(rnn.target_dtype, target_shape, "target_holders")
                 self.batch_size = tf.shape(self.input_holders)[0]
                 self.state = self.cell.zero_state(self.batch_size, rnn.output_dtype)
                 # ugly hacking for EmbeddingWrapper Badness
-                self.inputs = self.input_holders if not rnn.has_embedding else rnn.map_to_embedding(self.input_holders)
+                self.inputs = self.input_holders if not rnn.has_embedding else rnn.map_to_embedding(self.input_holders+1)
                 # Call TF api to create recurrent neural network
-                outputs, self.final_state = \
-                    tf.nn.dynamic_rnn(self.cell, self.inputs, sequence_length=sequence_length(self.inputs),
+                self.input_length = sequence_length(self.inputs)
+                self.outputs, self.final_state = \
+                    tf.nn.dynamic_rnn(self.cell, self.inputs, sequence_length=self.input_length,
                                       initial_state=self.state, dtype=data_type(), time_major=False)
-                # Reshape outputs and targets into [batch_size * num_steps, feature_dims]
-                self.outputs = tf.reshape(outputs, [-1, outputs.get_shape().as_list()[2]])
-                self.targets = tf.reshape(self.target_holders, [-1])
+                if rnn.use_last_output:
+                    self.outputs = last_relevant(self.outputs, self.input_length)
+                    target_shape = [None] + list(rnn.target_shape)[1:]
+                else:
+                    target_shape = [None] + [num_steps] + list(rnn.target_shape)[1:]
+                self.target_holders = tf.placeholder(rnn.target_dtype, target_shape, "target_holders")
                 if rnn.has_projcet:
+                    # Reshape outputs and targets into [batch_size * num_steps, feature_dims]
+                    outputs = tf.reshape(self.outputs, [-1, self.outputs.get_shape().as_list()[-1]])
+                    targets = tf.reshape(self.target_holders, [-1])
                     # rnn has output project, do manual projection for speed
-                    self.projected_outputs = rnn.project_output(self.outputs)
-                    self.loss = rnn.loss_func(self.projected_outputs, self.targets)
+                    self.projected_outputs = rnn.project_output(outputs)
+                    self.loss = rnn.loss_func(self.projected_outputs, targets)
                 else:
                     self.loss = rnn.loss_func(self.outputs, self.target_holders)
         # Append self to rnn's model list
@@ -276,6 +281,8 @@ class RNN(object):
         self.is_compiled = False
         self.embedding_size = None
         self.vocab_size = None
+        self.target_size = None
+        self.use_last_output = False
         self.supervisor = None
         self.models = []
         self.graph = graph if isinstance(graph, tf.Graph) else tf.get_default_graph()
@@ -296,22 +303,25 @@ class RNN(object):
         self.embedding_size = embedding_size
         self.vocab_size = vocab_size
 
-    def set_output(self, dshape, dtype=tf.float32):
+    def set_output(self, dshape, dtype=tf.float32, use_last_output=False):
         """
         Set the target data shape and type
         :param dshape: tuple or a list, [batch_size, ...],
             typically, for language modeling problem, the shape should match the input shape
         :param dtype: tensorflow data type
+        :param use_last_output: indicate whether only use the last output, used in sentence classification, etc.
         :return: None
         """
         assert not self.is_compiled
         self.output_shape = list(dshape)
         self.output_dtype = dtype
+        self.use_last_output = use_last_output
 
-    def set_target(self, dshape, dtype=tf.int32):
+    def set_target(self, dshape, dtype=tf.int32, target_size=None):
         assert not self.is_compiled
         self.target_shape = dshape
         self.target_dtype = dtype
+        self.target_size = target_size
 
     def set_loss_func(self, loss_func):
         """
@@ -567,7 +577,7 @@ class RNN(object):
             # The Variables are already created in the compile(), need to
             with tf.variable_scope('embedding', initializer=self.initializer):
                 with tf.device("/cpu:0"):  # Force CPU since GPU implementation is missing
-                    embedding = tf.get_variable("embedding", [self.vocab_size, self.embedding_size], dtype=data_type())
+                    embedding = tf.get_variable("embedding", [self.vocab_size+1, self.embedding_size], dtype=data_type())
                     return tf.nn.embedding_lookup(embedding, inputs)
         else:
             return None
@@ -579,10 +589,11 @@ class RNN(object):
         :return: softmax distributions on vocab_size, a Tensor of shape (batch_size, vocab_size)
         """
         if self.has_projcet:
+            target_size = self.target_size if self.target_size is not None else self.vocab_size
             with tf.variable_scope('project', initializer=self.initializer):
                 project_w = tf.get_variable(
-                    "project_w", [self.cell_list[-1].output_size, self.vocab_size], dtype=data_type())
-                projcet_b = tf.get_variable("project_b", [self.vocab_size], dtype=data_type())
+                    "project_w", [self.cell_list[-1].output_size, target_size], dtype=data_type())
+                projcet_b = tf.get_variable("project_b", [target_size], dtype=data_type())
                 return tf.matmul(outputs, project_w) + projcet_b
         else:
             return None

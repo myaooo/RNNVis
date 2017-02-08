@@ -9,14 +9,15 @@ import hashlib
 
 import yaml
 import numpy as np
-from pymongo import ReturnDocument
 from bson.binary import Binary
 from bson.objectid import ObjectId
 
-from py.utils.io_utils import dict2json, get_path
-from py.datasets.data_utils import load_data_as_ids, split
-from py.datasets.text_processor import PlainTextProcessor
+from py.utils.io_utils import dict2json, get_path, lists2csv, path_exists
+from py.datasets.data_utils import split
+from py.datasets.text_processor import SSTProcessor
+from py.datasets.sst_helper import download_sst
 from py.db import mongo
+from py.db.db_helper import insert_one_if_not_exists, replace_one_if_exists
 
 db_name = 'sentiment_prediction'
 # db definition
@@ -25,15 +26,10 @@ collections = {
                    'data': (str, '', 'a json str, encoding word to id mapping')},
     'id_to_word': {'name': (str, 'unique', 'name of the dataset'),
                    'data': (list, '', 'a list of str')},
-    'train': {'name': (str, 'unique', 'name of the dataset'),
-              'data': (list, '', 'a list of lists of word_ids (int), train data'),
-              'label': (list, '', 'a list of labels (float), train label')},
-    'valid': {'name': (str, 'unique', 'name of the dataset'),
-              'data': (list, '', 'a list of word_ids (int), valid data'),
-              'label': (list, '', 'a list of labels (float), valid label')},
-    'test': {'name': (str, 'unique', 'name of the dataset'),
-             'data': (list, '', 'a list of word_ids (int), test data'),
-             'label': (list, '', 'a list of labels (float), test label')},
+    'sentences': {'name': (str, '', 'name of the dataset'),
+                  'data': (list, '', 'a list of lists, each list as a sentence of word_ids, data of sst'),
+                  'set': (str, '', 'should be train, valid or test'),
+                  'ids': (list, '', 'the indices in SST')},
     'eval': {'name': (str, '', 'name of the dataset'),
              'tag': (str, 'unique', 'a unique tag of hash of the evaluating text sequence'),
              'data': (list, '', 'a list of word_ids (int), eval text'),
@@ -55,6 +51,10 @@ def get_datasets_by_name(name, fields=None):
     complete_data = {}
     fields = ['word_to_id', 'id_to_word', 'train', 'valid', 'test'] if fields is None else fields
     for c_name in fields:
+        if c_name in ['train', 'test', 'valid']:
+            data = json.load(open(get_path(get_dataset_path(name), c_name)))
+            complete_data[c_name] = data
+            continue
         results = db_hdlr[c_name].find_one({'name': name})
         if results is None:
             print('WARN: No data in collection {:s} of db {:s} named {:s}'.format(c_name, db_name, name))
@@ -65,7 +65,7 @@ def get_datasets_by_name(name, fields=None):
     return complete_data
 
 
-def store_ptb(data_path, name='ptb', upsert=False):
+def store_sst(data_path, name, split_scheme, upsert=False):
     """
     Process and store the ptb datasets to db
     :param data_path:
@@ -73,68 +73,47 @@ def store_ptb(data_path, name='ptb', upsert=False):
     :param upsert:
     :return:
     """
-    train_path = os.path.join(data_path, "ptb.train.txt")
-    valid_path = os.path.join(data_path, "ptb.valid.txt")
-    test_path = os.path.join(data_path, "ptb.test.txt")
-    paths = [train_path, valid_path, test_path]
-
-    data_list, word_to_id, id_to_word = load_data_as_ids(paths)
-    train, valid, test = data_list
-    word_to_id_json = dict2json(word_to_id)
+    if not path_exists(data_path):
+        download_sst(os.path.abspath(os.path.join(data_path, '../')))
     if upsert:
-        insertion = _replace_one_if_exists
+        def insertion(*args, **kwargs):
+            return replace_one_if_exists(db_name, *args, **kwargs)
     else:
-        insertion = _insert_one_if_not_exists
+        def insertion(*args, **kwargs):
+            return insert_one_if_not_exists(db_name, *args, **kwargs)
+    phrase_path = os.path.join(data_path, "dictionary.txt")
+    sentence_path = os.path.join(data_path, "datasetSentences.txt")
+    label_path = os.path.join(data_path, "sentiment_labels.txt")
+    sentence_split_path = os.path.join(data_path, "datasetSplit.txt")
+    processor = SSTProcessor(sentence_path, phrase_path, label_path, sentence_split_path)
 
+    split_data = split(list(zip(processor.ids, processor.labels, range(1, len(processor.labels)+1))),
+                       split_scheme.values(), shuffle=True)
+    split_data = dict(zip(split_scheme.keys(), split_data))
+    sentence_data_ids = processor.split_sentence_ids
+
+    word_to_id_json = dict2json(processor.word_to_id)
     insertion('word_to_id', {'name': name}, {'name': name, 'data': word_to_id_json})
-    insertion('id_to_word', {'name': name}, {'name': name, 'data': id_to_word})
-    insertion('train', {'name': name}, {'name': name, 'data': train})
-    insertion('valid', {'name': name}, {'name': name, 'data': valid})
-    insertion('test', {'name': name}, {'name': name, 'data': test})
+    insertion('id_to_word', {'name': name}, {'name': name, 'data': processor.id_to_word})
+    for i, set_name in enumerate(['train', 'valid', 'test']):
+        data, ids = zip(*(sentence_data_ids[i]))
+        insertion('sentences', {'name': name, 'set': set_name},
+                  {'name': name, 'set': set_name, 'data': data, 'ids': ids})
 
-
-def store_plain_text(data_path, name, split_scheme, min_freq=1, max_vocab=10000, upsert=False):
-    """
-    Process any plain text and store to db
-    :param data_path:
-    :param name:
-    :param split_scheme:
-    :param min_freq:
-    :param max_vocab:
-    :param upsert:
-    :return:
-    """
-    if upsert:
-        insertion = _replace_one_if_exists
-    else:
-        insertion = _insert_one_if_not_exists
-    processor = PlainTextProcessor(data_path)
-    processor.tag_rare_word(min_freq, max_vocab)
-    split_ids = split(processor.flat_ids, split_scheme.values())
-    split_data = dict(zip(split_scheme.keys(), split_ids))
     if 'train' not in split_data:
         print('WARN: there is no train data in the split data!')
     for c_name in ['train', 'valid', 'test']:
         if c_name in split_data:
-            insertion(c_name, {'name': name}, {'name': name, 'data': split_data[c_name]})
-    insertion('word_to_id', {'name': name}, {'name': name, 'data': dict2json(processor.word_to_id)})
-    insertion('id_to_word', {'name': name}, {'name': name, 'data': processor.id_to_word})
+            data, label, ids = zip(*split_data[c_name])
+            # convert label to 1,2,3,4,5
+            label = [float(i) for i in label]
+            label = [(0 if i <= 0.2 else 1 if i <= 0.4 else 2 if i <= 0.6 else 3 if i <= 0.8 else 4) for i in label]
+            dict2json({'data': data, 'label': label, 'ids': ids},
+                      get_path(get_dataset_path(name), c_name))
 
 
-def _insert_one_if_not_exists(c_name, filter_, data):
-    results = db_hdlr[c_name].find_one(filter_)
-    if results is not None:
-        print('The data of signature {:s} is already exists in collection {:s}.\n Pass.'.format(str(filter_), c_name))
-        return results
-    return db_hdlr[c_name].insert_one(data)
-
-
-def _replace_one_if_exists(c_name, filter_, data):
-    results = db_hdlr[c_name].find_one_and_replace(filter_, data, upsert=True, return_document=ReturnDocument.AFTER)
-    if results is not None:
-        print('WARN: a document with signature {:s} in the collection {:s} of db {:s} has been replaced'
-              .format(str(filter_), c_name, db_name))
-    return results
+def get_dataset_path(name):
+    return os.path.join('cached_data', 'sentiment_prediction', name)
 
 
 def seed_db():
@@ -142,15 +121,16 @@ def seed_db():
     Use the `config/datasets/lm.yml` to generate example datasets and store them into db.
     :return: None
     """
-    config_dir = get_path('config/db', 'lm.yml')
+    config_dir = get_path('config/db', 'sp.yml')
     with open(config_dir, 'r') as f:
         config = yaml.safe_load(f)['datasets']
     for seed in config:
+        print('seeding {:s} data'.format(seed['name']))
         data_dir = get_path('cached_data', seed['dir'])
-        if seed['type'] == 'ptb':
-            store_ptb(data_dir, seed['name'])
-        elif seed['type'] == 'text':
-            store_plain_text(data_dir, seed['name'], **seed['scheme'])
+        if seed['type'] == 'sst':
+            store_sst(data_dir, seed['name'], **seed['scheme'])
+        else:
+            print('not able to seed datasets with type: {:s}'.format(seed['type']))
 
 
 def insert_evaluation(data_name, model_name, eval_text_tokens):
@@ -184,7 +164,7 @@ def insert_evaluation(data_name, model_name, eval_text_tokens):
     filt = {'name': data_name, 'tag': tag, 'model': model_name}
     data = {'data': eval_ids}
     data.update(filt)
-    doc = _replace_one_if_exists('eval', filt, data)
+    doc = replace_one_if_exists(db_name, 'eval', filt, data)
     return doc['_id']
 
 
@@ -259,5 +239,9 @@ def hash_tag_str(text_list):
 
 if __name__ == '__main__':
     # store_ptb(get_path('cached_data/simple-examples/data'))
-    # store_plain_text(get_path('cached_data/tinyshakespeare.txt'), 'shakespeare', {'train': 0.9, 'valid': 0.05, 'test': 0.05})
+    # store_plain_text(get_path('cached_data/tinyshakespeare.txt'), 'shakespeare',
+    # {'train': 0.9, 'valid': 0.05, 'test': 0.05})
     seed_db()
+    # data = get_datasets_by_name('sst', ['train', 'valid', 'word_to_id'])
+    # train_data = data['train']
+    # test_data = data['test']

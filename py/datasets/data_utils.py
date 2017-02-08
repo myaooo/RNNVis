@@ -4,6 +4,8 @@ Utilities for processing data
 
 import math
 import collections
+import random
+
 import tensorflow as tf
 import numpy as np
 
@@ -27,6 +29,29 @@ class Feeder(object):
     def shape(self):
         raise NotImplementedError("this is the base class of Feeder!")
 
+
+class ListFeeder(Feeder):
+    def __init__(self, raw_list, batch_size, epoch_num=None):
+        self.data = raw_list
+        self.batch_size = batch_size
+        self.max_epoch_num = math.inf if epoch_num is None else int(epoch_num)
+        self.epoch_size = len(raw_list) // batch_size
+        self.epoch_num = 0
+        self.i = 0
+        self._shape = [batch_size]
+
+    def deque(self, transpose=None):
+        if transpose is not None:
+            raise NotImplementedError("ListFeeder has no transpose option!")
+        start = self.i * self.batch_size
+        _data = self.data[start:start+self.batch_size]
+        self.i += 1
+        if self.i >= self.epoch_size:
+            self.i = 0
+            self.epoch_num += 1
+        if self.epoch_num > self.max_epoch_num:
+            raise ValueError("Exceeds maximum epoch num!")
+        return _data
 
 class InputFeeder(Feeder):
     def __init__(self, batched_data, num_steps, offset=0, epoch_num=None, transpose=False):
@@ -101,14 +126,14 @@ class SentenceFeeder(Feeder):
         self.sentence_length = sentence_length
         self.epoch_size = self.data.shape[0] // batch_size
         self.embedding = data.ndim == 3
-        _shape = list(reversed(data.shape[0:2]))if transpose else list(data.shape[0:2])
+        _shape = [data.shape[1], batch_size] if transpose else [batch_size, data.shape[1]]
         if self.embedding:
             _shape.append(data.shape[2])
         self._shape = _shape
 
     def deque(self, transpose=None):
         start = self.i * self.batch_size + self.offset
-        _data = self.data[start:(start + self.batch_size), :]
+        _data = self.data[start:(start + self.batch_size)]
         transpose = self.transpose if transpose is None else transpose
         if transpose:
             _data = _data.transpose([1, 0, 2] if self.embedding else [1, 0])
@@ -139,8 +164,9 @@ class SentenceProducer(object):
         """
         self.batch_size = batch_size
         self.sentence_num = len(raw_data) // batch_size * batch_size
-        raw_data = raw_data[:self.sentence_length]
+        raw_data = raw_data[:self.sentence_num]
         self.sentence_length = [len(l) for l in raw_data]
+
         self.num_steps = max(self.sentence_length)
         if isinstance(raw_data[0][0], int):
             self.embedding = False
@@ -161,10 +187,17 @@ class SentenceProducer(object):
 
 
 def split(data_list, fractions=None, shuffle=False):
-    if shuffle:
-        raise NotImplementedError("No support of text data shuffling!")
+    """
+    Split the data set into various fractions
+    :param data_list: a list of elems
+    :param fractions: the fractions of different parts
+    :param shuffle: shuffle or not
+    :return: split data as a list
+    """
     if fractions is None:
         fractions = [0.9, 0.05, 0.05]
+    if shuffle:
+        random.shuffle(data_list)
     assert sum(fractions) <= 1.0
     total_size = len(data_list)
     splitted = []
@@ -217,9 +250,16 @@ def load_data_as_ids(data_paths, word_to_id_path=None):
     return data_list, word_to_id, id_to_word
 
 
-def get_data_producer(data, batch_size, num_steps, transpose=False):
+def get_lm_data_producer(data, batch_size, num_steps, transpose=False):
     # train_data = valid_data
     producer = InputProducer(data, batch_size)
     inputs = producer.get_feeder(num_steps, transpose=transpose)
     targets = producer.get_feeder(num_steps, offset=1, transpose=transpose)
+    return inputs, targets, targets.epoch_size
+
+
+def get_sp_data_producer(data, label, batch_size, transpose=False):
+    s_producer = SentenceProducer(data, batch_size)
+    inputs = s_producer.get_feeder(transpose=transpose)
+    targets = ListFeeder(label, batch_size)
     return inputs, targets, targets.epoch_size
