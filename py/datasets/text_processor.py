@@ -13,13 +13,10 @@ def lazy_property(func):
     @property
     @functools.wraps(func)
     def wrapper(self):
-        if not hasattr(self, attribute):
+        if (not hasattr(self, attribute)) or getattr(self, attribute) is None:
             setattr(self, attribute, func(self))
         return getattr(self, attribute)
 
-    @wrapper.setter
-    def wrapper(self, value):
-        setattr(self, attribute, value)
     return wrapper
 
 
