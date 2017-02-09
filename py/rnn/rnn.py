@@ -293,7 +293,7 @@ class RNN(object):
         self.graph = graph if isinstance(graph, tf.Graph) else tf.get_default_graph()
         self.logdir = logdir or get_path('./models', name)
 
-    def set_input(self, dshape, dtype, vocab_size, embedding_size=None):
+    def set_input(self, dshape, dtype, vocab_size, embedding_size=None, word_to_id=None):
         """
         set the input data shape of the model
         :param dshape: tuple or a list, [batch_size, ...]
@@ -309,6 +309,8 @@ class RNN(object):
         self.input_dtype = dtype
         self.embedding_size = embedding_size
         self.vocab_size = vocab_size
+        if word_to_id is not None:
+            self.word_to_id = word_to_id
 
     def set_output(self, dshape, dtype=tf.float32, use_last_output=False):
         """
@@ -472,11 +474,13 @@ class RNN(object):
                 self.evaluator = Evaluator(self, batch_size, record_every, log_state,
                                            log_input, log_output, log_gradients)
 
-    def add_generator(self, word_to_id):
+    def add_generator(self, word_to_id=None):
         assert self.generator is None
+        if word_to_id is not None:
+            self.word_to_id = word_to_id
         with self.graph.as_default():
             with tf.device("/cpu:0"):
-                self.generator = Generator(self, word_to_id)
+                self.generator = Generator(self)
 
     def train(self, inputs, targets, epoch_size, epoch_num, valid_inputs=None, valid_targets=None,
               valid_epoch_size=None, verbose=True, refresh_state=False):

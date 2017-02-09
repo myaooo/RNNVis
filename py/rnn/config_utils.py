@@ -100,7 +100,7 @@ class RNNConfig(object):
     """
     def __init__(self, name='RNN', initializer_name=None, initializer_args=None, vocab_size=1000, embedding_size=50,
                  input_dtype='int32', target_dtype='int32', cells=None, cell_type='BasicLSTM',
-                 loss_func='sequence_loss', target_size=None, use_last_output=False):
+                 loss_func='sequence_loss', target_size=None, use_last_output=False, dataset=None):
         self.name = name
         self.cells = cells
         self.cell = get_rnn_cell(cell_type)
@@ -112,6 +112,7 @@ class RNNConfig(object):
         self.vocab_size = vocab_size
         self.embedding_size = embedding_size
         self.loss_func = get_loss_func(loss_func)
+        self.dataset = dataset
 
     @staticmethod
     def load(file_or_dict):
