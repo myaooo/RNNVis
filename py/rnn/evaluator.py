@@ -12,7 +12,6 @@ from py.db.language_model import insert_evaluation, push_evaluation_records
 from py.datasets.data_utils import InputProducer, Feeder
 
 
-
 tf.GraphKeys.EVAL_SUMMARIES = "eval_summarys"
 _evals = [tf.GraphKeys.EVAL_SUMMARIES]
 
@@ -23,7 +22,8 @@ class Evaluator(object):
     This class also provides several utilities for recording hidden states
     """
 
-    def __init__(self, rnn_, batch_size=1, record_every=1, log_state=True, log_input=True, log_output=True):
+    def __init__(self, rnn_, batch_size=1, record_every=1, log_state=True, log_input=True, log_output=True,
+                 log_gradients=False):
         assert isinstance(rnn_, rnn.RNN)
         self.record_every = record_every
         self.log_state = log_state
@@ -40,7 +40,8 @@ class Evaluator(object):
                 else:
                     summary_ops['state'].append(s)
             for name, states in summary_ops.items():
-                # states is a list of tensor of shape [batch_size, n_units], we want the second axis to be layer
+                # states is a list of tensor of shape [batch_size, n_units],
+                # we want the stacked shape to be [batch_size, n_layer, n_units]
                 summary_ops[name] = tf.stack(states, axis=1)
         if log_input:
             summary_ops['input'] = self.model.input_holders
@@ -48,36 +49,43 @@ class Evaluator(object):
                 summary_ops['input_embedding'] = self.model.inputs
         if log_output:
             summary_ops['output'] = self.model.outputs
+        if log_gradients:
+            inputs_gradients = tf.gradients(self.model.loss, self.model.inputs)  #,
+                                            # colocate_gradients_with_ops=True)
+            summary_ops['inputs_gradients'] = inputs_gradients
         self.summary_ops = summary_ops
 
-    def evaluate(self, sess, inputs, targets, input_size, record=False, verbose=True, logdir=None):
+    def evaluate(self, sess, inputs, targets, input_size, verbose=True, refresh_state=False):
         """
         Evaluate on the test or valid data
         :param inputs: a Feeder instance
         :param targets: a Fedder instance
         :param input_size: size of the input
         :param sess: tf.Session to run the computation
-        :param record: deprecated
         :param verbose: verbosity
-        :param logdir: deprecated
+        :param refresh_state: True if you want to refresh hidden state after each loop
         :return:
         """
 
-        self.model.init_state(sess)
+        self.model.reset_state()
         eval_ops = self.summary_ops
-        sum_ops = {"loss": self.model.loss}
+        sum_ops = {"loss": self.model.loss, 'acc-1': self.model.accuracy}
         total_loss = 0
+        acc = 0
         print("Start evaluating...")
         for i in range(input_size):
-            evals, sums = self.model.run(inputs, targets, 1, sess, eval_ops=eval_ops, sum_ops=sum_ops, verbose=False)
+            evals, sums = self.model.run(inputs, targets, self.record_every, sess, eval_ops=eval_ops, sum_ops=sum_ops,
+                                         verbose=False, refresh_state=refresh_state)
             total_loss += sums["loss"]
+            acc += sums['acc-1']
             if i % 500 == 0:
                 if verbose:
                     print("[{:d}/{:d}]: avg loss:{:.3f}".format(i, input_size, total_loss/(i+1)))
-        loss = total_loss / input_size
-        print("Evaluate Summary: avg loss:{:.3f}".format(loss))
+        loss = total_loss / (input_size * self.record_every)
+        acc /= (input_size * self.record_every)
+        print("Evaluate Summary: avg loss:{:.3f}, acc-1: {:.3f}".format(loss, acc))
 
-    def evaluate_and_record(self, sess, inputs, targets, recorder, verbose=True):
+    def evaluate_and_record(self, sess, inputs, targets, recorder, verbose=True, refresh_state=False):
         """
         A similar method like evaluate.
         Evaluate model's performance on a sequence of inputs and targets,
@@ -106,10 +114,12 @@ class Evaluator(object):
         if input_size > 10000:
             print("WARN: inputs too long, might take some time.")
         eval_ops = self.summary_ops
+        self.model.reset_state()
         for i in range(input_size):
             inputs_ = inputs[:, i:(i+1)]
             targets_ = None if targets is None else targets[:, i:(i+1)]
-            evals, _ = self.model.run(inputs_, targets_, 1, sess, eval_ops=eval_ops, verbose=False)
+            evals, _ = self.model.run(inputs_, targets_, self.record_every, sess, eval_ops=eval_ops,
+                                      verbose=False, refresh_state=refresh_state)
             recorder.record(evals)
             if verbose and i % (input_size // 10) == 0 and i != 0:
                 print("[{:d}/{:d}] completed".format(i, input_size))
@@ -158,3 +168,4 @@ class Recorder(object):
 
     def flush(self):
         push_evaluation_records(self.buffer.pop('eval_ids'), self.buffer.pop('records'))
+

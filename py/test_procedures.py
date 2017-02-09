@@ -31,8 +31,8 @@ def log_path():
 def test_data_producer(data, batch_size, num_steps):
     # train_data = valid_data
     producer = InputProducer(data, batch_size)
-    inputs = producer.get_feeder(num_steps, transpose=True)
-    targets = producer.get_feeder(num_steps, offset=1, transpose=True)
+    inputs = producer.get_feeder(num_steps)
+    targets = producer.get_feeder(num_steps, offset=1)
     return inputs, targets, targets.epoch_size
 
 if __name__ == '__main__':
@@ -55,3 +55,6 @@ if __name__ == '__main__':
 
     print('Finish Training')
     model.save()
+
+    import tensorflow as tf
+    tf.app.run()

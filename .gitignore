@@ -1,6 +1,5 @@
 .idea/
 *__pycache__/
-cached_data/stanfordSentimentTreebank
 *.log
 *.pyc
 models
@@ -21,3 +20,5 @@ var/
 *.egg-info/
 .installed.cfg
 *.egg
+cached_data/sentiment_prediction
+__MACOSX

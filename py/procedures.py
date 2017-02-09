@@ -8,7 +8,7 @@ import tensorflow as tf
 from py.rnn.config_utils import RNNConfig, TrainConfig
 from py.rnn.command_utils import data_type, pick_gpu_lowest_memory
 from py.rnn.rnn import RNN
-from py.datasets.data_utils import load_data_as_ids, get_data_producer
+from py.datasets.data_utils import load_data_as_ids, get_lm_data_producer
 
 
 def init_tf_environ(gpu_num=0):
@@ -19,13 +19,14 @@ def init_tf_environ(gpu_num=0):
     """
     if gpu_num == 0:
         cuda_devices = ""
+        print("Not using any gpu devices.")
     else:
         try:
             best_gpus = pick_gpu_lowest_memory(gpu_num)
             cuda_devices = ",".join([str(e) for e in best_gpus])
         except:
             raise ValueError("Cannot find gpu devices!")
-    print("Using gpu device: {:s}".format(cuda_devices))
+        print("Using gpu device: {:s}".format(cuda_devices))
     os.environ["CUDA_VISIBLE_DEVICES"] = cuda_devices
     # if FLAGS.gpu_num == 0 else "0,1,2,3"[:(FLAGS.gpu_num * 2 - 1)]
 
@@ -37,12 +38,12 @@ def build_rnn(rnn_config):
     :return: a compiled model
     """
     assert isinstance(rnn_config, RNNConfig)
-    _rnn = RNN(rnn_config.name, rnn_config.initializer, os.path.join('models/', rnn_config.name))
+    _rnn = RNN(rnn_config.name, rnn_config.initializer)
     _rnn.set_input([None], rnn_config.input_dtype, rnn_config.vocab_size, rnn_config.embedding_size)
     for cell in rnn_config.cells:
         _rnn.add_cell(rnn_config.cell, **cell)
-    _rnn.set_output([None, rnn_config.vocab_size], data_type())
-    _rnn.set_target([None], rnn_config.target_dtype)
+    _rnn.set_output([None, rnn_config.vocab_size], data_type(), rnn_config.use_last_output)
+    _rnn.set_target([None], rnn_config.target_dtype, rnn_config.target_size)
     _rnn.set_loss_func(rnn_config.loss_func)
     _rnn.compile()
     return _rnn
@@ -93,7 +94,7 @@ def produce_data(data_paths, train_config):
     data_list, word_to_id, id_to_word = load_data_as_ids(data_paths)
     producers = []
     for data in data_list:
-        producers.append(get_data_producer(data, batch_size, train_steps))
+        producers.append(get_lm_data_producer(data, batch_size, train_steps))
     return producers
 
 

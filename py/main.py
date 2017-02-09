@@ -6,6 +6,7 @@ import sys
 import argparse
 
 from py.server import app
+from py.db import seed_db
 
 
 def main(args=None):
@@ -20,7 +21,11 @@ def main(args=None):
                         help='set this flag to debug')
     args = parser.parse_args(args)
 
-    app.run(debug=args.debug)
+    if args.method == 'server':
+        app.run(debug=args.debug)
+    elif args.method == 'seeddb':
+        seed_db()
+        print("Seeding Done.")
 
 
 if __name__ == "__main__":

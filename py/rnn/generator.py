@@ -4,6 +4,7 @@ A generator take a seed word and generate sequence / sequence tree using the tra
 
 import numpy as np
 from . import rnn
+from . import losses
 from py.utils.io_utils import dict2json
 from py.utils.tree import TreeNode, Tree
 
@@ -25,40 +26,14 @@ class Generator(object):
     def __init__(self, rnn_, word_to_id):
         """
         :param rnn_: An RNN instance
+        :param word_to_id: deprecated
         """
         assert isinstance(rnn_, rnn.RNN)
+        self._rnn = rnn_
         self.model = rnn_.unroll(1, 1, name='generator')
-        self.word_to_id = word_to_id
-        self.id_to_word = {id_: word for word, id_ in word_to_id.items()}
-
-    def get_word_from_id(self, ids):
-        """
-        Retrieve the words by ids
-        :param ids: a numpy.ndarray or a list or a python int
-        :return: a list of words
-        """
-        if isinstance(ids, int):
-            return self.id_to_word[ids]
-        words = []
-        for i in ids:
-            words.append(self.id_to_word[i])
-        return words
-
-    def get_id_from_word(self, words):
-        """
-        Retrieve the ids from words
-        :param words: a list of words
-        :return: a list of corresponding ids
-        """
-        if isinstance(words, str):
-            return self.word_to_id[words.lower()]
-        ids = []
-        for word in words:
-            ids.append(self.word_to_id[word.lower()])
-        return ids
 
     def generate(self, sess, seeds, logdir, max_branch=3, accum_cond_prob=0.9,
-                 min_cond_prob=0.1, min_prob=0.001, max_step=10):
+                 min_cond_prob=0.1, min_prob=0.001, max_step=10, neg_word_ids=None):
         """
         Generate sequence tree with given seed (a word_id) and certain requirements
         Note that the method always try to generate as much branches as possible.
@@ -70,11 +45,13 @@ class Generator(object):
         :param min_cond_prob: the minimum conditional probability of each branch
         :param min_prob: the minimum probability of a branch (note that this indicates a multiplication along the tree)
         :param max_step: the step to generate
-        :return:
+        :param neg_word_ids: a set of neglected words' ids.
+        :return: a json
         """
 
         model = self.model
-        model.init_state(sess)
+        model.reset_state()
+        # Initialize the tree and inserts the seeds node
         tree = Tree()
         # converts words into ids
         if (not isinstance(seeds, list)) or len(seeds) < 1:
@@ -88,6 +65,7 @@ class Generator(object):
             node = GenerateNode(seed, 1.0, 1.0)
             tree.add_node(node, parent)
             parent = node
+        neg_word_ids = set(neg_word_ids)  # converts to set for easier `in` statement
 
         def _generate(node, step):
             if step > max_step:  # Already at the maximum generating step
@@ -97,9 +75,17 @@ class Generator(object):
             evals, _ = model.run(np.array(node.word_id).reshape(1, 1), None, 1, sess,
                                  eval_ops={'projected': model.projected_outputs})
             outputs = evals['projected'][0].reshape(-1)
-            outputs = rnn.softmax(outputs)
-            # Get sorted k max probs and their ids
-            max_id = np.argpartition(-outputs, max_branch)[:max_branch]
+            # do softmax so that outputs represents probs
+            outputs = losses.softmax(outputs)
+            # Get sorted k max probs and their ids,
+            # since we will neglect some of them latter, we first get a bit more of the top k
+            max_id = np.argpartition(-outputs, max_branch)[:(max_branch+len(neg_word_ids))]
+            del_ids = []
+            for i, id_ in enumerate(max_id):
+                if int(id_) in neg_word_ids:
+                    del_ids.append(i)
+            max_id = np.delete(max_id, del_ids)
+            max_id = max_id[:max_branch]
             cond_probs = outputs[max_id]
             # Sort the cond_probs for later filtering use
             sort_indice = np.argsort(-cond_probs)
@@ -137,3 +123,18 @@ class Generator(object):
         # print(tree.as_dict())
         return dict2json(tree.as_dict(), logdir)
 
+    def get_word_from_id(self, ids):
+        """
+        Retrieve the words by ids
+        :param ids: a numpy.ndarray or a list or a python int
+        :return: a list of words
+        """
+        return self._rnn.get_word_from_id(ids)
+
+    def get_id_from_word(self, words):
+        """
+        Retrieve the ids from words
+        :param words: a list of words
+        :return: a list of corresponding ids
+        """
+        return self._rnn.get_id_from_word(words)
