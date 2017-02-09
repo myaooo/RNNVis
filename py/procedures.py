@@ -4,11 +4,11 @@ Pre-defined procedures for running rnn, evaluating and recording
 
 
 import os
-import tensorflow as tf
 from py.rnn.config_utils import RNNConfig, TrainConfig
 from py.rnn.command_utils import data_type, pick_gpu_lowest_memory
 from py.rnn.rnn import RNN
 from py.datasets.data_utils import load_data_as_ids, get_lm_data_producer
+from py.db import get_dataset
 
 
 def init_tf_environ(gpu_num=0):
@@ -38,7 +38,8 @@ def build_rnn(rnn_config):
     :return: a compiled model
     """
     assert isinstance(rnn_config, RNNConfig)
-    _rnn = RNN(rnn_config.name, rnn_config.initializer)
+    _rnn = RNN(rnn_config.name, rnn_config.initializer,
+               word_to_id=get_dataset(rnn_config.dataset, ['word_to_id'])['word_to_id'])
     _rnn.set_input([None], rnn_config.input_dtype, rnn_config.vocab_size, rnn_config.embedding_size)
     for cell in rnn_config.cells:
         _rnn.add_cell(rnn_config.cell, **cell)
@@ -72,19 +73,17 @@ def build_model(config, train=True):
     """
     if isinstance(config, str):
         rnn_config = RNNConfig.load(config)
-        if train:
-            train_config = TrainConfig.load(config)
+        train_config = TrainConfig.load(config)
     elif isinstance(config, dict):
         rnn_config = config['model']
-        if train:
-            train_config = config['train']
+        train_config = config['train']
     else:
         raise TypeError('config should be a file_path or a dict!')
     rnn_ = build_rnn(rnn_config)
     if train:
         build_trainer(rnn_, train_config)
-        return rnn_, train_config
-    return rnn_
+    setattr(train_config, 'dataset', rnn_config.dataset)
+    return rnn_, train_config
 
 
 def produce_data(data_paths, train_config):

@@ -51,6 +51,7 @@ def dict2json(dict_, file_path=None):
         if file_path is None:
             return s_io.getvalue()
         write2file(s_io, file_path, 'w')
+        return True
 
 
 def lists2csv(list_of_list, file_path, delimiter=',', encoding=None):

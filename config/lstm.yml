@@ -13,6 +13,7 @@ model:
     - num_units: 200
     - num_units: 200
   loss_func: sequence_loss
+  dataset: ptb
 train:
   epoch_num: 10
   num_steps: 20

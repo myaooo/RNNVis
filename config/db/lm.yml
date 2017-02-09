@@ -3,7 +3,7 @@ datasets:
   # The default base dir for all datasets is under cached_data/
   - name: ptb
     type: ptb
-    dir: simple-examples/data
+    dir: simple-examples/_data
   - name: shakespeare
     type: text
     dir: tinyshakespeare.txt

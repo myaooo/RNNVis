@@ -23,16 +23,15 @@ class GenerateNode(TreeNode):
 
 class Generator(object):
 
-    def __init__(self, rnn_, word_to_id):
+    def __init__(self, rnn_):
         """
         :param rnn_: An RNN instance
-        :param word_to_id: deprecated
         """
         assert isinstance(rnn_, rnn.RNN)
         self._rnn = rnn_
         self.model = rnn_.unroll(1, 1, name='generator')
 
-    def generate(self, sess, seeds, logdir, max_branch=3, accum_cond_prob=0.9,
+    def generate(self, sess, seeds, logdir=None, max_branch=3, accum_cond_prob=0.9,
                  min_cond_prob=0.1, min_prob=0.001, max_step=10, neg_word_ids=None):
         """
         Generate sequence tree with given seed (a word_id) and certain requirements
@@ -46,7 +45,7 @@ class Generator(object):
         :param min_prob: the minimum probability of a branch (note that this indicates a multiplication along the tree)
         :param max_step: the step to generate
         :param neg_word_ids: a set of neglected words' ids.
-        :return: a json
+        :return: if logdir is None, returns a dict object representing the tree. if logdir is not None, return None
         """
 
         model = self.model

@@ -23,8 +23,8 @@ if __name__ == '__main__':
     datasets = get_datasets_by_name('ptb', ['test'])
     test_data = datasets['test']
 
-    model2 = build_model(config_path(), False)
-    model2.restore()
-    model2.run_with_context(model2.evaluator.evaluate_and_record,
-                            [test_data[:1000]], [test_data[1:1001]],
-                            Recorder('ptb', model2.name), verbose=True)
+    model = build_model(config_path(), False)
+    model.restore()
+    model.run_with_context(model.evaluator.evaluate_and_record,
+                            test_data['data'][:1000], test_data['label'][:1000],
+                            Recorder('ptb', model.name), verbose=True)
