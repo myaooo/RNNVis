@@ -94,8 +94,13 @@ class RNNModel(object):
                     # rnn has output project, do manual projection for speed
                     self.projected_outputs = rnn.project_output(outputs)
                     self.loss = rnn.loss_func(self.projected_outputs, targets)
+                    self.accuracy = tf.reduce_mean(tf.cast(
+                        tf.nn.in_top_k(self.projected_outputs, targets, 1), data_type()))
                 else:
                     self.loss = rnn.loss_func(self.outputs, self.target_holders)
+                    self.accuracy = tf.reduce_mean(tf.cast(
+                        tf.nn.in_top_k(self.outputs, self.target_holders, 1), data_type()))
+
         # Append self to rnn's model list
         rnn.models.append(self)
 

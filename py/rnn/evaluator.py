@@ -23,7 +23,8 @@ class Evaluator(object):
     This class also provides several utilities for recording hidden states
     """
 
-    def __init__(self, rnn_, batch_size=1, record_every=1, log_state=True, log_input=True, log_output=True):
+    def __init__(self, rnn_, batch_size=1, record_every=1, log_state=True, log_input=True, log_output=True,
+                 log_gradients=False):
         assert isinstance(rnn_, rnn.RNN)
         self.record_every = record_every
         self.log_state = log_state
@@ -49,6 +50,10 @@ class Evaluator(object):
                 summary_ops['input_embedding'] = self.model.inputs
         if log_output:
             summary_ops['output'] = self.model.outputs
+        if log_gradients:
+            inputs_gradients = tf.gradients(self.model.loss, self.model.inputs, name='inputs_gradients')  #,
+                                            # colocate_gradients_with_ops=True)
+            self.summary_ops['inputs_gradients'] = inputs_gradients
         self.summary_ops = summary_ops
 
     def evaluate(self, sess, inputs, targets, input_size, verbose=True, refresh_state=False):
@@ -65,18 +70,21 @@ class Evaluator(object):
 
         self.model.reset_state()
         eval_ops = self.summary_ops
-        sum_ops = {"loss": self.model.loss}
+        sum_ops = {"loss": self.model.loss, 'acc-1': self.model.accuracy}
         total_loss = 0
+        acc = 0
         print("Start evaluating...")
         for i in range(input_size):
             evals, sums = self.model.run(inputs, targets, self.record_every, sess, eval_ops=eval_ops, sum_ops=sum_ops,
                                          verbose=False, refresh_state=refresh_state)
             total_loss += sums["loss"]
+            acc += sums['acc-1']
             if i % 500 == 0:
                 if verbose:
                     print("[{:d}/{:d}]: avg loss:{:.3f}".format(i, input_size, total_loss/(i+1)))
         loss = total_loss / (input_size * self.record_every)
-        print("Evaluate Summary: avg loss:{:.3f}".format(loss))
+        acc /= (input_size * self.record_every)
+        print("Evaluate Summary: avg loss:{:.3f}, acc-1: {:.3f}".format(loss, acc))
 
     def evaluate_and_record(self, sess, inputs, targets, recorder, verbose=True, refresh_state=False):
         """
@@ -161,3 +169,4 @@ class Recorder(object):
 
     def flush(self):
         push_evaluation_records(self.buffer.pop('eval_ids'), self.buffer.pop('records'))
+

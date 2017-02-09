@@ -181,7 +181,7 @@ class Trainer(object):
         if verbose:
             print("lr:{:.3f}".format(self._lr.eval(sess)))
         run_ops = {'train_op': self.train_op}
-        sum_ops = {'loss': self.model.loss}
+        sum_ops = {'loss': self.model.loss, 'acc-1': self.model.accuracy}
         self.model.reset_state()
         self.model.run(inputs, targets, epoch_size, sess, run_ops,  # eval_ops={'clipped_grads': self.clipped_grads},
                        sum_ops=sum_ops, verbose=verbose, refresh_state=refresh_state)
