@@ -7,6 +7,7 @@ import os
 from py.utils.io_utils import get_path, assert_path_exists
 from py.procedures import build_model
 from py.db import language_model
+from py.rnn.evaluator import Recorder
 
 _config_dir = 'config'
 _data_dir = 'cached_data'
@@ -17,7 +18,7 @@ class ModelManager(object):
 
     _available_models = {
         'PTB': {'config': 'lstm-large3.yml', 'data': 'ptb'},
-        'Shakespeare': {'config': 'tinyshakespeare.yml', 'data': 'shakespeare'}
+        'Shakespeare': {'config': 'shakespeare.yml', 'data': 'shakespeare'}
     }
 
     def __init__(self):
@@ -26,7 +27,7 @@ class ModelManager(object):
 
     @property
     def available_models(self):
-        return self._available_models.keys()
+        return list(self._available_models.keys())
 
     def get_config_filename(self, name):
         """
@@ -88,6 +89,13 @@ class ModelManager(object):
         if model is None:
             return None
         return model.generate(seeds, None, max_branch, accum_cond_prob, min_cond_prob, min_prob, max_step, neg_word_ids)
+
+    def model_evaluate(self, name, sequence):
+        model = self._get_model(name)
+        if model is None:
+            return None
+        recorder = Recorder(self._available_models[name]['data'], name)
+        return model.evaluate_and_record(sequence, None, recorder, verbose=False)
 
 if __name__ == '__main__':
     print(os.path.realpath(__file__))

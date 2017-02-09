@@ -44,7 +44,7 @@ class Generator(object):
         :param min_cond_prob: the minimum conditional probability of each branch
         :param min_prob: the minimum probability of a branch (note that this indicates a multiplication along the tree)
         :param max_step: the step to generate
-        :param neg_word_ids: a set of neglected words' ids.
+        :param neg_word_ids: a set of neglected words or words' ids.
         :return: if logdir is None, returns a dict object representing the tree. if logdir is not None, return None
         """
 
@@ -58,6 +58,8 @@ class Generator(object):
         if isinstance(seeds[0], str):
             _seeds = self.get_id_from_word(seeds)
             seeds = _seeds
+        if isinstance(neg_word_ids[0], str):
+            neg_word_ids = self.get_id_from_word(neg_word_ids)
         parent = GenerateNode(seeds[0], 1.0, 1.0)
         tree.add_node(parent, None)
         for seed in seeds[1:]:
