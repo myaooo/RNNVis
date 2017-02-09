@@ -29,7 +29,6 @@ def flatten_var_length(sequences):
     """
 
     :param sequences: a 2D Tensor with shape [batch_size, max_length] of type tf.int32, with -1 masking
-    :param length: the length tensor of shape [batch_size]
     :return:
     """
     used = tf.reshape(tf.sign(sequences + 1), [-1])
@@ -63,4 +62,3 @@ def cost(output, target):
     cross_entropy = tf.reduce_sum(cross_entropy, reduction_indices=1)
     cross_entropy /= tf.reduce_sum(mask, reduction_indices=1)
     return tf.reduce_mean(cross_entropy)
-

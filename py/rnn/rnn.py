@@ -10,6 +10,7 @@ import tensorflow as tf
 import numpy as np
 
 from py.datasets.data_utils import Feeder
+from py.utils.io_utils import get_path
 from py.rnn.command_utils import data_type, config_proto
 from py.rnn.evaluator import Evaluator, Recorder
 from py.rnn.trainer import Trainer
@@ -290,7 +291,7 @@ class RNN(object):
         self.supervisor = None
         self.models = []
         self.graph = graph if isinstance(graph, tf.Graph) else tf.get_default_graph()
-        self.logdir = logdir or name
+        self.logdir = logdir or get_path('./models', name)
 
     def set_input(self, dshape, dtype, vocab_size, embedding_size=None):
         """
@@ -570,7 +571,7 @@ class RNN(object):
         """
         if not self.finalized:
             self.finalize()
-        path = path if path is not None else os.path.join(self.logdir, './model')
+        path = path if path is not None else os.path.join(self.logdir, 'model')
         with self.supervisor.managed_session() as sess:
             self.supervisor.saver.save(sess, path, global_step=self.supervisor.global_step)
             print("Model variables saved to {}.".format(path))
@@ -580,8 +581,8 @@ class RNN(object):
             self.finalize()
         path = path if path is not None else self.logdir
         checkpoint = tf.train.latest_checkpoint(path)
-        print(path)
-        print(checkpoint)
+        # print(path)
+        # print(checkpoint)
         with self.supervisor.managed_session() as sess:
             self.supervisor.saver.restore(sess, checkpoint)
         print("Model variables restored from {}.".format(path))

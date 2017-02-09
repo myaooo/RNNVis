@@ -50,9 +50,9 @@ class Evaluator(object):
         if log_output:
             summary_ops['output'] = self.model.outputs
         if log_gradients:
-            inputs_gradients = tf.gradients(self.model.loss, self.model.inputs, name='inputs_gradients')  #,
+            inputs_gradients = tf.gradients(self.model.loss, self.model.inputs)  #,
                                             # colocate_gradients_with_ops=True)
-            self.summary_ops['inputs_gradients'] = inputs_gradients
+            summary_ops['inputs_gradients'] = inputs_gradients
         self.summary_ops = summary_ops
 
     def evaluate(self, sess, inputs, targets, input_size, verbose=True, refresh_state=False):

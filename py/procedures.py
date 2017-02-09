@@ -38,7 +38,7 @@ def build_rnn(rnn_config):
     :return: a compiled model
     """
     assert isinstance(rnn_config, RNNConfig)
-    _rnn = RNN(rnn_config.name, rnn_config.initializer, os.path.join('models/', rnn_config.name))
+    _rnn = RNN(rnn_config.name, rnn_config.initializer)
     _rnn.set_input([None], rnn_config.input_dtype, rnn_config.vocab_size, rnn_config.embedding_size)
     for cell in rnn_config.cells:
         _rnn.add_cell(rnn_config.cell, **cell)
