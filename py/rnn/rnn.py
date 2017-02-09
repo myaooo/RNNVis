@@ -358,11 +358,9 @@ class RNN(object):
         :param ids: a numpy.ndarray or a list or a python int
         :return: a list of words
         """
-        if isinstance(ids, int):
+        if isinstance(ids, int) and ids in self.id_to_word:
             return self.id_to_word[ids]
-        words = []
-        for i in ids:
-            words.append(self.id_to_word[i])
+        words = [self.id_to_word[i] for i in ids if i in self.id_to_word]
         return words
 
     def get_id_from_word(self, words):
@@ -371,11 +369,10 @@ class RNN(object):
         :param words: a list of words
         :return: a list of corresponding ids
         """
-        if isinstance(words, str):
+        if isinstance(words, str) and words.tolower() in self.word_to_id:
             return self.word_to_id[words.lower()]
-        ids = []
-        for word in words:
-            ids.append(self.word_to_id[word.lower()])
+        words = [w.tolower() for w in words]
+        ids = [self.word_to_id[w] for w in words if w in self.word_to_id]
         return ids
 
     def compile(self, evaluate=False):

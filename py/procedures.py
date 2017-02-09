@@ -4,6 +4,9 @@ Pre-defined procedures for running rnn, evaluating and recording
 
 
 import os
+
+import tensorflow as tf
+
 from py.rnn.config_utils import RNNConfig, TrainConfig
 from py.rnn.command_utils import data_type, pick_gpu_lowest_memory
 from py.rnn.rnn import RNN
@@ -38,7 +41,7 @@ def build_rnn(rnn_config):
     :return: a compiled model
     """
     assert isinstance(rnn_config, RNNConfig)
-    _rnn = RNN(rnn_config.name, rnn_config.initializer,
+    _rnn = RNN(rnn_config.name, rnn_config.initializer, graph=tf.Graph(),
                word_to_id=get_dataset(rnn_config.dataset, ['word_to_id'])['word_to_id'])
     _rnn.set_input([None], rnn_config.input_dtype, rnn_config.vocab_size, rnn_config.embedding_size)
     for cell in rnn_config.cells:
