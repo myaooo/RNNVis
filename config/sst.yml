@@ -23,6 +23,6 @@ train:
   keep_prob: 1.0
   gradient_clip: global_norm
   gradient_clip_args:
-    clip_norm: 15.0
+    clip_norm: 150.0
   optimizer: GradientDescent
   learning_rate: "lambda x: 1.0 * (1.0 if x < 4 else 0.9 ** (x - 4))"
