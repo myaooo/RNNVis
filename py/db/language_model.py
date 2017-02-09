@@ -90,7 +90,7 @@ def store_ptb(data_path, name='ptb', upsert=False):
     insertion('test', {'name': name}, {'name': name, 'data': test})
 
 
-def store_plain_text(data_path, name, split_scheme, min_freq=1, max_vocab=10000, upsert=False):
+def store_plain_text(data_path, name, split_scheme, min_freq=1, max_vocab=10000, remove_punct=False, upsert=False):
     """
     Process any plain text and store to db
     :param data_path:
@@ -105,7 +105,7 @@ def store_plain_text(data_path, name, split_scheme, min_freq=1, max_vocab=10000,
         insertion = _replace_one_if_exists
     else:
         insertion = _insert_one_if_not_exists
-    processor = PlainTextProcessor(data_path)
+    processor = PlainTextProcessor(data_path, remove_punct=remove_punct)
     processor.tag_rare_word(min_freq, max_vocab)
     split_ids = split(processor.flat_ids, split_scheme.values())
     split_data = dict(zip(split_scheme.keys(), split_ids))

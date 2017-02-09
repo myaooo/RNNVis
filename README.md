@@ -7,7 +7,7 @@ and help practitioners to debug their model and data, and help reasearchers impr
 
 ## Setup
 
-1. Install TensorFlow r0.12 (gpu is also supported)
+1. Install TensorFlow r0.12.1 (gpu is also supported)
 
 2. to install all the dependency packages, under the project dir, run:
  
@@ -17,7 +17,7 @@ and help practitioners to debug their model and data, and help reasearchers impr
  
    To set up the mongodb, you must first have mongodb installed on your system and have a `mongod` instance running.
    
-   Then, run
+   Then, at the project root dir, run
    
    `python -m py.main seeddb`
 

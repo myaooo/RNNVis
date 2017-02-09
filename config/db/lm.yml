@@ -14,3 +14,4 @@ datasets:
         test: 0.05
       min_freq: 1
       max_vocab: 10000
+      remove_punct: True

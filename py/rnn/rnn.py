@@ -2,7 +2,6 @@
 RNN Model Classes
 """
 
-import logging
 import math
 import time
 import os
@@ -28,7 +27,7 @@ DropOutWrapper = tf.nn.rnn_cell.DropoutWrapper
 InputProjectionWrapper = tf.nn.rnn_cell.InputProjectionWrapper
 OutputProjectionWrapper = tf.nn.rnn_cell.OutputProjectionWrapper
 
-tf.GraphKeys.INPUTS = 'myinputs'
+tf.GraphKeys.INPUTS = 'my_inputs'
 
 _input_and_global = [tf.GraphKeys.GLOBAL_VARIABLES, tf.GraphKeys.INPUTS]
 
@@ -53,7 +52,7 @@ class RNNModel(object):
         self.num_steps = num_steps
         self.name = name or "UnRolled"
         self.current_state = None
-        # Ugly hackings for DropoutWrapper
+        # Ugly hacks for DropoutWrapper
         if keep_prob is not None:
             cell_list = [DropOutWrapper(cell, input_keep_prob=keep_prob, output_keep_prob=keep_prob)
                          for cell in rnn.cell_list]
@@ -72,7 +71,8 @@ class RNNModel(object):
                 self.batch_size = tf.shape(self.input_holders)[0]
                 self.state = self.cell.zero_state(self.batch_size, rnn.output_dtype)
                 # ugly hacking for EmbeddingWrapper Badness
-                self.inputs = self.input_holders if not rnn.has_embedding else rnn.map_to_embedding(self.input_holders+1)
+                self.inputs = self.input_holders if not rnn.has_embedding \
+                    else rnn.map_to_embedding(self.input_holders+1)
                 # Call TF api to create recurrent neural network
                 self.input_length = sequence_length(self.inputs)
                 self.outputs, self.final_state = \
@@ -147,7 +147,7 @@ class RNNModel(object):
             get_data = lambda x: x
         else:
             raise TypeError("inputs mal format!")
-        batch_size = inputs.shape[0]
+        batch_size = int(inputs.shape[0])
 
         if self.current_state is None:
             self.init_state(sess, batch_size)
@@ -189,7 +189,7 @@ class RNNModel(object):
         # Prepare for returning values
         # vals['loss'] = total_loss / epoch_size
         if verbose:
-            sum_str = ', '.join(["{:s}: {:.4f}".format(name, value / i) for name, value in sums.items()])
+            sum_str = ', '.join(["{:s}: {:.4f}".format(name, value / epoch_size) for name, value in sums.items()])
             if sum_str: sum_str = ', '+sum_str
             print("Epoch Summary: total time:{:.1f}s, speed:{:.1f} wps".format(
                 total_time, epoch_size * self.num_steps * batch_size / total_time) + sum_str)
@@ -226,21 +226,6 @@ class RNNModel(object):
         self.current_state = None
         return
 
-    def log_ops_placement(self, ops, log_path):
-        # Print ops assignments for debugging
-        sess = tf.Session(config=tf.ConfigProto(log_device_placement=True))
-        _hdlr = tf.logging._handler
-        new_handler = logging.FileHandler(log_path, 'a+')
-        tf.logging._logger.removeHandler(_hdlr)
-        tf.logging._logger.addHandler(new_handler)
-        try:
-            sess.run(ops)
-        except:
-            print("ops placements end.")
-        tf.logging._logger.removeHandler(new_handler)
-        tf.logging._logger.addHandler(_hdlr)
-        print("ops placements info logged to {}".format(log_path))
-
     def do_projection(self, outputs, sess):
         """
         Project the cell outputs on to word space as a probability distribution
@@ -275,12 +260,13 @@ class RNN(object):
     For computation (training, evaluating), use RNN.unroll() to create RNNModel,
     which create TF computation Graph for computation.
     """
-    def __init__(self, name="RNN", initializer=None, logdir=None, graph=None):
+    def __init__(self, name="RNN", initializer=None, logdir=None, graph=None, word_to_id=None):
         """
         :param name: a str, used to create variable scope
         :return: a empty RNN model
         """
         self.name = name
+        self.word_to_id = word_to_id
         self.initializer = initializer if initializer is not None else tf.random_uniform_initializer(-0.1, 0.1)
         self.input_shape = None
         self.input_dtype = None
@@ -313,6 +299,8 @@ class RNN(object):
             typically [None] for word-id input,
             for word embeddings, should be [None, feature_dim]
         :param dtype: tensorflow data type
+        :param vocab_size: the input vocabulary size
+        :param embedding_size: the embedding size of the input before feeding into rnn
         :return: None
         """
         assert not self.is_compiled
@@ -354,12 +342,38 @@ class RNN(object):
         """
         A helper function to use for create RNN cells under specific TensorFlow VariableScope
         :param cell: should be subclasses of tf.nn.rnn_cell.BasicRNNCell
-        :param name: the name or scope used for managing the cell
+        :param args: the arguments used to create the cell
         :param kwargs: the arguments used to create the cell
         :return: a cell managed under scope
         """
         assert not self.is_compiled
         self.cell_list.append(cell(*args, **kwargs))
+
+    def get_word_from_id(self, ids):
+        """
+        Retrieve the words by ids
+        :param ids: a numpy.ndarray or a list or a python int
+        :return: a list of words
+        """
+        if isinstance(ids, int):
+            return self.id_to_word[ids]
+        words = []
+        for i in ids:
+            words.append(self.id_to_word[i])
+        return words
+
+    def get_id_from_word(self, words):
+        """
+        Retrieve the ids from words
+        :param words: a list of words
+        :return: a list of corresponding ids
+        """
+        if isinstance(words, str):
+            return self.word_to_id[words.lower()]
+        ids = []
+        for word in words:
+            ids.append(self.word_to_id[word.lower()])
+        return ids
 
     def compile(self, evaluate=False):
         """
@@ -402,16 +416,19 @@ class RNN(object):
         with self.graph.as_default():  # Ensure that the model is created under the managed graph
             return RNNModel(self, batch_size, num_steps, keep_prob=keep_prob, name=name)
 
-    def add_trainer(self, batch_size, num_steps, keep_prob=1.0, optimizer="GradientDescent", learning_rate=1.0, clipper=None):
+    def add_trainer(self, batch_size, num_steps, keep_prob=1.0,
+                    optimizer="GradientDescent", learning_rate=1.0, clipper=None):
         """
-        The previous version of train is too messy, explicitly break them into add_trainer, and train
-        add_trainer does all the preparations on building TF graphs, this function should be called before train
+        add_trainer does all the preparations on building the training part of TF graphs,
+        this function should be called before train
         :param batch_size: batch_size of the running
         :param num_steps: unrolled num_steps
         :param keep_prob: see unroll
-        :param optimizer: the optimizer to use, can be a str indicating the tf optimizer, or a subclass of tf.train.Optimizer
-        :param learning_rate:
-        :param clipper:
+        :param optimizer: the optimizer to use, should be an instance of tf.train.Optimizer,
+            you can call train.get_optimizer() to get such an instance
+        :param learning_rate: should be a float, or a callable that returns the lr of given epoch_num
+        :param clipper: default to None, the clipper function to use,
+            should be the returned callable from get_gradient_clipper
         :return:
         """
         assert self.is_compiled
@@ -422,6 +439,12 @@ class RNN(object):
             self.trainer = Trainer(self, batch_size, num_steps, keep_prob, optimizer, learning_rate, clipper)
 
     def add_validator(self, batch_size, num_steps):
+        """
+        Add a Evaluator instance used for validating during training. Should be called before train or test
+        :param batch_size:
+        :param num_steps:
+        :return:
+        """
         assert self.is_compiled
         if self.validator is not None:
             print("validator is already exists! Currently do not support multi training!")
@@ -429,7 +452,8 @@ class RNN(object):
         with self.graph.as_default():
             self.validator = Evaluator(self, batch_size, num_steps, False, False, False)
 
-    def add_evaluator(self, batch_size=1, record_every=1, log_state=True, log_input=True, log_output=True):
+    def add_evaluator(self, batch_size=1, record_every=1, log_state=True, log_input=True, log_output=True,
+                      log_gradients=False):
         """
         Explicitly add evaluator instead of using the default one. You must call compile(evaluate=False)
             before calling this function
@@ -438,13 +462,14 @@ class RNN(object):
         :param log_state: flag of state logging
         :param log_input: flag of input logging
         :param log_output: flag of output logging
-        :param logdir: logging directory
+        :param log_gradients: flag of input gradients logging
         :return:
         """
         assert self.evaluator is None
         with self.graph.as_default():
             with tf.device("/cpu:0"):
-                self.evaluator = Evaluator(self, batch_size, record_every, log_state, log_input, log_output)
+                self.evaluator = Evaluator(self, batch_size, record_every, log_state,
+                                           log_input, log_output, log_gradients)
 
     def add_generator(self, word_to_id):
         assert self.generator is None
@@ -465,6 +490,8 @@ class RNN(object):
         :param valid_targets: Validation target data
         :param valid_epoch_size: batch_size of validation set
         :param verbose: Print training information if True
+        :param refresh_state: indicate that in each loop of the epoch, whether we need to reset the hidden states.
+            You set it to true when training on sentence mini-batches
         :return: None
         """
         assert self.is_compiled
@@ -485,6 +512,16 @@ class RNN(object):
                                                      refresh_state=refresh_state)
                         self.validator.evaluate(sess, valid_inputs, valid_targets, valid_epoch_size,
                                                 verbose=False, refresh_state=refresh_state)
+
+    def validate(self, *args, **kwargs):
+        """
+        Wrappede method of validator.evaluate
+        :param args: see Evaluator.evaluate method
+        :param kwargs: see Evaluator.evaluate method
+        :return:
+        """
+        assert self.validator is not None
+        self.run_with_context(self.validator.evaluate, *args, **kwargs)
 
     def evaluate(self, *args, **kwargs):
         """
@@ -585,6 +622,12 @@ class RNN(object):
         assert self.finalized
         return self.supervisor.managed_session(config=config_proto())
 
+    @property
+    def id_to_word(self):
+        if not hasattr(self, '_id_to_word'):
+            setattr(self, '_id_to_word', {id_: word for word, id_ in self.word_to_id.items()})
+        return getattr(self, '_id_to_word')
+
     def map_to_embedding(self, inputs):
         """
         Map the input ids into embedding
@@ -595,7 +638,9 @@ class RNN(object):
             # The Variables are already created in the compile(), need to
             with tf.variable_scope('embedding', initializer=self.initializer):
                 with tf.device("/cpu:0"):  # Force CPU since GPU implementation is missing
-                    embedding = tf.get_variable("embedding", [self.vocab_size+1, self.embedding_size], dtype=data_type())
+                    embedding = tf.get_variable("embedding",
+                                                [self.vocab_size+1, self.embedding_size],
+                                                dtype=data_type())
                     return tf.nn.embedding_lookup(embedding, inputs)
         else:
             return None
@@ -615,4 +660,3 @@ class RNN(object):
                 return tf.matmul(outputs, project_w) + projcet_b
         else:
             return None
-

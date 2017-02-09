@@ -26,37 +26,11 @@ class Generator(object):
     def __init__(self, rnn_, word_to_id):
         """
         :param rnn_: An RNN instance
+        :param word_to_id: deprecated
         """
         assert isinstance(rnn_, rnn.RNN)
+        self._rnn = rnn_
         self.model = rnn_.unroll(1, 1, name='generator')
-        self.word_to_id = word_to_id
-        self.id_to_word = {id_: word for word, id_ in word_to_id.items()}
-
-    def get_word_from_id(self, ids):
-        """
-        Retrieve the words by ids
-        :param ids: a numpy.ndarray or a list or a python int
-        :return: a list of words
-        """
-        if isinstance(ids, int):
-            return self.id_to_word[ids]
-        words = []
-        for i in ids:
-            words.append(self.id_to_word[i])
-        return words
-
-    def get_id_from_word(self, words):
-        """
-        Retrieve the ids from words
-        :param words: a list of words
-        :return: a list of corresponding ids
-        """
-        if isinstance(words, str):
-            return self.word_to_id[words.lower()]
-        ids = []
-        for word in words:
-            ids.append(self.word_to_id[word.lower()])
-        return ids
 
     def generate(self, sess, seeds, logdir, max_branch=3, accum_cond_prob=0.9,
                  min_cond_prob=0.1, min_prob=0.001, max_step=10, neg_word_ids=None):
@@ -149,3 +123,18 @@ class Generator(object):
         # print(tree.as_dict())
         return dict2json(tree.as_dict(), logdir)
 
+    def get_word_from_id(self, ids):
+        """
+        Retrieve the words by ids
+        :param ids: a numpy.ndarray or a list or a python int
+        :return: a list of words
+        """
+        return self._rnn.get_word_from_id(ids)
+
+    def get_id_from_word(self, words):
+        """
+        Retrieve the ids from words
+        :param words: a list of words
+        :return: a list of corresponding ids
+        """
+        return self._rnn.get_id_from_word(words)

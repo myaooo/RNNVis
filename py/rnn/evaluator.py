@@ -12,7 +12,6 @@ from py.db.language_model import insert_evaluation, push_evaluation_records
 from py.datasets.data_utils import InputProducer, Feeder
 
 
-
 tf.GraphKeys.EVAL_SUMMARIES = "eval_summarys"
 _evals = [tf.GraphKeys.EVAL_SUMMARIES]
 

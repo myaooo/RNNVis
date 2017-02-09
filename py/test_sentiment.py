@@ -47,4 +47,6 @@ if __name__ == '__main__':
     print('Finish Training')
     model.save()
     print('Testing...')
-    model.evaluate(test_inputs, test_targets, test_epoch_size)
+    model.validate(test_inputs, test_targets, test_epoch_size)
+
+    print('Evaluating sentences')

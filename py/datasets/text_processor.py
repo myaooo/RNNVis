@@ -23,13 +23,23 @@ def lazy_property(func):
 class PlainTextProcessor(object):
     """
     A helper class that helps to pre-process plain text into tokenized datasets and word_to_ids.
+    tokens: the tokens attr is a list of lists, each nested list contains word tokens of a sentence,
+        the tokens are extracted using nltk
+    flat_tokens:
     """
 
-    def __init__(self, text_file, eos=True):
+    def __init__(self, text_file, eos=True, remove_punct=False):
+        """
+        a plainTextProcessor converts english texts into serialized word tokens, creates dictionary and so on.
+        :param text_file: the path of the .txt file
+        :param eos: end of sentence, whether convert dot into <eos> tag
+        :param remove_punct, whether remove other punctuations like ",", ":", etc.
+        """
         if not path_exists(text_file):
             raise LookupError("Cannot find file {:s}".format(text_file))
         self.file_path = text_file
         self.eos = eos
+        self.remove_punct = remove_punct
         self.rare_list = None
         self._word_to_id = None
         self._id_to_word = None
@@ -39,7 +49,7 @@ class PlainTextProcessor(object):
     @lazy_property
     def tokens(self):
         with open(self.file_path) as f:
-            return tokenize(f.read())
+            return tokenize(f.read(), self.eos, self.remove_punct)
 
     @lazy_property
     def flat_tokens(self):
@@ -149,7 +159,10 @@ class PlainTextProcessor(object):
         return proc
 
 
-def tokenize(str_stream, eos=True):
+__punct_set = {':', ';', '--', ',', "'"}
+
+
+def tokenize(str_stream, eos=True, remove_punct=False):
     # do lazy import coz import nltk is very slow
     import nltk
     try:
@@ -161,6 +174,8 @@ def tokenize(str_stream, eos=True):
     if eos:
         for token in tokens:
             token[-1] = '<eos>'
+    if remove_punct:
+        tokens = [[t for t in sublist if t not in __punct_set] for sublist in tokens]
     return tokens
 
 
