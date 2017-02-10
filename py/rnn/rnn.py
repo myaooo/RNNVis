@@ -677,7 +677,10 @@ class RNN(object):
             return None
 
     def close_session(self):
-        self.sess.close()
+        if self._sess is None:
+            return
+        else:
+            self.sess.close()
 
     def __del__(self):
         self.close_session()
