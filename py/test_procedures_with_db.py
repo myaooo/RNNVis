@@ -41,7 +41,7 @@ if __name__ == '__main__':
     test = datasets['test']
     train_inputs, train_targets, epoch_size = get_lm_data_producer(train, batch_size, num_steps)
     valid_inputs, valid_targets, valid_epoch_size = get_lm_data_producer(valid, batch_size, num_steps)
-    test_inputs, test_targets, test_epoch_size = get_lm_data_producer(test, 1, 1)
+    test_inputs, test_targets, test_epoch_size = get_lm_data_producer(test, batch_size, num_steps)
 
     print('Start Training')
     model.train(train_inputs, train_targets, epoch_size, epoch_num,

@@ -288,7 +288,10 @@ class RNN(object):
         self.vocab_size = None
         self.target_size = None
         self.use_last_output = False
-        self.supervisor = None
+        # self.supervisor = None
+        self._sess = None
+        self._saver = None
+        self._init_op = None
         self.models = []
         self.graph = graph if isinstance(graph, tf.Graph) else tf.get_default_graph()
         self.logdir = logdir or get_path('./models', name)
@@ -369,9 +372,9 @@ class RNN(object):
         :param words: a list of words
         :return: a list of corresponding ids
         """
-        if isinstance(words, str) and words.tolower() in self.word_to_id:
-            return self.word_to_id[words.lower()]
-        words = [w.tolower() for w in words]
+        if isinstance(words, str) and words in self.word_to_id:
+            return self.word_to_id[words]
+        words = [w for w in words]
         ids = [self.word_to_id[w] for w in words if w in self.word_to_id]
         return ids
 
@@ -561,8 +564,7 @@ class RNN(object):
         assert self.is_compiled
         with self.graph.as_default():
             self.finalize()
-            with self.sess as sess:
-                func(sess, *args, **kwargs)
+            func(self.sess, *args, **kwargs)
 
     def save(self, path=None):
         """
@@ -573,9 +575,10 @@ class RNN(object):
         if not self.finalized:
             self.finalize()
         path = path if path is not None else os.path.join(self.logdir, 'model')
-        with self.supervisor.managed_session() as sess:
-            self.supervisor.saver.save(sess, path, global_step=self.supervisor.global_step)
-            print("Model variables saved to {}.".format(path))
+        # with self.sess as sess:
+        #     self.supervisor.saver.save(sess, path, global_step=self.supervisor.global_step)
+        self._saver.save(self.sess, path)
+        print("Model variables saved to {}.".format(get_path(path, absolute=True)))
 
     def restore(self, path=None):
         if not self.finalized:
@@ -584,9 +587,10 @@ class RNN(object):
         checkpoint = tf.train.latest_checkpoint(path)
         # print(path)
         # print(checkpoint)
-        with self.supervisor.managed_session() as sess:
-            self.supervisor.saver.restore(sess, checkpoint)
-        print("Model variables restored from {}.".format(path))
+        self._saver.restore(self.sess, checkpoint)
+        # with self.supervisor.managed_session() as sess:
+        #     self.supervisor.saver.restore(sess, checkpoint)
+        print("Model variables restored from {}.".format(get_path(path, absolute=True)))
 
     def finalize(self):
         """
@@ -596,12 +600,17 @@ class RNN(object):
         if self.finalized:
             # print("Graph has already been finalized!")
             return False
-        self.supervisor = tf.train.Supervisor(self.graph, logdir=self.logdir)
+        with self.graph.as_default():
+            self._init_op = tf.global_variables_initializer()
+            self._saver = tf.train.Saver(tf.trainable_variables())
+        self.graph.finalize()
+        # self.supervisor = tf.train.Supervisor(self.graph, logdir=self.logdir)
         return True
 
     @property
     def finalized(self):
-        return False if self.supervisor is None else True
+        # return False if self.supervisor is None else True
+        return self.graph.finalized
 
     @property
     def cell(self):
@@ -622,7 +631,11 @@ class RNN(object):
     @property
     def sess(self):
         assert self.finalized
-        return self.supervisor.managed_session(config=config_proto())
+        if self._sess is None:
+            self._sess = tf.Session(graph=self.graph, config=config_proto())
+            self._sess.run(self._init_op)
+        return self._sess
+        # return self.supervisor.managed_session(config=config_proto())
 
     @property
     def id_to_word(self):
@@ -662,3 +675,9 @@ class RNN(object):
                 return tf.matmul(outputs, project_w) + projcet_b
         else:
             return None
+
+    def close_session(self):
+        self.sess.close()
+
+    def __del__(self):
+        self.close_session()

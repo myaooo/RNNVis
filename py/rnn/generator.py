@@ -58,15 +58,20 @@ class Generator(object):
         if isinstance(seeds[0], str):
             _seeds = self.get_id_from_word(seeds)
             seeds = _seeds
-        if isinstance(neg_word_ids[0], str):
-            neg_word_ids = self.get_id_from_word(neg_word_ids)
         parent = GenerateNode(seeds[0], 1.0, 1.0)
         tree.add_node(parent, None)
         for seed in seeds[1:]:
             node = GenerateNode(seed, 1.0, 1.0)
             tree.add_node(node, parent)
             parent = node
+        if neg_word_ids is None:
+            neg_word_ids = {}
+        elif isinstance(neg_word_ids[0], str):
+            neg_word_ids = self.get_id_from_word(neg_word_ids)
+        elif not isinstance(neg_word_ids[0], int):
+            raise TypeError("neg_word_ids should be a iterable object containing words as word tokens or word ids!")
         neg_word_ids = set(neg_word_ids)  # converts to set for easier `in` statement
+        # print(neg_word_ids)
 
         def _generate(node, step):
             if step > max_step:  # Already at the maximum generating step

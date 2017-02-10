@@ -11,21 +11,25 @@ from urllib.request import urlretrieve
 from zipfile import ZipFile
 
 
-base_dir = os.path.join(os.path.realpath(__file__), '../../../')
+base_dir = os.path.abspath(os.path.join(__file__, '../../../'))
+print('basedir: {:s}'.format(base_dir))
 
 
-def get_path(path, file_name=None):
+def get_path(path, file_name=None, absolute=False):
     """
     A helper function that get the real/abs path of a file on disk, with the project dir as the base dir.
     Note: there is no checking on the illegality of the args!
     :param path: a relative path to base_dir, optional file_name to use
     :param file_name: an optional file name under the path
-    :return: an abs path of the request file / path
+    :param absolute: return the absolute path
+    :return: return the path relative to the project root dir, default to return relative path to the called place.
     """
-    _p = os.path.abspath(os.path.join(base_dir, path))
+    _p = os.path.join(base_dir, path)
     if file_name:
-        return os.path.join(_p, file_name)
-    return _p
+        _p = os.path.join(_p, file_name)
+    if absolute:
+        return os.path.abspath(_p)
+    return os.path.relpath(_p)
 
 
 def write2file(s_io, file_path, mode, encoding=None):

@@ -26,7 +26,7 @@ if __name__ == '__main__':
     # lists2csv([[s, v] for s, v in word_to_id.items()], os.path.join(data_path(), 'word_to_id.csv'), " ")
     model.add_generator(word_to_id)
     model.restore()
-    model.generate(['once', 'again'], 'test.json', max_branch=3, accum_cond_prob=0.9,
-                   min_cond_prob=0.0, min_prob=1e-10, max_step=6)
+    model.generate(['once', 'again'], 'test2.json', max_branch=1, accum_cond_prob=0.9,
+                   min_cond_prob=0.0, min_prob=0, max_step=20, neg_word_ids=['<unk>', 'N', '<eos>'])
 
 
