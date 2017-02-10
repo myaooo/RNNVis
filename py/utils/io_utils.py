@@ -12,7 +12,7 @@ from zipfile import ZipFile
 
 
 base_dir = os.path.abspath(os.path.join(__file__, '../../../'))
-print('basedir: {:s}'.format(base_dir))
+# print('basedir: {:s}'.format(base_dir))
 
 
 def get_path(path, file_name=None, absolute=False):

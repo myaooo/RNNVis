@@ -69,7 +69,7 @@ class RNNModel(object):
                 self.input_holders = tf.Variable(zero_initializer(shape=input_shape), trainable=False,
                                                  collections=_input_and_global, name='input_holders')
                 # self.input_holders = tf.Variable(np.zeros(input_shape))
-                self.batch_size = tf.shape(self.input_holders)[0]
+                # self.batch_size = tf.shape(self.input_holders)[0]
                 self.state = self.cell.zero_state(self.batch_size, rnn.output_dtype)
                 # ugly hacking for EmbeddingWrapper Badness
                 self.inputs = self.input_holders if not rnn.has_embedding \
@@ -98,6 +98,7 @@ class RNNModel(object):
                     self.accuracy = tf.reduce_mean(tf.cast(
                         tf.nn.in_top_k(self.projected_outputs, targets, 1), data_type()))
                 else:
+                    self.projected_outputs = tf.reshape(self.outputs, [-1, self.outputs.get_shape().as_list()[-1]])
                     self.loss = rnn.loss_func(self.outputs, self.target_holders)
                     self.accuracy = tf.reduce_mean(tf.cast(
                         tf.nn.in_top_k(self.outputs, self.target_holders, 1), data_type()))
@@ -148,10 +149,10 @@ class RNNModel(object):
             get_data = lambda x: x
         else:
             raise TypeError("inputs mal format!")
-        batch_size = int(inputs.shape[0])
+        batch_size = self.batch_size
 
         if self.current_state is None:
-            self.init_state(sess, batch_size)
+            self.init_state(sess)
 
         run_ops['state'] = self.final_state
         run_ops.update(eval_ops)
@@ -163,7 +164,7 @@ class RNNModel(object):
         sums = {name: 0 for name in sum_ops}
         for i in range(epoch_size):
             if refresh_state:
-                self.init_state(sess, batch_size)
+                self.init_state(sess)
             feed_dict = self.feed_state(self.current_state)
             _inputs, _targets = get_data((inputs, targets))
             feed_dict[self.input_holders] = _inputs
@@ -219,8 +220,8 @@ class RNNModel(object):
     #     holders = self.input_holders if inputs else self.target_holders
     #     return {holders: data}
 
-    def init_state(self, sess, batch_size):
-        self.current_state = sess.run(self.state, {self.batch_size: batch_size})
+    def init_state(self, sess):
+        self.current_state = sess.run(self.state)
         return
 
     def reset_state(self):
