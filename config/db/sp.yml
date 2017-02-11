@@ -9,3 +9,6 @@ datasets:
         train: 0.9
         valid: 0.05
         test: 0.05
+  - name: imdb
+    type: imdb
+    dir: imdb

@@ -16,6 +16,7 @@ from py.utils.io_utils import dict2json, get_path, lists2csv, path_exists
 from py.datasets.data_utils import split
 from py.datasets.text_processor import SSTProcessor
 from py.datasets.sst_helper import download_sst
+from py.datasets import imdb
 from py.db import mongo
 from py.db.db_helper import insert_one_if_not_exists, replace_one_if_exists
 
@@ -112,6 +113,27 @@ def store_sst(data_path, name, split_scheme, upsert=False):
                       get_path(get_dataset_path(name), c_name))
 
 
+def store_imdb(data_path, name, upsert=False):
+    if upsert:
+        def insertion(*args, **kwargs):
+            return replace_one_if_exists(db_name, *args, **kwargs)
+    else:
+        def insertion(*args, **kwargs):
+            return insert_one_if_not_exists(db_name, *args, **kwargs)
+    word_to_id, id_to_word = imdb.load_dict(os.path.join(data_path, 'imdb.dict.pkl.gz'))
+    data_label = imdb.load_data(os.path.join(data_path, 'imdb.pkl'))
+    word_to_id_json = dict2json(word_to_id)
+    insertion('word_to_id', {'name': name}, {'name': name, 'data': word_to_id_json})
+    insertion('id_to_word', {'name': name}, {'name': name, 'data': id_to_word})
+
+    for i, set_name in enumerate(['train', 'valid', 'test']):
+        data, label = data_label[i]
+        ids = list(range(len(data)))
+        # insertion('sentences', {'name': name, 'set': set_name},
+        #           {'name': name, 'set': set_name, 'data': data, 'label': label, 'ids': ids})
+        dict2json({'data': data, 'label': label, 'ids': ids}, get_path(get_dataset_path(name), set_name))
+
+
 def get_dataset_path(name):
     return os.path.join('cached_data', 'sentiment_prediction', name)
 
@@ -129,6 +151,8 @@ def seed_db():
         data_dir = get_path('cached_data', seed['dir'])
         if seed['type'] == 'sst':
             store_sst(data_dir, seed['name'], **seed['scheme'])
+        if seed['type'] == 'imdb':
+            store_imdb(data_dir, seed['name'])
         else:
             print('not able to seed datasets with type: {:s}'.format(seed['type']))
 

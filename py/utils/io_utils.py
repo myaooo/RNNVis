@@ -113,6 +113,11 @@ def assert_path_exists(file_or_dir):
 
 
 def before_save(file_or_dir):
+    """
+    make sure that the dedicated path exists (create if not exist)
+    :param file_or_dir:
+    :return:
+    """
     dir_name = os.path.dirname(os.path.abspath(file_or_dir))
     if not os.path.exists(dir_name):
         os.makedirs(dir_name)

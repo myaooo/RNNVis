@@ -10,7 +10,7 @@ import tensorflow as tf
 import numpy as np
 
 from py.datasets.data_utils import Feeder
-from py.utils.io_utils import get_path
+from py.utils.io_utils import get_path, before_save
 from py.rnn.command_utils import data_type, config_proto
 from py.rnn.evaluator import Evaluator, Recorder
 from py.rnn.trainer import Trainer
@@ -576,6 +576,7 @@ class RNN(object):
         if not self.finalized:
             self.finalize()
         path = path if path is not None else os.path.join(self.logdir, 'model')
+        before_save(path)
         # with self.sess as sess:
         #     self.supervisor.saver.save(sess, path, global_step=self.supervisor.global_step)
         self._saver.save(self.sess, path)
