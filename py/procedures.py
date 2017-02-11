@@ -74,6 +74,7 @@ def build_model(config, train=True):
     :param train:
     :return:
     """
+    print("Building model from {:s}".format(config))
     if isinstance(config, str):
         rnn_config = RNNConfig.load(config)
         train_config = TrainConfig.load(config)

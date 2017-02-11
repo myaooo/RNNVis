@@ -24,8 +24,9 @@ if __name__ == '__main__':
     test_data = datasets['test']
 
     model, train_config = build_model(config_path(), True)
+    model.add_evaluator(1, 1, log_gradients=True)
     model.restore()
-    model.save()
-    # model.run_with_context(model.evaluator.evaluate_and_record,
-    #                         test_data['data'][:1000], test_data['label'][:1000],
-    #                         Recorder('ptb', model.name), verbose=True)
+    # model.save()
+    model.run_with_context(model.evaluator.evaluate_and_record,
+                           test_data['data'][:1000], test_data['label'][:1000],
+                           Recorder('ptb', model.name), verbose=True)
