@@ -159,6 +159,16 @@ class PlainTextProcessor(object):
         return proc
 
 
+def isfloat(s):
+    try:
+        float(s)
+        if s == 'nan':
+            return False
+        return True
+    except ValueError:
+        return False
+
+
 __punct_set = {':', ';', '--', ',', "'"}
 
 
@@ -171,6 +181,8 @@ def tokenize(str_stream, eos=True, remove_punct=False):
         print('punct resource not found, using nltk.download("punkt") to download resource data...')
         nltk.download('punkt')
     tokens = [nltk.word_tokenize(t) for t in nltk.sent_tokenize(str_stream.lower())]
+    # tag number
+    tokens = [['N' if isfloat(t) else t for t in sublist] for sublist in tokens]
     if eos:
         for token in tokens:
             token[-1] = '<eos>'
