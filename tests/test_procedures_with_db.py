@@ -14,7 +14,6 @@ from py.rnn.evaluator import Recorder
 
 
 flags.DEFINE_string("config_path", None, "The path of the model configuration file")
-flags.DEFINE_string("data_name", None, "The name of the datasets in db")
 flags.DEFINE_integer('gpu_num', 0, "The number of the gpu to use, 0 to use no gpu.")
 FLAGS = flags.FLAGS
 
@@ -43,7 +42,7 @@ if __name__ == '__main__':
     # valid_inputs, valid_targets, valid_epoch_size = get_lm_data_producer(valid, batch_size, num_steps)
     # test_inputs, test_targets, test_epoch_size = get_lm_data_producer(test, batch_size, num_steps)
 
-    producers = pour_data(str(FLAGS.data_name), ['train', 'valid', 'test'], train_config)
+    producers = pour_data(train_config.dataset, ['train', 'valid', 'test'], train_config)
     train_inputs, train_targets, epoch_size = producers[0]
     valid_inputs, valid_targets, valid_epoch_size = producers[1]
     test_inputs, test_targets, test_epoch_size = producers[2]

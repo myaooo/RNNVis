@@ -2,7 +2,7 @@
 Tests the restore of trained model
 """
 import tensorflow as tf
-from py.procedures import build_model, init_tf_environ
+from py.procedures import build_model, init_tf_environ, pour_data
 from py.rnn.evaluator import Recorder
 from py.db.language_model import get_datasets_by_name
 
@@ -19,13 +19,18 @@ def config_path():
 
 if __name__ == '__main__':
     init_tf_environ(FLAGS.gpu_num)
-    print('Preparing data')
-    datasets = get_datasets_by_name('ptb', ['test'])
-    test_data = datasets['test']
+    # datasets = get_datasets_by_name('ptb', ['test'])
+    # test_data = datasets['test']
 
     model, train_config = build_model(config_path(), True)
     model.add_evaluator(1, 1, log_gradients=True)
+
+    print('Preparing data')
+    datasets = get_datasets_by_name(train_config.dataset, ['test'])
+    test_data = datasets['test']
     model.restore()
+
+
     # model.save()
     model.run_with_context(model.evaluator.evaluate_and_record,
                            test_data['data'][:1000], test_data['label'][:1000],
