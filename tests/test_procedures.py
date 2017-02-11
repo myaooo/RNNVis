@@ -56,5 +56,3 @@ if __name__ == '__main__':
     print('Finish Training')
     model.save()
 
-    import tensorflow as tf
-    tf.app.run()

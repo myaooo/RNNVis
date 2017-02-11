@@ -10,7 +10,7 @@ import tensorflow as tf
 from py.rnn.config_utils import RNNConfig, TrainConfig
 from py.rnn.command_utils import data_type, pick_gpu_lowest_memory
 from py.rnn.rnn import RNN
-from py.datasets.data_utils import load_data_as_ids, get_lm_data_producer
+from py.datasets.data_utils import load_data_as_ids, get_lm_data_producer, get_sp_data_producer
 from py.db import get_dataset
 
 
@@ -98,6 +98,27 @@ def produce_data(data_paths, train_config):
     producers = []
     for data in data_list:
         producers.append(get_lm_data_producer(data, batch_size, train_steps))
+    return producers
+
+
+def pour_data(dataset, fields, train_config):
+    """
+    Get data feeders from db
+    :param dataset: name of the dataset
+    :param fields: fields e.g.: train, valid, test
+    :param train_config: train config
+    :return:
+    """
+    datasets = get_dataset(dataset, fields)
+    if datasets is None:
+        raise EnvironmentError("Cannot get datasets named {:s}".format(dataset))
+    producers = []
+    for field in fields:
+        data = datasets[field]
+        if isinstance(data, dict):  # sp
+            producers.append(get_sp_data_producer(data['data'], data['label'], train_config.batch_size, train_config.num_steps))
+        else:
+            producers.append(get_lm_data_producer(data, train_config.batch_size, train_config.num_steps))
     return producers
 
 

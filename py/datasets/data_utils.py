@@ -53,6 +53,11 @@ class ListFeeder(Feeder):
             raise ValueError("Exceeds maximum epoch num!")
         return _data
 
+    @property
+    def shape(self):
+        return self._shape
+
+
 class InputFeeder(Feeder):
     def __init__(self, batched_data, num_steps, offset=0, epoch_num=None, transpose=False):
         self.i = 0
@@ -115,15 +120,15 @@ class InputProducer(object):
 
 
 class SentenceFeeder(Feeder):
-    def __init__(self, data, sentence_length, batch_size, offset=0, epoch_num=None, transpose=False):
+    def __init__(self, data, batch_size, offset=0, epoch_num=None, transpose=False):
         self.i = 0
         self.data = data
+        self.num_steps = data.shape[1]
         self.batch_size = batch_size
         self.max_epoch_num = math.inf if epoch_num is None else int(epoch_num)
         self.epoch_num = 0
         self.offset = offset
         self.transpose = transpose
-        self.sentence_length = sentence_length
         self.epoch_size = self.data.shape[0] // batch_size
         self.embedding = data.ndim == 3
         _shape = [data.shape[1], batch_size] if transpose else [batch_size, data.shape[1]]
@@ -173,17 +178,19 @@ class SentenceProducer(object):
             # Do －1 paddings if word_id
             data = np.zeros((self.sentence_num, self.num_steps), dtype=int) - 1
             for i, l in enumerate(raw_data):
-                data[i, :self.sentence_length[i]] = np.array(l)
+                length = min(self.sentence_length[i], self.num_steps)
+                data[i, :length] = np.array(l[:length])
         else:
             self.embedding = True
             # Do zero paddings if embedding
-            data = np.zeros((self.sentence_num, self.num_steps), dtype=float)
+            data = np.zeros((self.sentence_num, self.num_steps, len(raw_data[0][0])), dtype=float)
             for i, l in enumerate(raw_data):
-                data[i, :self.sentence_length[i], :] = np.array(l)
+                length = min(self.sentence_length[i], self.num_steps)
+                data[i, :length, :] = np.array(l[:length])
         self.data = data
 
     def get_feeder(self, offset=0, epoch_num=None, transpose=False):
-        return SentenceFeeder(self.data, self.sentence_length, self.batch_size, offset, epoch_num, transpose)
+        return SentenceFeeder(self.data, self.batch_size, offset, epoch_num, transpose)
 
 
 def split(data_list, fractions=None, shuffle=False):

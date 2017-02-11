@@ -502,22 +502,22 @@ class RNN(object):
         """
         assert self.is_compiled
         assert self.trainer is not None
+        self.finalize()
         with self.graph.as_default():
-            self.finalize()
+
             print("Start Running Train Graph")
-            with self.sess as sess:
-                if valid_inputs is None:
-                    # Only needs to run training graph
-                    self.trainer.train(sess, inputs, targets, epoch_size, epoch_num,
-                                       verbose=verbose, refresh_state=refresh_state)
-                else:
-                    for i in range(epoch_num):
-                        if verbose:
-                            print("Epoch {}:".format(i))
-                        self.trainer.train_one_epoch(sess, inputs, targets, epoch_size, verbose=verbose,
-                                                     refresh_state=refresh_state)
-                        self.validator.evaluate(sess, valid_inputs, valid_targets, valid_epoch_size,
-                                                verbose=False, refresh_state=refresh_state)
+            if valid_inputs is None:
+                # Only needs to run training graph
+                self.trainer.train(self.sess, inputs, targets, epoch_size, epoch_num,
+                                   verbose=verbose, refresh_state=refresh_state)
+            else:
+                for i in range(epoch_num):
+                    if verbose:
+                        print("Epoch {}:".format(i))
+                    self.trainer.train_one_epoch(self.sess, inputs, targets, epoch_size, verbose=verbose,
+                                                 refresh_state=refresh_state)
+                    self.validator.evaluate(self.sess, valid_inputs, valid_targets, valid_epoch_size,
+                                            verbose=False, refresh_state=refresh_state)
 
     def validate(self, *args, **kwargs):
         """
@@ -563,8 +563,8 @@ class RNN(object):
 
     def run_with_context(self, func, *args, **kwargs):
         assert self.is_compiled
+        self.finalize()
         with self.graph.as_default():
-            self.finalize()
             func(self.sess, *args, **kwargs)
 
     def save(self, path=None):
