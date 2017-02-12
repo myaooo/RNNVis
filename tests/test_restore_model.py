@@ -3,7 +3,7 @@ Tests the restore of trained model
 """
 import tensorflow as tf
 from py.procedures import build_model, init_tf_environ, pour_data
-from py.rnn.evaluator import Recorder
+from py.rnn.evaluator import StateRecorder
 from py.db import get_dataset
 from py.datasets.data_utils import SentenceProducer
 
@@ -24,14 +24,12 @@ if __name__ == '__main__':
     # test_data = datasets['test']
 
     model, train_config = build_model(config_path(), True)
-    model.add_evaluator(1, 56, log_gradients=True)
+    model.add_evaluator(10, 1, 1)
 
     print('Preparing data')
-    datasets = get_dataset(train_config.dataset, ['test'])
-    test_data = datasets['test']
+    producers = pour_data(train_config.dataset, ['test'], 10, 1)
+    inputs, targets, epoch_size = producers[0]
     model.restore()
 
-    input_producer = SentenceProducer(test_data['data'][:100], 1, 56)
-
-    model.run_with_context(model.evaluator.evaluate_and_record,
-                           Recorder('ptb', model.name), verbose=True)
+    model.run_with_context(model.evaluator.evaluate_and_record, inputs, targets,
+                           StateRecorder(train_config.dataset, model.name), verbose=True)

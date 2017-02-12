@@ -101,12 +101,13 @@ def produce_data(data_paths, train_config):
     return producers
 
 
-def pour_data(dataset, fields, train_config):
+def pour_data(dataset, fields, batch_size, num_steps):
     """
     Get data feeders from db
     :param dataset: name of the dataset
     :param fields: fields e.g.: train, valid, test
-    :param train_config: train config
+    :param batch_size:
+    :param num_steps
     :return:
     """
     datasets = get_dataset(dataset, fields)
@@ -116,9 +117,9 @@ def pour_data(dataset, fields, train_config):
     for field in fields:
         data = datasets[field]
         if isinstance(data, dict):  # sp
-            producers.append(get_sp_data_producer(data['data'], data['label'], train_config.batch_size, train_config.num_steps))
+            producers.append(get_sp_data_producer(data['data'], data['label'], batch_size, num_steps))
         else:
-            producers.append(get_lm_data_producer(data, train_config.batch_size, train_config.num_steps))
+            producers.append(get_lm_data_producer(data, batch_size, num_steps))
     return producers
 
 

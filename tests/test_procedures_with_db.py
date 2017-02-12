@@ -34,19 +34,11 @@ if __name__ == '__main__':
     num_steps = train_config.num_steps
 
     print('Preparing data..')
-    # datasets = get_datasets_by_name(str(FLAGS.data_name), ['train', 'valid', 'test'])
-    # train = datasets['train']
-    # valid = datasets['valid']
-    # test = datasets['test']
-    # train_inputs, train_targets, epoch_size = get_lm_data_producer(train, batch_size, num_steps)
-    # valid_inputs, valid_targets, valid_epoch_size = get_lm_data_producer(valid, batch_size, num_steps)
-    # test_inputs, test_targets, test_epoch_size = get_lm_data_producer(test, batch_size, num_steps)
 
-    producers = pour_data(train_config.dataset, ['train', 'valid', 'test'], train_config)
+    producers = pour_data(train_config.dataset, ['train', 'valid', 'test'], batch_size, num_steps)
     train_inputs, train_targets, epoch_size = producers[0]
     valid_inputs, valid_targets, valid_epoch_size = producers[1]
     test_inputs, test_targets, test_epoch_size = producers[2]
-
 
     print('Start Training')
     model.train(train_inputs, train_targets, epoch_size, epoch_num,

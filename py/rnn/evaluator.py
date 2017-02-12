@@ -22,7 +22,7 @@ class Evaluator(object):
     This class also provides several utilities for recording hidden states
     """
 
-    def __init__(self, rnn_, batch_size=1, record_every=1, log_state=True, log_input=True, log_output=True,
+    def __init__(self, rnn_, batch_size=1, num_steps=1, record_every=1, log_state=True, log_input=True, log_output=True,
                  log_gradients=False):
         assert isinstance(rnn_, rnn.RNN)
         self._rnn = rnn_
@@ -30,7 +30,7 @@ class Evaluator(object):
         self.log_state = log_state
         self.log_input = log_input
         self.log_output = log_output
-        self.model = rnn_.unroll(batch_size, record_every, name='EvaluateModel')
+        self.model = rnn_.unroll(batch_size, num_steps, name='EvaluateModel')
         summary_ops = defaultdict(list)
         if log_state:
             for s in self.model.state:
@@ -71,18 +71,18 @@ class Evaluator(object):
         self.model.reset_state()
         eval_ops = self.summary_ops
         sum_ops = {"loss": self.model.loss, 'acc-1': self.model.accuracy}
-        total_loss = 0
+        loss = 0
         acc = 0
         # print("Start evaluating...")
-        for i in range(input_size):
+        for i in range(0, input_size, self.record_every):
             evals, sums = self.model.run(inputs, targets, self.record_every, sess, eval_ops=eval_ops, sum_ops=sum_ops,
                                          verbose=False, refresh_state=refresh_state)
-            total_loss += sums["loss"]
+            loss += sums["loss"]
             acc += sums['acc-1']
             if i % 500 == 0:
                 if verbose:
-                    print("[{:d}/{:d}]: avg loss:{:.3f}".format(i, input_size, total_loss/(i+1)))
-        loss = total_loss / (input_size * self.record_every)
+                    print("[{:d}/{:d}]: avg loss:{:.3f}".format(i, input_size, loss/(i+1)))
+        loss /= (input_size * self.record_every)
         acc /= (input_size * self.record_every)
         if verbose:
             print("Evaluate Summary: acc-1: {:.3f}, avg loss:{:.3f}".format(acc, loss))
@@ -100,37 +100,63 @@ class Evaluator(object):
         :param verbose: verbosity
         :return:
         """
-        try:
-            inputs = np.array(inputs)
-        except:
-            raise TypeError('Unable to convert inputs of type {:s} into numpy array!'.format(str(type(inputs))))
-        if targets is None:
-            pass
-        else:
-            try:
-                targets = np.array(targets)
-            except:
-                raise TypeError('Unable to convert targets of type {:s} into numpy array!'.format(str(type(targets))))
+        # try:
+        #     inputs = np.array(inputs)
+        # except:
+        #     raise TypeError('Unable to convert inputs of type {:s} into numpy array!'.format(str(type(inputs))))
+        # if targets is None:
+        #     pass
+        # else:
+        #     try:
+        #         targets = np.array(targets)
+        #     except:
+        #         raise TypeError('Unable to convert targets of type {:s} into numpy array!'.format(str(type(targets))))
+        assert isinstance(inputs, Feeder)
+        assert isinstance(targets, Feeder) or targets is None
         recorder.start(inputs, targets)
-        input_size = inputs.shape[1]
-        is_lm = len(self.model.target_holders.get_shape()) == 2
-        if input_size > 10000:
-            print("WARN: inputs too long, might take some time.")
+        input_size = inputs.epoch_size
+        print("input size: {:d}".format(input_size))
         eval_ops = self.summary_ops
         self.model.reset_state()
-        for i in range(0, input_size, self.record_every):
-            inputs_ = inputs[:, i:(i+self.record_every)]
-
-            targets_ = None if targets is None else targets[:, i:(i+1)] if is_lm else targets[i:(i+self.record_every)]
-            evals, _ = self.model.run(inputs_, targets_, self.record_every, sess, eval_ops=eval_ops,
+        for i in range(0, input_size):
+            evals, _ = self.model.run(inputs, targets, self.record_every, sess, eval_ops=eval_ops,
                                       verbose=False, refresh_state=refresh_state)
-            recorder.record(evals)
+            messages = [{name: value[i] for name, value in evals.items()} for i in range(self.record_every)]
+            for message in messages:
+                recorder.record(message)
             if verbose and i % (input_size // 10) == 0 and i != 0:
                 print("[{:d}/{:d}] completed".format(i, input_size))
         print("Evaluation done!")
 
 
 class Recorder(object):
+
+    def start(self, inputs, targets):
+        """
+        prepare the recording
+        :param inputs: should be an instance of data_utils.Feeder
+        :param targets: should be an instance of data_utils.Feeder or None
+        :return: None
+        """
+        raise NotImplementedError("This is the Recorder base class")
+
+    def record(self, message):
+        """
+        Do some preparations on the message, and then do the recording
+        :param message: a dictionary, containing the results of a run of the loo[
+        :return: None
+        """
+        raise NotImplementedError("This is the Recorder base class")
+
+    def flush(self):
+        """
+        Used for flushing the records to the disk / db
+        :return: None
+        """
+        raise NotImplementedError("This is the Recorder base class")
+
+
+class StateRecorder(Recorder):
 
     def __init__(self, data_name, model_name, flush_every=100):
         self.data_name = data_name
@@ -145,15 +171,14 @@ class Recorder(object):
     def start(self, inputs, targets):
         """
         prepare the recording
-        :param inputs: should be a 2D numpy.ndarray of shape [batch_size, input_length], each elem is a word_id
-        :param targets: currently not used.
+        :param inputs: should be an instance of data_utils.Feeder
+        :param targets: should be an instance of data_utils.Feeder or None
         :return: None
         """
-        assert isinstance(inputs, np.ndarray) and inputs.ndim == 2
         self.batch_size = inputs.shape[0]
-        self.inputs = inputs
+        self.inputs = inputs.full_data
         for i in range(inputs.shape[0]):
-            self.eval_doc_id.append(insert_evaluation(self.data_name, self.model_name, inputs[i].tolist()))
+            self.eval_doc_id.append(insert_evaluation(self.data_name, self.model_name, self.inputs[i].tolist()))
 
     def record(self, record_message):
         """
@@ -167,6 +192,7 @@ class Recorder(object):
             record['word_id'] = int(self.inputs[i, self.step])
         self.buffer['records'] += records
         self.buffer['eval_ids'] += self.eval_doc_id
+        self.step += 1
         if len(self.buffer['eval_ids']) >= self.flush_every:
             self.flush()
 

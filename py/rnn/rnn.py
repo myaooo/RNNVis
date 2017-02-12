@@ -379,7 +379,7 @@ class RNN(object):
         ids = [self.word_to_id[w] for w in words if w in self.word_to_id]
         return ids
 
-    def compile(self, evaluate=False):
+    def compile(self):
         """
         Compile the model. Should be called before training or running the model.
         Basically, this function just do checkings on model configurations,
@@ -401,11 +401,6 @@ class RNN(object):
         self._cell = tf.nn.rnn_cell.MultiRNNCell(cells=self.cell_list)
         # All done
         self.is_compiled = True
-        # Create a default evaluator
-        if evaluate:
-            with self.graph.as_default():
-                with tf.device("/cpu:0"):
-                    self.evaluator = Evaluator(self, batch_size=1)
 
     def unroll(self, batch_size, num_steps, keep_prob=None, name=None):
         """
@@ -454,9 +449,9 @@ class RNN(object):
             print("validator is already exists! Currently do not support multi training!")
             return
         with self.graph.as_default():
-            self.validator = Evaluator(self, batch_size, num_steps, False, False, False)
+            self.validator = Evaluator(self, batch_size, num_steps, 1, False, False, False)
 
-    def add_evaluator(self, batch_size=1, record_every=1, log_state=True, log_input=True, log_output=True,
+    def add_evaluator(self, batch_size=1, num_steps=1, record_every=1, log_state=True, log_input=True, log_output=True,
                       log_gradients=False):
         """
         Explicitly add evaluator instead of using the default one. You must call compile(evaluate=False)
@@ -472,7 +467,7 @@ class RNN(object):
         assert self.evaluator is None
         with self.graph.as_default():
             with tf.device("/cpu:0"):
-                self.evaluator = Evaluator(self, batch_size, record_every, log_state,
+                self.evaluator = Evaluator(self, batch_size, num_steps, record_every, log_state,
                                            log_input, log_output, log_gradients)
 
     def add_generator(self, word_to_id=None):
@@ -517,7 +512,7 @@ class RNN(object):
                     self.trainer.train_one_epoch(self.sess, inputs, targets, epoch_size, verbose=verbose,
                                                  refresh_state=refresh_state)
                     self.validator.evaluate(self.sess, valid_inputs, valid_targets, valid_epoch_size,
-                                            verbose=False, refresh_state=refresh_state)
+                                            verbose=verbose, refresh_state=refresh_state)
 
     def validate(self, *args, **kwargs):
         """

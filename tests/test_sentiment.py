@@ -29,7 +29,7 @@ if __name__ == '__main__':
     num_steps = train_config.num_steps
 
     print('Preparing data..')
-    producers = pour_data(str(FLAGS.data_name), ['train', 'valid', 'test'], train_config)
+    producers = pour_data(str(FLAGS.data_name), ['train', 'valid', 'test'], batch_size, num_steps)
     train_inputs, train_targets, epoch_size = producers[0]
     valid_inputs, valid_targets, valid_epoch_size = producers[1]
     test_inputs, test_targets, test_epoch_size = producers[2]

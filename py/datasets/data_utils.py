@@ -34,6 +34,10 @@ class Feeder(object):
         raise NotImplementedError("this is the base class of Feeder!")
 
     @property
+    def epoch_size(self):
+        raise NotImplementedError("this is the base class of Feeder!")
+
+    @property
     def need_refresh(self):
         """
         Whether the next dequeued data is a new sequence and need to refresh the state
@@ -47,7 +51,7 @@ class ListFeeder(Feeder):
         self.data = raw_list
         self.batch_size = batch_size
         self.max_epoch_num = math.inf if epoch_num is None else int(epoch_num)
-        self.epoch_size = len(raw_list) // batch_size
+        self._epoch_size = len(raw_list) // batch_size
         self.epoch_num = 0
         self.i = 0
         self._shape = [batch_size]
@@ -64,6 +68,10 @@ class ListFeeder(Feeder):
         if self.epoch_num > self.max_epoch_num:
             raise ValueError("Exceeds maximum epoch num!")
         return _data
+
+    @property
+    def epoch_size(self):
+        return self._epoch_size
 
     @property
     def shape(self):
@@ -83,7 +91,7 @@ class InputFeeder(Feeder):
         self.i = 0
         self.data = batched_data
         self.num_steps = num_steps
-        self.epoch_size = (batched_data.shape[1] - offset) // num_steps
+        self._epoch_size = (batched_data.shape[1] - offset) // num_steps
         assert self.epoch_size > 0
         self.offset = offset
         self.max_epoch_num = math.inf if epoch_num is None else int(epoch_num)
@@ -112,6 +120,10 @@ class InputFeeder(Feeder):
     @property
     def shape(self):
         return self._shape
+
+    @property
+    def epoch_size(self):
+        return self._epoch_size
 
     @property
     def full_data(self):
@@ -157,7 +169,7 @@ class SentenceFeeder(Feeder):
         self.epoch_num = 0
         self.offset = offset
         self.transpose = transpose
-        self.epoch_size = self.data.shape[0] // batch_size
+        self._epoch_size = self.data.shape[0] // batch_size
         self.embedding = data.ndim == 3
         _shape = [data.shape[1], batch_size] if transpose else [batch_size, data.shape[1]]
         if self.embedding:
@@ -181,6 +193,10 @@ class SentenceFeeder(Feeder):
     @property
     def shape(self):
         return self._shape
+
+    @property
+    def epoch_size(self):
+        return self._epoch_size
 
     @property
     def full_data(self):

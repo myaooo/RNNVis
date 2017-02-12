@@ -217,7 +217,7 @@ def push_evaluation_records(eval_ids, records):
     return results, update_results
 
 
-def query_evaluation_records(eval_, range_, data_name=None, model_name=None):
+def query_evaluation_records(eval_, range_=None, data_name=None, model_name=None):
     """
     Query for the evaluation records
     :param eval_: a eval_id of type ObjectId, or a list of tokens, or a hash tag of the tokens
@@ -243,13 +243,18 @@ def query_evaluation_records(eval_, range_, data_name=None, model_name=None):
         eval_record = db_hdlr['eval'].find_one({'tag':tag, 'name': data_name, 'model': model_name})
     ids = eval_record['records']
     records = []
+    range_ = range(len(ids)) if range_ is None else range_
     for i in range_:
         record = db_hdlr['record'].find_one({'_id': ids[i]})
-        for name, value in record:
-            if isinstance(value, Binary):
+        for name, value in record.items():
+            if isinstance(value, bytes):
                 record[name] = pickle.loads(value)
         records.append(record)
     return records
+
+
+def query_evals(data_name, model_name):
+    return db_hdlr['eval'].find({'name': data_name, 'model': model_name})
 
 
 def hash_tag_str(text_list):
