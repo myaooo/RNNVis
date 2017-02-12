@@ -85,7 +85,7 @@ class Evaluator(object):
         loss = total_loss / (input_size * self.record_every)
         acc /= (input_size * self.record_every)
         if verbose:
-            print("Evaluate Summary: avg loss:{:.3f}, acc-1: {:.3f}".format(loss, acc))
+            print("Evaluate Summary: acc-1: {:.3f}, avg loss:{:.3f}".format(acc, loss))
 
     def evaluate_and_record(self, sess, inputs, targets, recorder, verbose=True, refresh_state=False):
         """
