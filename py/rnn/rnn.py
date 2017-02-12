@@ -633,7 +633,7 @@ class RNN(object):
     @property
     def sess(self):
         assert self.finalized
-        if self._sess is None:
+        if self._sess is None or self._sess._closed:
             self._sess = tf.Session(graph=self.graph, config=config_proto())
             self._sess.run(self._init_op)
         return self._sess
