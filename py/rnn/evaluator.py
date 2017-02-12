@@ -25,6 +25,7 @@ class Evaluator(object):
     def __init__(self, rnn_, batch_size=1, record_every=1, log_state=True, log_input=True, log_output=True,
                  log_gradients=False):
         assert isinstance(rnn_, rnn.RNN)
+        self._rnn = rnn_
         self.record_every = record_every
         self.log_state = log_state
         self.log_input = log_input
@@ -72,7 +73,7 @@ class Evaluator(object):
         sum_ops = {"loss": self.model.loss, 'acc-1': self.model.accuracy}
         total_loss = 0
         acc = 0
-        print("Start evaluating...")
+        # print("Start evaluating...")
         for i in range(input_size):
             evals, sums = self.model.run(inputs, targets, self.record_every, sess, eval_ops=eval_ops, sum_ops=sum_ops,
                                          verbose=False, refresh_state=refresh_state)
@@ -83,7 +84,8 @@ class Evaluator(object):
                     print("[{:d}/{:d}]: avg loss:{:.3f}".format(i, input_size, total_loss/(i+1)))
         loss = total_loss / (input_size * self.record_every)
         acc /= (input_size * self.record_every)
-        print("Evaluate Summary: avg loss:{:.3f}, acc-1: {:.3f}".format(loss, acc))
+        if verbose:
+            print("Evaluate Summary: avg loss:{:.3f}, acc-1: {:.3f}".format(loss, acc))
 
     def evaluate_and_record(self, sess, inputs, targets, recorder, verbose=True, refresh_state=False):
         """
@@ -111,13 +113,15 @@ class Evaluator(object):
                 raise TypeError('Unable to convert targets of type {:s} into numpy array!'.format(str(type(targets))))
         recorder.start(inputs, targets)
         input_size = inputs.shape[1]
+        is_lm = len(self.model.target_holders.get_shape()) == 2
         if input_size > 10000:
             print("WARN: inputs too long, might take some time.")
         eval_ops = self.summary_ops
         self.model.reset_state()
-        for i in range(input_size):
-            inputs_ = inputs[:, i:(i+1)]
-            targets_ = None if targets is None else targets[:, i:(i+1)]
+        for i in range(0, input_size, self.record_every):
+            inputs_ = inputs[:, i:(i+self.record_every)]
+
+            targets_ = None if targets is None else targets[:, i:(i+1)] if is_lm else targets[i:(i+self.record_every)]
             evals, _ = self.model.run(inputs_, targets_, self.record_every, sess, eval_ops=eval_ops,
                                       verbose=False, refresh_state=refresh_state)
             recorder.record(evals)
@@ -149,7 +153,7 @@ class Recorder(object):
         self.batch_size = inputs.shape[0]
         self.inputs = inputs
         for i in range(inputs.shape[0]):
-            self.eval_doc_id.append(insert_evaluation(self.data_name, self.model_name, inputs[i, :].tolist()))
+            self.eval_doc_id.append(insert_evaluation(self.data_name, self.model_name, inputs[i].tolist()))
 
     def record(self, record_message):
         """

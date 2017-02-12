@@ -29,6 +29,18 @@ class Feeder(object):
     def shape(self):
         raise NotImplementedError("this is the base class of Feeder!")
 
+    @property
+    def full_data(self):
+        raise NotImplementedError("this is the base class of Feeder!")
+
+    @property
+    def need_refresh(self):
+        """
+        Whether the next dequeued data is a new sequence and need to refresh the state
+        :return: True or False
+        """
+        raise NotImplementedError("this is the base class of Feeder!")
+
 
 class ListFeeder(Feeder):
     def __init__(self, raw_list, batch_size, epoch_num=None):
@@ -56,6 +68,14 @@ class ListFeeder(Feeder):
     @property
     def shape(self):
         return self._shape
+
+    @property
+    def full_data(self):
+        return self.data
+
+    @property
+    def need_refresh(self):
+        raise NotImplementedError("Don't support this method for list")
 
 
 class InputFeeder(Feeder):
@@ -92,6 +112,14 @@ class InputFeeder(Feeder):
     @property
     def shape(self):
         return self._shape
+
+    @property
+    def full_data(self):
+        return self.data
+
+    @property
+    def need_refresh(self):
+        return True if self.i == 0 else False
 
 
 class InputProducer(object):
@@ -154,6 +182,14 @@ class SentenceFeeder(Feeder):
     def shape(self):
         return self._shape
 
+    @property
+    def full_data(self):
+        return self.data
+
+    @property
+    def need_refresh(self):
+        return True
+
 
 class SentenceProducer(object):
     """
@@ -168,6 +204,8 @@ class SentenceProducer(object):
         For word_embedding (array) input, we pad zero-arrays at the end of short sequence
         """
         self.batch_size = batch_size
+        if max_length is not None:  # trim off those too long
+            raw_data = [data for data in raw_data if len(data) <= max_length]
         self.sentence_num = len(raw_data) // batch_size * batch_size
         raw_data = raw_data[:self.sentence_num]
         self.sentence_length = [len(l) for l in raw_data]

@@ -15,7 +15,7 @@ model:
     - num_units: 200
     - num_units: 200
   loss_func: sentence_loss
-  dataset: shakespeare
+  dataset: sst
 train:
   epoch_num: 20
   num_steps: 56
