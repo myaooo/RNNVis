@@ -79,9 +79,9 @@ class Evaluator(object):
                                          verbose=False, refresh_state=refresh_state)
             loss += sums["loss"]
             acc += sums['acc-1']
-            if i % 500 == 0:
-                if verbose:
-                    print("[{:d}/{:d}]: avg loss:{:.3f}".format(i, input_size, loss/(i+1)))
+            # if i % 500 == 0 and i != 0:
+            #     if verbose:
+            #         print("[{:d}/{:d}]: avg loss:{:.3f}".format(i, input_size, loss/(i+1)))
         loss /= (input_size * self.record_every)
         acc /= (input_size * self.record_every)
         if verbose:

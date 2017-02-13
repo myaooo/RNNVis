@@ -154,7 +154,7 @@ class RNNModel(object):
         if self.current_state is None:
             self.init_state(sess)
 
-        run_ops['state'] = self.final_state
+        run_ops['_state_'] = self.final_state
         run_ops.update(eval_ops)
         run_ops.update(sum_ops)
         # total_loss = 0
@@ -172,7 +172,7 @@ class RNNModel(object):
                 feed_dict[self.target_holders] = _targets
 
             vals = sess.run(run_ops, feed_dict)
-            self.current_state = vals['state']
+            self.current_state = vals['_state_']
 
             if eval_ops:
                 for name in eval_ops:
