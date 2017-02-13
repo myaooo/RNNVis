@@ -12,3 +12,10 @@ datasets:
   - name: imdb
     type: imdb
     dir: imdb
+    scheme:
+      n_words: 100000
+  - name: imdb-small
+    type: imdb
+    dir: imdb
+    scheme:
+      n_words: 10000

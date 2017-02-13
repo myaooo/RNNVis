@@ -113,15 +113,15 @@ def store_sst(data_path, name, split_scheme, upsert=False):
                       get_path(get_dataset_path(name), c_name))
 
 
-def store_imdb(data_path, name, upsert=False):
+def store_imdb(data_path, name, n_words=100000, upsert=False):
     if upsert:
         def insertion(*args, **kwargs):
             return replace_one_if_exists(db_name, *args, **kwargs)
     else:
         def insertion(*args, **kwargs):
             return insert_one_if_not_exists(db_name, *args, **kwargs)
-    word_to_id, id_to_word = imdb.load_dict(os.path.join(data_path, 'imdb.dict.pkl.gz'))
-    data_label = imdb.load_data(os.path.join(data_path, 'imdb.pkl'))
+    word_to_id, id_to_word = imdb.load_dict(os.path.join(data_path, 'imdb.dict.pkl.gz'), n_words)
+    data_label = imdb.load_data(os.path.join(data_path, 'imdb.pkl'), n_words)
     word_to_id_json = dict2json(word_to_id)
     insertion('word_to_id', {'name': name}, {'name': name, 'data': word_to_id_json})
     insertion('id_to_word', {'name': name}, {'name': name, 'data': id_to_word})
@@ -151,8 +151,8 @@ def seed_db():
         data_dir = get_path('cached_data', seed['dir'])
         if seed['type'] == 'sst':
             store_sst(data_dir, seed['name'], **seed['scheme'])
-        if seed['type'] == 'imdb':
-            store_imdb(data_dir, seed['name'])
+        elif seed['type'] == 'imdb':
+            store_imdb(data_dir, seed['name'], **seed['scheme'])
         else:
             print('not able to seed datasets with type: {:s}'.format(seed['type']))
 
