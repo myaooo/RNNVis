@@ -184,7 +184,7 @@ class RNNModel(object):
                 delta_time = time.time() - verbose_time
                 print("epoch[{:d}/{:d}] speed:{:.1f} wps, time: {:.1f}s".format(
                     i, epoch_size, (i * batch_size * self.num_steps / (time.time() - start_time)), delta_time))
-                sum_list = ["{:s}: {:.4f}".format(name, value / i) for name, value in sums.items()]
+                sum_list = ["{:s}: {:.4f}".format(name, value / (i+1)) for name, value in sums.items()]
                 if sum_list: print(', '.join(sum_list))
                 verbose_time = time.time()
         total_time = time.time() - start_time
