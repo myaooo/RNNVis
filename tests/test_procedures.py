@@ -5,8 +5,8 @@ $ wget http://www.fit.vutbr.cz/~imikolov/rnnlm/simple-examples.tgz
 $ tar xvf simple-examples.tgz
 """
 
-from procedures import build_model, init_tf_environ, produce_ptb_data
-from datasets.data_utils import InputProducer
+from rnnvis.procedures import build_model, init_tf_environ, produce_ptb_data
+from rnnvis.datasets.data_utils import InputProducer
 from tensorflow import flags
 
 flags.DEFINE_string("config_path", None, "The path of the model configuration file")

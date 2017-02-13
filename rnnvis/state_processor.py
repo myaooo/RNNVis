@@ -6,8 +6,8 @@ import pickle
 
 import numpy as np
 
-from py.db.language_model import query_evals, query_evaluation_records
-from py.utils.io_utils import file_exists, get_path
+from rnnvis.db.language_model import query_evals, query_evaluation_records
+from rnnvis.utils.io_utils import file_exists, get_path
 
 
 def cal_diff(arrays):

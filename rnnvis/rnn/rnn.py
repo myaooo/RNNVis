@@ -9,14 +9,14 @@ import os
 import tensorflow as tf
 import numpy as np
 
-from py.datasets.data_utils import Feeder
-from py.utils.io_utils import get_path, before_save
-from py.rnn.command_utils import data_type, config_proto
-from py.rnn.evaluator import Evaluator, Recorder
-from py.rnn.trainer import Trainer
-from py.rnn.generator import Generator
-from py.rnn.losses import softmax
-from py.rnn.varlen_support import sequence_length, last_relevant
+from rnnvis.datasets.data_utils import Feeder
+from rnnvis.utils.io_utils import get_path, before_save
+from rnnvis.rnn.command_utils import data_type, config_proto
+from rnnvis.rnn.evaluator import Evaluator, Recorder
+from rnnvis.rnn.trainer import Trainer
+from rnnvis.rnn.generator import Generator
+from rnnvis.rnn.losses import softmax
+from rnnvis.rnn.varlen_support import sequence_length, last_relevant
 
 BasicRNNCell = tf.nn.rnn_cell.BasicRNNCell
 BasicLSTMCell = tf.nn.rnn_cell.BasicLSTMCell

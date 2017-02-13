@@ -7,11 +7,11 @@ import os
 
 import tensorflow as tf
 
-from py.rnn.config_utils import RNNConfig, TrainConfig
-from py.rnn.command_utils import data_type, pick_gpu_lowest_memory
-from py.rnn.rnn import RNN
-from py.datasets.data_utils import load_data_as_ids, get_lm_data_producer, get_sp_data_producer
-from py.db import get_dataset
+from rnnvis.rnn.config_utils import RNNConfig, TrainConfig
+from rnnvis.rnn.command_utils import data_type, pick_gpu_lowest_memory
+from rnnvis.rnn.rnn import RNN
+from rnnvis.datasets.data_utils import load_data_as_ids, get_lm_data_producer, get_sp_data_producer
+from rnnvis.db import get_dataset
 
 
 def init_tf_environ(gpu_num=0):

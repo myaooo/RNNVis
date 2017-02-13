@@ -4,7 +4,7 @@ Helper class and functions for text data using ![NLTK](www.nltk.org)
 
 import functools
 from collections import Counter
-from py.utils.io_utils import path_exists, lists2csv, save2text, text2list, csv2list, get_path
+from rnnvis.utils.io_utils import path_exists, lists2csv, save2text, text2list, csv2list, get_path
 
 
 def lazy_property(func):

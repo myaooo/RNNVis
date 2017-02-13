@@ -7,10 +7,10 @@ $ tar xvf simple-examples.tgz
 
 from tensorflow import flags
 
-from py.procedures import build_model, init_tf_environ, pour_data
+from rnnvis.procedures import build_model, init_tf_environ, pour_data
 # from py.datasets.data_utils import get_lm_data_producer
 # from py.db.language_model import get_datasets_by_name
-from py.rnn.evaluator import Recorder
+from rnnvis.rnn.evaluator import Recorder
 
 
 flags.DEFINE_string("config_path", None, "The path of the model configuration file")

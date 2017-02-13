@@ -1,6 +1,6 @@
 from pymongo import MongoClient
 mongo = MongoClient('localhost', 27017)
-from py.db import language_model, sentiment_prediction
+from rnnvis.db import language_model, sentiment_prediction
 
 
 def seed_db():

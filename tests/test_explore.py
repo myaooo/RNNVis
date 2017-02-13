@@ -7,10 +7,10 @@ import pickle
 # import tensorflow as tf
 import numpy as np
 
-from py.procedures import build_model, init_tf_environ, pour_data
-from py.rnn.evaluator import StateRecorder
-from py.db.language_model import query_evals, query_evaluation_records
-from py.utils.io_utils import file_exists, lists2csv
+from rnnvis.procedures import build_model, init_tf_environ, pour_data
+from rnnvis.rnn.evaluator import StateRecorder
+from rnnvis.db.language_model import query_evals, query_evaluation_records
+from rnnvis.utils.io_utils import file_exists, lists2csv
 
 # flags = tf.flags
 # flags.DEFINE_integer('gpu_num', 0, "The number of the gpu to use, 0 to use no gpu.")

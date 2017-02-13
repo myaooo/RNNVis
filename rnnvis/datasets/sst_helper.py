@@ -3,7 +3,7 @@ Helper function to download and processing Stanford Sentiment Treebank datasets
 """
 
 import os
-from py.utils.io_utils import download, unzip, get_path
+from rnnvis.utils.io_utils import download, unzip, get_path
 
 sst_url = "http://nlp.stanford.edu/~socherr/stanfordSentimentTreebank.zip"
 

@@ -5,8 +5,8 @@ Entry point of the app
 import sys
 import argparse
 
-from py.server import app
-from py.db import seed_db
+from rnnvis.server import app
+from rnnvis.db import seed_db
 
 
 def main(args=None):

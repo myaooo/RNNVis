@@ -1,9 +1,9 @@
 
 from tensorflow import flags
 
-from py.procedures import build_model, init_tf_environ, pour_data
-from py.datasets.data_utils import get_sp_data_producer
-from py.db.sentiment_prediction import get_datasets_by_name
+from rnnvis.procedures import build_model, init_tf_environ, pour_data
+from rnnvis.datasets.data_utils import get_sp_data_producer
+from rnnvis.db.sentiment_prediction import get_datasets_by_name
 
 
 flags.DEFINE_string("config_path", None, "The path of the model configuration file")

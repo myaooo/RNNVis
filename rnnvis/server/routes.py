@@ -1,7 +1,7 @@
 import yaml
 from flask import jsonify, send_file, request
-from py.server import app
-from py.server import _manager
+from rnnvis.server import app
+from rnnvis.server import _manager
 
 
 @app.route("/")

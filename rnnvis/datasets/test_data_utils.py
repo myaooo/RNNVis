@@ -3,7 +3,7 @@ Tests for data utils
 """
 
 import tensorflow as tf
-from py.datasets.data_utils import InputProducer
+from rnnvis.datasets.data_utils import InputProducer
 
 
 def test_data_feeder():
