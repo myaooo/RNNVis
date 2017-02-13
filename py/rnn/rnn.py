@@ -191,7 +191,7 @@ class RNNModel(object):
         # Prepare for returning values
         # vals['loss'] = total_loss / epoch_size
         if verbose:
-            sum_str = ', '.join(["{:s}: {:.4f}".format(name, value / epoch_size) for name, value in sums.items()])
+            sum_str = ', '.join(["{:s}: {:.5f}".format(name, value / epoch_size) for name, value in sums.items()])
             if sum_str: sum_str = ', '+sum_str
             print("Epoch Summary: total time:{:.1f}s, speed:{:.1f} wps".format(
                 total_time, epoch_size * self.num_steps * batch_size / total_time) + sum_str)

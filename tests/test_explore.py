@@ -109,11 +109,59 @@ def get_model_params(model_config):
     return embedding
 
 
-if __name__ == '__main__':
+colors = ['b', 'g', 'r', 'c', 'm', 'y']
 
-    data_name = 'ptb'
-    model_name = 'LSTM-PTB'
-    state_name = 'state_c'
+
+def plot_words_states(id_states, ids):
+
+    import matplotlib.pyplot as plt
+
+    stds, means, error_l, error_u, idx = compute_stats(id_states[ids[0]], True)
+    layer_num = len(means)
+
+    fig, axes = plt.subplots(nrows=layer_num, sharex=True, figsize=(15, 9))
+    for k, id_ in enumerate(ids):
+        state = id_states[id_]
+        stds, means, error_l, error_u, _ = compute_stats(state, False)
+        dim = slice(0, len(means[0]), 1)
+        for j in range(layer_num):
+            mean = means[j][idx[j]]
+            low = mean-stds[j][idx[j]]
+            high = mean+stds[j][idx[j]]
+            axes[j].plot(range(len(mean)), mean, colors[k], linewidth=1)
+            axes[j].plot(range(len(mean)), low, colors[k], linewidth=1, alpha=0.3)
+            axes[j].plot(range(len(mean)), high, colors[k], linewidth=1, alpha=0.3)
+            axes[j].fill_between(range(dim.start, dim.stop, dim.step), low[dim], high[dim],
+                                 facecolor=colors[k], alpha=0.2)
+            # axes[j].errorbar(range(len(means[j][dim])), means[j][dim], yerr=[error_l[j][dim], error_u[j][dim]])
+            # axes[j].errorbar(range(len(means[j][dim])), means[j][dim], yerr=stds[j][dim], capsize=5)
+            # axes[j].set_ylim([-2, 2])
+    for j in range(layer_num):
+        axes[j].plot([0, len(means[0])], [0, 0], 'k', linewidth=1)
+
+
+def scatter(id_states, ids, freqs):
+
+    import matplotlib.pyplot as plt
+
+    alphas = [ (1/ freq)**0.8 for freq in freqs]
+    stds, means, error_l, error_u, idx = compute_stats(id_states[ids[0]], True)
+    layer_num = len(means)
+
+    fig, axes = plt.subplots(nrows=layer_num, sharex=True, figsize=(15, 9))
+    for k, id_ in enumerate(ids):
+        states = id_states[id_]
+        dim = slice(0, len(means[0]), 2)
+        h_scale = range(0, len(means[0]), 2)
+        for state in states:
+            for j in range(layer_num):
+                axes[j].plot(h_scale, state[j][idx[j]][dim], colors[k]+'.', alpha=alphas[k], linewidth=1)
+
+    for j in range(layer_num):
+        axes[j].plot([0, len(means[0])], [0, 0], 'k', linewidth=1)
+
+
+def load_words_and_state_diff(data_name, model_name, state_name):
     word_file = data_name + '-' + model_name + '-words.pkl'
     states_file = data_name + '-' + model_name + '-' + state_name + '.pkl'
     if file_exists(word_file) and file_exists(states_file):
@@ -127,6 +175,14 @@ if __name__ == '__main__':
             pickle.dump(words, f)
         with open(states_file, 'wb') as f:
             pickle.dump(state_diff, f)
+    return words, state_diff
+
+if __name__ == '__main__':
+
+    data_name = 'ptb'
+    model_name = 'LSTM-PTB'
+    state_name = 'state_c'
+    words, state_diff = load_words_and_state_diff(data_name, model_name, state_name)
 
     # embedding = get_model_params('./config/rnn.yml')
     #
@@ -155,23 +211,18 @@ if __name__ == '__main__':
 
     import matplotlib.pyplot as plt
 
-    for i, states in enumerate(id_to_state):
-        if i not in list(range(50, 60)):
-            continue
-        if states is None:
-            continue
-        stds, means, error_l, error_u, idx = compute_stats(states)
+    # plot_words_states(id_to_state, [28, 163])
+    # plot_words_states(id_to_state, [28, 14])
+    # plot_words_states(id_to_state, [28, 17])
 
-        fig, axes = plt.subplots(nrows=2, sharex=True, figsize=(9, 9))
-        dim = slice(0, 600, 5)
-        for j in range(2):
-            axes[j].errorbar(range(len(means[j][dim])), means[j][dim], yerr=[error_l[j][dim], error_u[j][dim]])
-            axes[j].errorbar(range(len(means[j][dim])), means[j][dim], yerr=stds[j][dim], capsize=5)
+    print('id: {:d}, freq: {:d}'.format(28, id_freq[28]))
+    print('id: {:d}, freq: {:d}'.format(1, id_freq[1]))
+    print('id: {:d}, freq: {:d}'.format(14, id_freq[14]))
+    scatter(id_to_state, [28, 1], [id_freq[28], id_freq[1]])
+    # scatter(id_to_state, [28], [id_freq[28]])
+    plt.show(block=True)
+    print("Done")
 
-            axes[j].plot([0,dim.stop/dim.step], [0,0])
-            axes[j].set_ylim([-2, 2])
-
-        plt.show()
 
     # init_tf_environ(FLAGS.gpu_num)
     # datasets = get_datasets_by_name('ptb', ['test'])
