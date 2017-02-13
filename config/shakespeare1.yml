@@ -15,12 +15,12 @@ model:
   loss_func: sequence_loss
   dataset: shakespeare
 train:
-  epoch_num: 50
+  epoch_num: 40
   num_steps: 40
   batch_size: 20
   keep_prob: 0.35
   gradient_clip: global_norm
   gradient_clip_args:
-    clip_norm: 5.0
+    clip_norm: 3.0
   optimizer: GradientDescent
   learning_rate: "lambda epoch: 2.0 *(1.0 if epoch < 7 else 0.88**(epoch - 7))"
