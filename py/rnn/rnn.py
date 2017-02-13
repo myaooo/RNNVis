@@ -657,6 +657,21 @@ class RNN(object):
         else:
             return None
 
+    @property
+    def embedding_weights(self):
+        if self.has_embedding:
+            def get_embedding(sess):
+                with tf.variable_scope(self.name, reuse=True, initializer=self.initializer):
+                    with tf.variable_scope('embedding'):
+                        with tf.device("/cpu:0"):  # Force CPU since GPU implementation is missing
+                            embedding = tf.get_variable("embedding",
+                                                        [self.vocab_size + 1, self.embedding_size],
+                                                        dtype=data_type())
+                            return embedding.eval(sess)
+            return self.run_with_context(get_embedding)
+        else:
+            return None
+
     def project_output(self, outputs):
         """
         Project outputs into softmax distributions
