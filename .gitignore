@@ -22,3 +22,5 @@ var/
 *.egg
 cached_data/sentiment_prediction
 __MACOSX
+*.pkl
+*.pkl.gz

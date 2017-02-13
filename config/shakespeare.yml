@@ -2,26 +2,25 @@ model:
   name: SHAKESPEARE
   initializer_name: random_uniform
   initializer_args:
-    minval: -0.03
-    maxval: 0.03
+    minval: -0.05
+    maxval: 0.05
   input_dtype: int32
   target_dtype: int32
-  vocab_size: 10000
+  vocab_size: 14981
   embedding_size: 1000
-  cell_type: LSTM
+  cell_type: BasicLSTM
   cells:
-    - num_units: 1500
-      use_peepholes: True
-    - num_units: 1500
-      use_peepholes: True
+    - num_units: 1000
+    - num_units: 1000
   loss_func: sequence_loss
+  dataset: shakespeare
 train:
-  epoch_num: 50
-  num_steps: 80
-  batch_size: 10
+  epoch_num: 20
+  num_steps: 50
+  batch_size: 20
   keep_prob: 0.30
   gradient_clip: global_norm
   gradient_clip_args:
-    clip_norm: 25.0
-  optimizer: GradientDescent
-  learning_rate: "lambda epoch: 1.6 *(1.0 if epoch < 11 else 0.91 ** (epoch-11))"
+    clip_norm: 5.0
+  optimizer: Adam
+  learning_rate: 0.001 

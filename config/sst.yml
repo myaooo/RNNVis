@@ -2,28 +2,27 @@ model:
   name: SST
   initializer_name: random_uniform
   initializer_args:
-    minval: -0.03
-    maxval: 0.03
+    minval: -0.1
+    maxval: 0.1
   input_dtype: int32
   target_dtype: int32
   vocab_size: 22348
   target_size: 5
   use_last_output: True
-  embedding_size: 500
+  embedding_size: 100
   cell_type: BasicLSTM
   cells:
-    - num_units: 500
-    - num_units: 500
+    - num_units: 200
+    - num_units: 200
   loss_func: sentence_loss
+  dataset: sst
 train:
-  epoch_num: 50
+  epoch_num: 20
   num_steps: 56
-  batch_size: 20
-  keep_prob: 0.4
+  batch_size: 200
+  keep_prob: 1.0
   gradient_clip: global_norm
   gradient_clip_args:
-    clip_norm: 15.0
-  optimizer: Momentum
-  optimizer_args:
-    momentum: 0.7
-  learning_rate: "lambda epoch: 0.01 * (1.0 if epoch < 5 else 0.95** (epoch-5))"
+    clip_norm: 150.0
+  optimizer: GradientDescent
+  learning_rate: "lambda x: 1.0 * (1.0 if x < 4 else 0.9 ** (x - 4))"

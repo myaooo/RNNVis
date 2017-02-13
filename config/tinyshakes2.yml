@@ -1,0 +1,26 @@
+model:
+  name: TINYSHAKESPEARE-2
+  initializer_name: random_uniform
+  initializer_args:
+    minval: -0.05
+    maxval: 0.05
+  input_dtype: int32
+  target_dtype: int32
+  vocab_size: 10000
+  embedding_size: 1300
+  cell_type: BasicLSTM
+  cells:
+    - num_units: 1300
+    - num_units: 1300
+  loss_func: sequence_loss
+  dataset: tinyshakespeare
+train:
+  epoch_num: 50
+  num_steps: 40
+  batch_size: 20
+  keep_prob: 0.3
+  gradient_clip: global_norm
+  gradient_clip_args:
+    clip_norm: 20.0
+  optimizer: GradientDescent
+  learning_rate: "lambda epoch: 2.0 *(1.0 if epoch < 8 else 0.93**(epoch - 8))"

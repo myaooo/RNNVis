@@ -9,3 +9,13 @@ datasets:
         train: 0.9
         valid: 0.05
         test: 0.05
+  - name: imdb
+    type: imdb
+    dir: imdb
+    scheme:
+      n_words: 100000
+  - name: imdb-small
+    type: imdb
+    dir: imdb
+    scheme:
+      n_words: 10000

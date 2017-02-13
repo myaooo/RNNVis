@@ -4,7 +4,7 @@ datasets:
   - name: ptb
     type: ptb
     dir: simple-examples/data
-  - name: shakespeare
+  - name: tinyshakespeare
     type: text
     dir: tinyshakespeare.txt
     scheme:
@@ -15,3 +15,14 @@ datasets:
       min_freq: 1
       max_vocab: 10000
       remove_punct: True
+  - name: shakespeare
+    type: text
+    dir: shakespeare.txt
+    scheme:
+      split_scheme:
+        train: 0.8
+        valid: 0.1
+        test: 0.1
+      min_freq: 2
+      max_vocab: 30000
+      remove_punct: False
