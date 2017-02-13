@@ -157,7 +157,10 @@ class TrainConfig(object):
     """Manage configurations for Training"""
     def __init__(self, **kwargs):
         self.__dict__.update(kwargs)
-        self.clipper = trainer.get_gradient_clipper(self.gradient_clip, **self.gradient_clip_args)
+        if hasattr(self, 'gradient_clip'):
+            self.clipper = trainer.get_gradient_clipper(self.gradient_clip, **self.gradient_clip_args)
+        else:
+            self.clipper = None
         if hasattr(self, 'optimizer_args'):
             self.optimizer = trainer.get_optimizer(self.optimizer, **self.optimizer_args)
         else:
