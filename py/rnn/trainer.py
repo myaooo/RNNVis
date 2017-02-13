@@ -163,7 +163,7 @@ class Trainer(object):
         for i in range(epoch_num):
             if verbose:
                 print("Epoch:{:d}".format(i))
-                print("lr:{:.3f}".format(self._lr.eval(sess)))
+                print("lr:{:.4f}".format(self._lr.eval(sess)))
             self.train_one_epoch(inputs, targets, epoch_size, sess, verbose=verbose, refresh_state=refresh_state)
             self.update_lr(sess, 1)
 
@@ -179,7 +179,7 @@ class Trainer(object):
         :return: None
         """
         if verbose:
-            print("lr:{:.3f}".format(self._lr.eval(sess)))
+            print("lr:{:.4f}".format(self._lr.eval(sess)))
         run_ops = {'train_op': self.train_op}
         sum_ops = {'loss': self.model.loss, 'acc-1': self.model.accuracy}
         self.model.reset_state()

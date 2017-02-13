@@ -27,7 +27,7 @@ if __name__ == '__main__':
     model.add_generator(word_to_id)
     model.restore()
     model.generate(['the', 'meaning', 'of', 'life', 'is'], 'test-large.json', max_branch=4, accum_cond_prob=0.9,
-                   min_cond_prob=0.005, min_prob=1e-20, max_step=20, neg_word_ids=['<unk>', 'N', '<eos>', '$'])
+                   min_cond_prob=0.005, min_prob=1e-17, max_step=20, neg_word_ids=['<unk>', 'N', '<eos>', '$'])
     # model.evaluate_and_record()
 
 

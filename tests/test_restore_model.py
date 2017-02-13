@@ -24,10 +24,10 @@ if __name__ == '__main__':
     # test_data = datasets['test']
 
     model, train_config = build_model(config_path(), True)
-    model.add_evaluator(10, 1, 1)
+    model.add_evaluator(20, 1, 1, True, True, False, False)
 
     print('Preparing data')
-    producers = pour_data(train_config.dataset, ['test'], 10, 1)
+    producers = pour_data(train_config.dataset, ['train'], 20, 1)
     inputs, targets, epoch_size = producers[0]
     model.restore()
 

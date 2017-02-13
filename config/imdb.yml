@@ -18,7 +18,7 @@ model:
   dataset: imdb-small
 train:
   epoch_num: 40
-  num_steps: 50
+  num_steps: 100
   batch_size: 50
   keep_prob: 1.0
   optimizer: Adam 
