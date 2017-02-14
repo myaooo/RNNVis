@@ -6,6 +6,7 @@ import pickle
 
 import numpy as np
 
+from rnnvis.db import get_dataset
 from rnnvis.db.language_model import query_evals, query_evaluation_records
 from rnnvis.utils.io_utils import file_exists, get_path
 
@@ -22,7 +23,17 @@ def cal_similar1(array):
     :param array: 2D [n_state, n_words], each row as a states history
     :return: a matrix of n_state x n_state measuring the similarity
     """
-    return array * array.T
+    return np.dot(array, array.T)
+
+
+def normalize(array):
+    max_ = np.max(array)
+    min_ = np.min(array)
+    return (array - min_) / (max_ - min_)
+
+
+def sigmoid(array):
+    return 1 / (1 + np.exp(-array))
 
 
 def fetch_state_of_eval(eval_id, field_name='state_c', diff=True):
@@ -98,19 +109,24 @@ def compute_stats(states, sort_by_mean=True):
     return stds, means, errors_l, errors_u, indices
 
 
+def fetch_freq_words(data_name, k=100):
+    id_to_word = get_dataset(data_name, ['id_to_word'])['id_to_word']
+    return id_to_word[:k]
+
+
 def load_words_and_state(data_name, model_name, state_name, diff=True):
     word_file = data_name + '-' + model_name + '-words.pkl'
     states_file = data_name + '-' + model_name + '-' + state_name + ('-diff' if diff else '') + '.pkl'
     if file_exists(word_file) and file_exists(states_file):
-        with open(word_file, 'rb') as f:
+        with open(get_path('_cached', word_file), 'rb') as f:
             words = pickle.loads(f.read())
-        with open(states_file, 'rb') as f:
+        with open(get_path('_cached', states_file), 'rb') as f:
             states = pickle.loads(f.read())
     else:
         words, states = fetch_states(data_name, model_name, state_name, diff)
-        with open(word_file, 'wb') as f:
+        with open(get_path('_cached', word_file), 'wb') as f:
             pickle.dump(words, f)
-        with open(states_file, 'wb') as f:
+        with open(get_path('_cached', states_file), 'wb') as f:
             pickle.dump(states, f)
     return words, states
 
@@ -119,14 +135,51 @@ if __name__ == '__main__':
     data_name = 'ptb'
     model_name = 'LSTM-PTB'
     state_name = 'state_c'
-    words, states = load_words_and_state(data_name, model_name, state_name, diff=False)
-    states2 = [state[1, :] for state in states]
-    states_mat = np.vstack(states2).T
-    sim1 = cal_similar1(states_mat)
-    cov = np.cov(states_mat)
-    sims = [sim1, cov]
-    sim1_path = '-'.join([data_name, model_name, state_name, '2', 'sim1']) + '.pkl'
-    sim2_path = '-'.join([data_name, model_name, state_name, '2', 'cov']) + '.pkl'
-    for i, path in enumerate([sim1_path, sim2_path]):
-        with open(get_path(path)) as f:
-            pickle.dump(sims[i], f)
+    print('loading states...')
+
+    # print('calculating similarity')
+    # sim1 = cal_similar1(states_mat)
+    # cov = np.cov(states_mat)
+    # sims = [sim1, cov, sigmoid(sim1/100000)]
+    # sim1_path = '-'.join([data_name, model_name, state_name, '2', 'sim1']) + '.json'
+    # sim2_path = '-'.join([data_name, model_name, state_name, '2', 'cov']) + '.json'
+    # sim3_path = '-'.join([data_name, model_name, state_name, '2', 'sim1-sigmoid']) + '.json'
+    # print("max: {:f}, min: {:f}".format(np.max(sim1), np.min(sim1)))
+
+    # from rnnvis.utils.io_utils import dict2json
+    #
+    # for i, path in enumerate([sim1_path, sim2_path, sim3_path]):
+    #     dict2json(sims[i].tolist(), path)
+
+    # import matplotlib.pyplot as plt
+    # fig, axes = plt.subplots(ncols=2, figsize=(12, 6))
+    # axes[0].imshow(sims[0], extent=[0, 600, 0, 600])
+    # axes[1].imshow(sims[2], extent=[0, 600, 0, 600])
+    # plt.show(block=True)
+
+
+    if file_exists('sample5000.pkl'):
+        print("sampling")
+        with open('sample5000.pkl', 'rb') as f:
+            sample = pickle.load(f)
+    else:
+        words, states = load_words_and_state(data_name, model_name, state_name, diff=False)
+        states2 = [state[1, :] for state in states]
+        states_mat = np.vstack(states2).T
+        print("sampling")
+        sample_idx = np.random.randint(0, states_mat.shape[1], 5000)
+        sample = states_mat[:, sample_idx]
+        with open('sample5000.pkl', 'wb') as f:
+            pickle.dump(sample, f)
+
+    from rnnvis.vendor.tsne import tsne
+
+    print("doing tsne")
+    projected = tsne(sample/10, 2, 50, 20.0, 50)
+    projected2 = tsne(sample / 10, 2, 50, 20.0, 1000)
+    import matplotlib.pyplot as plt
+    fig, axes = plt.subplots(ncols=2, figsize=(12, 6))
+    axes[0].scatter(projected[:, 0], projected[:, 1], 10, 'b', alpha=0.5)
+    axes[0].scatter(projected2[:, 0], projected2[:, 1], 10, 'b', alpha=0.5)
+    plt.show()
+
