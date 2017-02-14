@@ -5,12 +5,12 @@ $ wget http://www.fit.vutbr.cz/~imikolov/rnnlm/simple-examples.tgz
 $ tar xvf simple-examples.tgz
 """
 
-from py.datasets.data_utils import InputProducer
-from py.datasets.ptb_reader import ptb_raw_data
-from py.procedures import init_tf_environ
-import py.rnn.rnn as rnn
-import py.rnn.trainer as trainer
-import py.rnn.config_utils as config
+from rnnvis.datasets.data_utils import InputProducer
+from rnnvis.datasets.ptb_reader import ptb_raw_data
+from rnnvis.procedures import init_tf_environ
+import rnnvis.rnn.rnn as rnn
+import rnnvis.rnn.trainer as trainer
+import rnnvis.rnn.config_utils as config
 import tensorflow as tf
 
 flags = tf.flags

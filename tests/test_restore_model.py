@@ -2,10 +2,10 @@
 Tests the restore of trained model
 """
 import tensorflow as tf
-from py.procedures import build_model, init_tf_environ, pour_data
-from py.rnn.evaluator import StateRecorder
-from py.db import get_dataset
-from py.datasets.data_utils import SentenceProducer
+from rnnvis.procedures import build_model, init_tf_environ, pour_data
+from rnnvis.rnn.evaluator import StateRecorder
+from rnnvis.db import get_dataset
+from rnnvis.datasets.data_utils import SentenceProducer
 
 
 flags = tf.flags

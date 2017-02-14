@@ -9,14 +9,14 @@ import os
 import tensorflow as tf
 import numpy as np
 
-from py.datasets.data_utils import Feeder
-from py.utils.io_utils import get_path, before_save
-from py.rnn.command_utils import data_type, config_proto
-from py.rnn.evaluator import Evaluator, Recorder
-from py.rnn.trainer import Trainer
-from py.rnn.generator import Generator
-from py.rnn.losses import softmax
-from py.rnn.varlen_support import sequence_length, last_relevant
+from rnnvis.datasets.data_utils import Feeder
+from rnnvis.utils.io_utils import get_path, before_save
+from rnnvis.rnn.command_utils import data_type, config_proto
+from rnnvis.rnn.evaluator import Evaluator, Recorder
+from rnnvis.rnn.trainer import Trainer
+from rnnvis.rnn.generator import Generator
+from rnnvis.rnn.losses import softmax
+from rnnvis.rnn.varlen_support import sequence_length, last_relevant
 
 BasicRNNCell = tf.nn.rnn_cell.BasicRNNCell
 BasicLSTMCell = tf.nn.rnn_cell.BasicLSTMCell
@@ -466,17 +466,16 @@ class RNN(object):
         """
         assert self.evaluator is None
         with self.graph.as_default():
-            with tf.device("/cpu:0"):
-                self.evaluator = Evaluator(self, batch_size, num_steps, record_every, log_state,
-                                           log_input, log_output, log_gradients)
+            # with tf.device("/cpu:0"):
+            self.evaluator = Evaluator(self, batch_size, num_steps, record_every, log_state,
+                                       log_input, log_output, log_gradients)
 
     def add_generator(self, word_to_id=None):
         assert self.generator is None
         if word_to_id is not None:
             self.word_to_id = word_to_id
         with self.graph.as_default():
-            with tf.device("/cpu:0"):
-                self.generator = Generator(self)
+            self.generator = Generator(self)
 
     def train(self, inputs, targets, epoch_size, epoch_num, valid_inputs=None, valid_targets=None,
               valid_epoch_size=None, verbose=True, refresh_state=False):

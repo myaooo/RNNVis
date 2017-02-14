@@ -7,9 +7,9 @@ from collections import defaultdict
 import tensorflow as tf
 import numpy as np
 
-from py.rnn import rnn
-from py.db.language_model import insert_evaluation, push_evaluation_records
-from py.datasets.data_utils import InputProducer, Feeder
+from rnnvis.rnn import rnn
+from rnnvis.db.language_model import insert_evaluation, push_evaluation_records
+from rnnvis.datasets.data_utils import InputProducer, Feeder
 
 
 tf.GraphKeys.EVAL_SUMMARIES = "eval_summarys"

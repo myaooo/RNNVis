@@ -12,13 +12,13 @@ import numpy as np
 from bson.binary import Binary
 from bson.objectid import ObjectId
 
-from py.utils.io_utils import dict2json, get_path, lists2csv, path_exists
-from py.datasets.data_utils import split
-from py.datasets.text_processor import SSTProcessor
-from py.datasets.sst_helper import download_sst
-from py.datasets import imdb
-from py.db import mongo
-from py.db.db_helper import insert_one_if_not_exists, replace_one_if_exists
+from rnnvis.utils.io_utils import dict2json, get_path, lists2csv, path_exists
+from rnnvis.datasets.data_utils import split
+from rnnvis.datasets.text_processor import SSTProcessor
+from rnnvis.datasets.sst_helper import download_sst
+from rnnvis.datasets import imdb
+from rnnvis.db import mongo
+from rnnvis.db.db_helper import insert_one_if_not_exists, replace_one_if_exists
 
 db_name = 'sentiment_prediction'
 # db definition

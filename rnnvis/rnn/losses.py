@@ -5,7 +5,7 @@ Defines all losses related functions
 import numpy as np
 import tensorflow as tf
 
-from py.rnn.varlen_support import last_relevant
+from rnnvis.rnn.varlen_support import last_relevant
 
 
 def softmax(x, axis=None):

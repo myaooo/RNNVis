@@ -13,10 +13,10 @@ from pymongo import ReturnDocument
 from bson.binary import Binary
 from bson.objectid import ObjectId
 
-from py.utils.io_utils import dict2json, get_path
-from py.datasets.data_utils import load_data_as_ids, split
-from py.datasets.text_processor import PlainTextProcessor
-from py.db import mongo
+from rnnvis.utils.io_utils import dict2json, get_path
+from rnnvis.datasets.data_utils import load_data_as_ids, split
+from rnnvis.datasets.text_processor import PlainTextProcessor
+from rnnvis.db import mongo
 
 db_name = 'language_model'
 # db definition

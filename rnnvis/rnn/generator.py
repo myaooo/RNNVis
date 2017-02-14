@@ -9,8 +9,8 @@ import tensorflow as tf
 
 from . import rnn
 from . import losses
-from py.utils.io_utils import dict2json
-from py.utils.tree import TreeNode, Tree
+from rnnvis.utils.io_utils import dict2json
+from rnnvis.utils.tree import TreeNode, Tree
 
 
 class GenerateNode(TreeNode):

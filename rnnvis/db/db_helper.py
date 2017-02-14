@@ -4,7 +4,7 @@ Common helper functions that db package will use
 
 from pymongo import ReturnDocument
 
-from py.db import mongo
+from rnnvis.db import mongo
 
 
 def db_handler(db_name):

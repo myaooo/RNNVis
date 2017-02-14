@@ -4,8 +4,8 @@ Tests the generator
 
 import os
 import tensorflow as tf
-from py.procedures import build_model, init_tf_environ
-from py.db.language_model import get_datasets_by_name
+from rnnvis.procedures import build_model, init_tf_environ
+from rnnvis.db.language_model import get_datasets_by_name
 
 
 flags = tf.flags

@@ -4,10 +4,10 @@ The backend manager for handling the models
 
 import os
 
-from py.utils.io_utils import get_path, assert_path_exists
-from py.procedures import build_model
-from py.db import language_model
-from py.rnn.evaluator import Recorder
+from rnnvis.utils.io_utils import get_path, assert_path_exists
+from rnnvis.procedures import build_model
+from rnnvis.db import language_model
+from rnnvis.rnn.evaluator import Recorder
 
 _config_dir = 'config'
 _data_dir = 'cached_data'
