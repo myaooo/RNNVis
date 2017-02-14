@@ -106,6 +106,8 @@ def scatter(id_states, ids, freqs):
         axes[j].plot([0, len(means[0])], [0, 0], 'k', linewidth=1)
 
 
+
+
 if __name__ == '__main__':
 
     data_name = 'ptb'

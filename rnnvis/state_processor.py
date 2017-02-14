@@ -6,6 +6,9 @@ import pickle
 
 import numpy as np
 
+import matplotlib.pyplot as plt
+
+
 from rnnvis.db import get_dataset
 from rnnvis.db.language_model import query_evals, query_evaluation_records
 from rnnvis.utils.io_utils import file_exists, get_path
@@ -56,6 +59,14 @@ def fetch_state_of_eval(eval_id, field_name='state_c', diff=True):
 
 
 def fetch_states(data_name, model_name, field_name='state_c', diff=True):
+    """
+    Fetch the word_ids and states of the eval records by data_name and model_name
+    :param data_name:
+    :param model_name:
+    :param field_name: the name of the desired state, can be a list of fields
+    :param diff: True if you want the diff, should also be list when field_name is a list
+    :return: a pair (word_id, states)
+    """
     evals = query_evals(data_name, model_name)
     if evals is None:
         raise LookupError("No eval records with data_name: {:s} and model_name: {:s}".format(data_name, model_name))
@@ -131,6 +142,66 @@ def load_words_and_state(data_name, model_name, state_name, diff=True):
     return words, states
 
 
+class AnimatedScatter(object):
+    """An animated scatter plot using matplotlib.animations.FuncAnimation."""
+    def __init__(self, data, extent=None, interval=5):
+        from matplotlib import animation
+        # self.stream = self.data_stream()
+        self.extent = extent
+        self.data = data
+        # Setup the figure and axes...
+        self.fig, self.ax = plt.subplots()
+        # Then setup FuncAnimation.
+        self.ani = animation.FuncAnimation(self.fig, self.update, interval=interval,
+                                           init_func=self.setup_plot, blit=True)
+
+    def setup_plot(self):
+        """Initial drawing of the scatter plot."""
+        xy = self.data[0]
+        self.scat = self.ax.scatter(xy[:, 0], xy[:, 1], 10, animated=True)
+        if self.extent is not None:
+            self.ax.axis(self.extent)
+
+        # For FuncAnimation's sake, we need to return the artist we'll be using
+        # Note that it expects a sequence of artists, thus the trailing comma.
+        return self.scat,
+
+    # def data_stream(self):
+    #     """Generate a random walk (brownian motion). Data is scaled to produce
+    #     a soft "flickering" effect."""
+    #     len
+    #     for data in self.data:
+    #         yield data
+        # data = np.random.random((4, self.numpoints))
+        # xy = data[:2, :]
+        # s, c = data[2:, :]
+        # xy -= 0.5
+        # xy *= 10
+        # while True:
+        #     xy += 0.03 * (np.random.random((2, self.numpoints)) - 0.5)
+        #     s += 0.05 * (np.random.random(self.numpoints) - 0.5)
+        #     c += 0.02 * (np.random.random(self.numpoints) - 0.5)
+        #     yield data
+
+    def update(self, i):
+        """Update the scatter plot."""
+        data = self.data[i % len(self.data)]
+
+        # Set x and y data...
+        self.scat.set_offsets(data[:, :2])
+        # Set sizes...
+        # self.scat._sizes = 300 * abs(data[2])**1.5 + 100
+        # # Set colors..
+        # self.scat.set_array(data[3])
+
+        # We need to return the updated artist for FuncAnimation to draw..
+        # Note that it expects a sequence of artists, thus the trailing comma.
+        return self.scat,
+
+    def show(self):
+        plt.show()
+
+
 if __name__ == '__main__':
     data_name = 'ptb'
     model_name = 'LSTM-PTB'
@@ -141,9 +212,9 @@ if __name__ == '__main__':
     # sim1 = cal_similar1(states_mat)
     # cov = np.cov(states_mat)
     # sims = [sim1, cov, sigmoid(sim1/100000)]
-    # sim1_path = '-'.join([data_name, model_name, state_name, '2', 'sim1']) + '.json'
-    # sim2_path = '-'.join([data_name, model_name, state_name, '2', 'cov']) + '.json'
-    # sim3_path = '-'.join([data_name, model_name, state_name, '2', 'sim1-sigmoid']) + '.json'
+    sim1_path = '-'.join([data_name, model_name, state_name, '2', 'sim1']) + '.json'
+    sim2_path = '-'.join([data_name, model_name, state_name, '2', 'cov']) + '.json'
+    sim3_path = '-'.join([data_name, model_name, state_name, '2', 'sim1-sigmoid']) + '.json'
     # print("max: {:f}, min: {:f}".format(np.max(sim1), np.min(sim1)))
 
     # from rnnvis.utils.io_utils import dict2json
@@ -156,7 +227,6 @@ if __name__ == '__main__':
     # axes[0].imshow(sims[0], extent=[0, 600, 0, 600])
     # axes[1].imshow(sims[2], extent=[0, 600, 0, 600])
     # plt.show(block=True)
-
 
     if file_exists('sample5000.pkl'):
         print("sampling")
@@ -172,14 +242,24 @@ if __name__ == '__main__':
         with open('sample5000.pkl', 'wb') as f:
             pickle.dump(sample, f)
 
-    from rnnvis.vendor.tsne import tsne
+    # import json
+    # with open(sim1_path) as f:
+    #     sample = np.array(json.load(f))
 
+    import rnnvis.vendor.tsne as tsne
+
+    sample = tsne.pca(sample/100, 50).real
     print("doing tsne")
-    projected = tsne(sample/10, 2, 50, 20.0, 50)
-    projected2 = tsne(sample / 10, 2, 50, 20.0, 1000)
-    import matplotlib.pyplot as plt
-    fig, axes = plt.subplots(ncols=2, figsize=(12, 6))
-    axes[0].scatter(projected[:, 0], projected[:, 1], 10, 'b', alpha=0.5)
-    axes[0].scatter(projected2[:, 0], projected2[:, 1], 10, 'b', alpha=0.5)
-    plt.show()
+    projected = tsne.tsne(sample, 2, 50, 30.0, 1000)
+
+    # base = np.random.random((10, 2))*10
+    # projected = [base]
+    # for i in range(100):
+    #     projected.append(projected[i]+np.random.random((10,2))*0.5 - 0.25)
+    min_x = min([np.min(data[:, 0]) for data in projected])
+    min_y = min([np.min(data[:, 1]) for data in projected])
+    max_x = max([np.max(data[:, 0]) for data in projected])
+    max_y = max([np.max(data[:, 1]) for data in projected])
+    anim = AnimatedScatter(projected, [min_x, max_x, min_y, max_y], 50)
+    anim.show()
 
