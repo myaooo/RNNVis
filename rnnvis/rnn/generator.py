@@ -33,7 +33,7 @@ class Generator(object):
         """
         assert isinstance(rnn_, rnn.RNN)
         self._rnn = rnn_
-        self.model = rnn_.unroll(20, 1, name='generator')
+        self.model = rnn_.unroll(20, 1, name='generator{:d}'.format(len(rnn_.models)))
 
     def generate(self, sess, seeds, logdir=None, max_branch=3, accum_cond_prob=0.9,
                  min_cond_prob=0.1, min_prob=0.001, max_step=10, neg_word_ids=None):

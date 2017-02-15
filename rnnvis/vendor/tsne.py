@@ -101,9 +101,7 @@ def tsne(X = np.array([]), no_dims = 2, initial_dims = 50, perplexity = 30.0, ma
     if X.shape[1] != initial_dims:
         X = pca(X, initial_dims).real
     (n, d) = X.shape
-    initial_momentum = 0.5
-    final_momentum = 0.8
-    eta = 500
+    eta = 40
     min_gain = 0.01
     Y = np.random.randn(n, no_dims)
     dY = np.zeros((n, no_dims))
@@ -134,10 +132,7 @@ def tsne(X = np.array([]), no_dims = 2, initial_dims = 50, perplexity = 30.0, ma
             dY[i, :] = np.sum(np.tile(PQ[:, i] * num[:, i], (no_dims, 1)).T * (Y[i, :] - Y), 0)
 
         # Perform the update
-        if iter < 20:
-            momentum = initial_momentum
-        else:
-            momentum = final_momentum
+        momentum = 0.5 if iter < 250 else 0.6
         gains = (gains + 0.2) * ((dY > 0) != (iY > 0)) + (gains * 0.8) * ((dY > 0) == (iY > 0))
         gains[gains < min_gain] = min_gain
         iY = momentum * iY - eta * (gains * dY)

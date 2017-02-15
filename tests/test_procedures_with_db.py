@@ -27,7 +27,7 @@ if __name__ == '__main__':
     init_tf_environ(FLAGS.gpu_num)
     print('Building model..')
     model, train_config = build_model(config_path())
-    model.add_evaluator(train_config.batch_size, 1, True, True, True, True)
+    model.add_evaluator(1, 1, True, True, True, True)
     epoch_num = train_config.epoch_num
     keep_prob = train_config.keep_prob
     batch_size = train_config.batch_size

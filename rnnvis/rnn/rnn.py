@@ -254,6 +254,24 @@ class RNNModel(object):
         # do softmax
         return softmax(projected_outputs, axis=1)
 
+    def get_gate_tensor(self):
+        with self.rnn.graph.as_default():
+            head = "/".join([self.name, self.rnn.name, "RNN", "while", "MultiRNNCell", "Cell"])
+            input_gates = []
+            forget_gates = []
+            output_gates = []
+            for j, cell in enumerate(self.cell._cells):
+                i = tf.get_default_graph().get_tensor_by_name(head + str(j) + "/" +
+                                                              type(cell).__name__ + "/split:0")
+                f = tf.get_default_graph().get_tensor_by_name(head + str(j) + "/" +
+                                                              type(cell).__name__ + "/split:2")
+                o = tf.get_default_graph().get_tensor_by_name(head + str(j) + "/" +
+                                                              type(cell).__name__ + "/split:3")
+                input_gates.append(i)
+                forget_gates.append(f)
+                output_gates.append(o)
+            return input_gates, forget_gates, output_gates
+
 
 class RNN(object):
     """
