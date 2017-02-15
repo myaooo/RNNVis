@@ -151,9 +151,10 @@ class AnimatedScatter(object):
         self.data = data
         # Setup the figure and axes...
         self.fig, self.ax = plt.subplots(figsize=self.figsize)
+        self.setup_plot()
         # Then setup FuncAnimation.
         self.ani = animation.FuncAnimation(self.fig, self.update, len(data), interval=interval, repeat_delay=1000,
-                                           init_func=self.setup_plot, blit=True)
+                                           blit=True)
 
     def setup_plot(self):
         """Initial drawing of the scatter plot."""
@@ -215,6 +216,8 @@ class AnimatedScatter(object):
         _writer = animation.writers['ffmpeg']
         writer = _writer(fps=fps, metadata=dict(artist='Ming'), bitrate=bitrate)
         self.ani.save(filename, writer)
+
+
 
 
 if __name__ == '__main__':
@@ -284,13 +287,13 @@ if __name__ == '__main__':
     #     sample = np.array(json.load(f))
 
 
-    print("doing tsne")
-    projected = tsne.tsne(sample, 2, 50, 50.0, 600)
+    # print("doing tsne")
+    # projected = tsne.tsne(sample, 2, 50, 50.0, 600)
 
-    # base = np.random.random((10, 2))*1.0
-    # projected = [base]
-    # for i in range(100):
-    #     projected.append(projected[i]+np.random.random((10,2))*0.5 - 0.25)
+    base = np.random.random((10, 2))*1.0
+    projected = [base]
+    for i in range(100):
+        projected.append(projected[i]+np.random.random((10,2))*0.5 - 0.25)
 
     points_num = projected[0].shape[0]
     color = np.ones((points_num, 1), dtype=np.float32)
