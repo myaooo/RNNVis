@@ -287,13 +287,13 @@ if __name__ == '__main__':
     #     sample = np.array(json.load(f))
 
 
-    # print("doing tsne")
-    # projected = tsne.tsne(sample, 2, 50, 50.0, 600)
+    print("doing tsne")
+    projected = tsne.tsne(sample, 2, 50, 40.0, 1000)
 
-    base = np.random.random((10, 2))*1.0
-    projected = [base]
-    for i in range(100):
-        projected.append(projected[i]+np.random.random((10,2))*0.5 - 0.25)
+    # base = np.random.random((10, 2))*1.0
+    # projected = [base]
+    # for i in range(100):
+    #     projected.append(projected[i]+np.random.random((10,2))*0.5 - 0.25)
 
     points_num = projected[0].shape[0]
     color = np.ones((points_num, 1), dtype=np.float32)
