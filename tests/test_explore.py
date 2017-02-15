@@ -142,22 +142,29 @@ if __name__ == '__main__':
 
     import matplotlib.pyplot as plt
 
-    # plot_words_states(id_to_state, [28, 163])
+    plot_words_states(id_to_state, [28, 11])
+    plt.savefig('he-for.png', bbox_inches='tight')
+
     # plot_words_states(id_to_state, [28, 14])
     # plot_words_states(id_to_state, [28, 17])
 
-    print('id: {:d}, freq: {:d}'.format(28, id_freq[28]))
-    print('id: {:d}, freq: {:d}'.format(1, id_freq[1]))
-    print('id: {:d}, freq: {:d}'.format(14, id_freq[14]))
-    # scatter(id_to_state, [28, 163], [id_freq[28], id_freq[163]])
-    # plot_words_states(id_to_state, [28, 11])
-    # plt.savefig('he-by.png', bbox_inches='tight')
-    scatter(id_to_state, [28], [id_freq[28]])
-    plt.savefig('he-scatter.png', bbox_inches='tight')
-    parallel_coord(id_to_state, 28)
-    plt.savefig('he-para-coord.png', bbox_inches='tight')
+    # print('id: {:d}, freq: {:d}'.format(28, id_freq[28]))
+    # print('id: {:d}, freq: {:d}'.format(1, id_freq[1]))
+    # print('id: {:d}, freq: {:d}'.format(14, id_freq[14]))
 
-    plt.show(block=True)
+    scatter(id_to_state, [28, 163], [id_freq[28], id_freq[163]])
+    plt.savefig('he-she-scatter.png', bbox_inches='tight')
+
+    # plot_words_states(id_to_state, [28, 11])
+    # plt.savefig('he-for.png', bbox_inches='tight')
+
+    # scatter(id_to_state, [28], [id_freq[28]])
+    # plt.savefig('he-scatter.png', bbox_inches='tight')
+
+    # parallel_coord(id_to_state, 28)
+    # plt.savefig('he-para-coord.png', bbox_inches='tight')
+
+    # plt.show(block=True)
     print("Done")
 
 
