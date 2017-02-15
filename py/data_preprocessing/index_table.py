@@ -8,7 +8,7 @@ def make_table(data, delimiter='\n', gram_num=2):
     index_table = {}
     lines = data.split(delimiter)
     for line in lines:
-        words = line.split(' ')
+        words = line.split()
         for i in range(len(words) - gram_num + 1):
             gram = ' '.join(words[i:i+gram_num])
             index_table.setdefault(gram, set()).add(i)
@@ -19,8 +19,8 @@ if __name__ == '__main__':
     with open(data_path, 'r') as file:
         data = file.read()
     index_table = make_table(data)
-    print(index_table)
-
+    sorted_index_table = sorted(index_table.items(), key=lambda x: (-len(x[1]), x[0]))
+    print(sorted_index_table)
 
 
 

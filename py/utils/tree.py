@@ -14,7 +14,7 @@ class TreeNode(object):
 
     def __init__(self, parent_id=None, id_=None):
         self._parent_id = parent_id
-        self._children_id = []
+        self._children_id = set()
         self._id = None
         self._set_id(id_)
 
@@ -43,6 +43,10 @@ class TreeNode(object):
     @property
     def id(self):
         return self._id
+
+    @id.setter
+    def id(self, id_):
+        self._id = id_
 
     def is_leaf(self):
         return len(self.children_id) == 0
@@ -77,7 +81,7 @@ class Tree(object):
             parent = self.get_node(parent)
             if parent is None:
                 raise ValueError("the given parent is not in the tree!")
-            parent.children_id.append(node.id)
+            parent.children_id.add(node.id)
             node.parent_id = parent.id
         self._dict[node.id] = node
 
