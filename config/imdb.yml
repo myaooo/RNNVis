@@ -10,7 +10,7 @@ model:
   target_size: 2
   use_last_output: True
   embedding_size: 500
-  cell_type: BasicLSTM
+  cell_type: GRU
   cells:
     - num_units: 200
     - num_units: 200
