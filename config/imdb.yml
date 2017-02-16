@@ -18,8 +18,8 @@ model:
   dataset: imdb-small
 train:
   epoch_num: 40
-  num_steps: 100
-  batch_size: 50
-  keep_prob: 1.0
+  num_steps: 200
+  batch_size: 32
+  keep_prob: 0.5
   optimizer: Adam 
-  learning_rate: 0.001
+  learning_rate: 0.0001
