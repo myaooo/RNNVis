@@ -255,22 +255,33 @@ class RNNModel(object):
         return softmax(projected_outputs, axis=1)
 
     def get_gate_tensor(self):
+        cell_type_name = type(self.cell._cells[0]).__name__
+        if cell_type_name == 'BasicRNNCell':
+            return None
         with self.rnn.graph.as_default():
-            head = "/".join([self.name, self.rnn.name, "RNN", "while", "MultiRNNCell", "Cell"])
-            input_gates = []
-            forget_gates = []
-            output_gates = []
-            for j, cell in enumerate(self.cell._cells):
-                i = tf.get_default_graph().get_tensor_by_name(head + str(j) + "/" +
-                                                              type(cell).__name__ + "/split:0")
-                f = tf.get_default_graph().get_tensor_by_name(head + str(j) + "/" +
-                                                              type(cell).__name__ + "/split:2")
-                o = tf.get_default_graph().get_tensor_by_name(head + str(j) + "/" +
-                                                              type(cell).__name__ + "/split:3")
-                input_gates.append(i)
-                forget_gates.append(f)
-                output_gates.append(o)
-            return input_gates, forget_gates, output_gates
+            if cell_type_name == 'BasicLSTMCell':
+                head = "/".join([self.name, self.rnn.name, "RNN", "while", "MultiRNNCell", "Cell"])
+                gates = []
+                for j, cell in enumerate(self.cell._cells):
+                    # for BasicLSTM
+                    i = tf.get_default_graph().get_tensor_by_name(head + str(j) + "/" +
+                                                                  cell_type_name + "/split:0")
+                    f = tf.get_default_graph().get_tensor_by_name(head + str(j) + "/" +
+                                                                  cell_type_name + "/split:2")
+                    o = tf.get_default_graph().get_tensor_by_name(head + str(j) + "/" +
+                                                                  cell_type_name + "/split:3")
+                    gates.append((i, f, o))
+                return gates
+            elif cell_type_name == 'GRUCell':
+                head = "/".join([self.name, self.rnn.name, "RNN", "while", "MultiRNNCell", "Cell"])
+                gates = []
+                for j, cell in enumerate(self.cell._cells):
+                    # for GRUCell only needs forget gates
+                    gates.append(tf.get_default_graph().get_tensor_by_name(head + str(j) + "/" + cell_type_name +
+                                                                           "/Gates/Sigmoid_1:0"))
+                return gates
+            else:
+                raise TypeError("Unsupported Cell Type {:s}".format(cell_type_name))
 
 
 class RNN(object):

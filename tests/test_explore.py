@@ -35,137 +35,161 @@ def get_model_params(model_config):
     return embedding
 
 
-colors = ['b', 'g', 'r', 'c', 'm', 'y']
+colors = ['#587EB6', '#C95A5F', '#63B075', 'r', 'm', 'y']
 
 
-def plot_words_states(id_states, ids):
+def plot_words_states(id_states, ids, percent=50):
 
     import matplotlib.pyplot as plt
 
-    stds, means, error_l, error_u, idx = compute_stats(id_states[ids[0]], True)
+    means, stds, error_l, error_u, idx = compute_stats(id_states[ids[0]], True)
     layer_num = len(means)
 
     fig, axes = plt.subplots(nrows=layer_num, sharex=True, figsize=(15, 9))
     for k, id_ in enumerate(ids):
         state = id_states[id_]
-        stds, means, error_l, error_u, _ = compute_stats(state, False)
+        means, stds, error_l, error_u, _ = compute_stats(state, False, percent)
         dim = slice(0, len(means[0]), 1)
         for j in range(layer_num):
             mean = means[j][idx[j]]
-            low = mean-stds[j][idx[j]]
-            high = mean+stds[j][idx[j]]
-            axes[j].plot(range(len(mean)), mean, colors[k], linewidth=1)
+            low = mean-error_l[j][idx[j]]
+            high = mean+error_u[j][idx[j]]
+            axes[j].plot(range(len(mean)), mean, colors[k], linewidth=1, alpha=0.8)
             axes[j].plot(range(len(mean)), low, colors[k], linewidth=1, alpha=0.3)
             axes[j].plot(range(len(mean)), high, colors[k], linewidth=1, alpha=0.3)
             axes[j].fill_between(range(dim.start, dim.stop, dim.step), low[dim], high[dim],
                                  facecolor=colors[k], alpha=0.2)
             # axes[j].errorbar(range(len(means[j][dim])), means[j][dim], yerr=[error_l[j][dim], error_u[j][dim]])
             # axes[j].errorbar(range(len(means[j][dim])), means[j][dim], yerr=stds[j][dim], capsize=5)
-            # axes[j].set_ylim([-2, 2])
+
     for j in range(layer_num):
         axes[j].plot([0, len(means[0])], [0, 0], 'k', linewidth=1)
+        axes[j].set_ylim([-2.1 - 0.3 * j, 2.1 + 0.3 * j])
 
 
 def parallel_coord(id_states, id_):
 
     import matplotlib.pyplot as plt
 
-    stds, means, error_l, error_u, idx = compute_stats(id_states[id_], True)
+    means, stds, error_l, error_u, idx = compute_stats(id_states[id_], True)
     layer_num = len(means)
     fig, axes = plt.subplots(nrows=layer_num, sharex=True, figsize=(15, 9))
 
     states = id_states[id_]
     num = len(states)
-    dim = slice(0, 600, 3)
-    h_scale = range(600)
+    dim = slice(0, len(means[0]), 5)
+    h_scale = range(len(means[0]))
     for j in range(layer_num):
         for state in states:
             axes[j].plot(h_scale[dim], state[j][idx[j]][dim], colors[0], linewidth=1, alpha=(1.0/num)**0.8)
 
         axes[j].plot([0, len(means[0])], [0, 0], 'k', linewidth=1)
+        axes[j].set_ylim([-2.1 - 0.3 * j, 2.1 + 0.3 * j])
 
 
 def scatter(id_states, ids, freqs):
 
     import matplotlib.pyplot as plt
 
-    alphas = [(1.0/ freq)**0.8 for freq in freqs]
-    stds, means, error_l, error_u, idx = compute_stats(id_states[ids[0]], True)
+    alphas = [(2.0 / freq)**0.8 for freq in freqs]
+    means, stds, error_l, error_u, idx = compute_stats(id_states[ids[0]], True)
     layer_num = len(means)
 
     fig, axes = plt.subplots(nrows=layer_num, sharex=True, figsize=(15, 9))
     for k, id_ in enumerate(ids):
         states = id_states[id_]
-        dim = slice(0, len(means[0]), 4)
-        h_scale = range(0, len(means[0]), 4)
+        dim = slice(0, len(means[0]), 5)
+        h_scale = range(0, len(means[0]), 5)
         for state in states:
             for j in range(layer_num):
-                axes[j].plot(h_scale, state[j][idx[j]][dim], colors[k]+'.', alpha=alphas[k], linewidth=1)
+                axes[j].plot(h_scale, state[j][idx[j]][dim], colors[k], lw=0, marker='.', alpha=alphas[k])
 
     for j in range(layer_num):
         axes[j].plot([0, len(means[0])], [0, 0], 'k', linewidth=1)
-
-
+        axes[j].set_ylim([-2.1 - 0.3 * j, 2.1 + 0.3 * j])
 
 
 if __name__ == '__main__':
 
     data_name = 'ptb'
-    model_name = 'LSTM-PTB'
-    state_name = 'state_c'
+    model_name = 'RNN-PTB'
+    state_name = 'state'
     words, state_diff = load_words_and_state(data_name, model_name, state_name)
 
     # embedding = get_model_params('./config/rnn.yml')
     #
     id_to_state = sort_by_id(words, state_diff)
     id_freq = [len(states) if states is not None else 0 for states in id_to_state]
-    # state_shape = state_diff[0].shape
-    # layer_num = state_shape[0]
-    # mean_n = [[] for i in range(layer_num)]
-    # std_n = [[] for i in range(layer_num)]
-    # for i, states in enumerate(id_to_state):
-    #     if states is None:
-    #         stds = np.zeros(state_shape, dtype=np.float32)
-    #         means = np.zeros(state_shape, dtype=np.float32)
-    #     else:
-    #         stds, means, error_l, error_u, idx = compute_stats(states, False)
-    #     for j, mean in enumerate(means):
-    #         mean_n[j].append(mean)
-    #     for j, std in enumerate(stds):
-    #         std_n[j].append(std)
-    #
-    # for i in range(layer_num):
-    #     cand, mean, std = find_candidate(mean_n[i][:1000], std_n[i][:1000], 20)
-    #     lists2csv(cand, '-'.join(['cand', data_name, model_name, str(i), str(20)]) + '.csv')
-    #     lists2csv(mean, '-'.join(['mean', data_name, model_name, str(i), str(20)]) + '.csv')
-    #     lists2csv(std, '-'.join(['std', data_name, model_name, str(i), str(20)]) + '.csv')
 
     import matplotlib.pyplot as plt
 
-    plot_words_states(id_to_state, [28, 11])
-    plt.savefig('he-for.png', bbox_inches='tight')
+    if data_name == 'shakespeare':
+        ####
+        # SHAKESPEARE
+        ####
+        plot_words_states(id_to_state, [3, 28], 60)
+        plt.savefig('and-but.png', bbox_inches='tight')
 
-    # plot_words_states(id_to_state, [28, 14])
-    # plot_words_states(id_to_state, [28, 17])
+        parallel_coord(id_to_state, 25)
+        plt.savefig('he-para-coord.png', bbox_inches='tight')
 
-    # print('id: {:d}, freq: {:d}'.format(28, id_freq[28]))
-    # print('id: {:d}, freq: {:d}'.format(1, id_freq[1]))
-    # print('id: {:d}, freq: {:d}'.format(14, id_freq[14]))
+        parallel_coord(id_to_state, 20)
+        plt.savefig('for-para-coord.png', bbox_inches='tight')
 
-    scatter(id_to_state, [28, 163], [id_freq[28], id_freq[163]])
-    plt.savefig('he-she-scatter.png', bbox_inches='tight')
+        # plot_words_states(id_to_state, [39, 423], 60)
+        # plt.savefig('no-yes.png', bbox_inches='tight')
 
-    # plot_words_states(id_to_state, [28, 11])
-    # plt.savefig('he-for.png', bbox_inches='tight')
+        # scatter(id_to_state, [20], [id_freq[20]])
+        # plt.savefig('for-scatter.png', bbox_inches='tight')
+        #
+        # plot_words_states(id_to_state, [25, 57], 60)
+        # plt.savefig('he-she.png', bbox_inches='tight')
 
-    # scatter(id_to_state, [28], [id_freq[28]])
-    # plt.savefig('he-scatter.png', bbox_inches='tight')
+        print("Done")
 
-    # parallel_coord(id_to_state, 28)
-    # plt.savefig('he-para-coord.png', bbox_inches='tight')
+    if data_name == 'ptb':
+        #####
+        ## PTB
+        #####
+        plot_words_states(id_to_state, [28, 11], 60)
+        plt.savefig('he-for.png', bbox_inches='tight')
+
+        plot_words_states(id_to_state, [28, 14], 60)
+        plt.savefig('he-it.png', bbox_inches='tight')
+
+        plot_words_states(id_to_state, [28, 163], 60)
+        plt.savefig('he-she.png', bbox_inches='tight')
+
+        plot_words_states(id_to_state, [28, 17], 60)
+        plt.savefig('he-by.png', bbox_inches='tight')
+
+        plot_words_states(id_to_state, [11, 17], 60)
+        plt.savefig('for-by.png', bbox_inches='tight')
+
+        plot_words_states(id_to_state, [11], 60)
+        plt.savefig('for.png', bbox_inches='tight')
+
+        scatter(id_to_state, [11], [id_freq[11]])
+        plt.savefig('for-scatter.png', bbox_inches='tight')
+
+        scatter(id_to_state, [28, 163], [id_freq[28], id_freq[163]])
+        plt.savefig('he-she-scatter.png', bbox_inches='tight')
+
+        scatter(id_to_state, [28], [id_freq[28]])
+        plt.savefig('he-scatter.png', bbox_inches='tight')
+
+        parallel_coord(id_to_state, 28)
+        plt.savefig('he-para-coord.png', bbox_inches='tight')
+
+        parallel_coord(id_to_state, 11)
+        plt.savefig('for-para-coord.png', bbox_inches='tight')
+
+        parallel_coord(id_to_state, 14)
+        plt.savefig('by-para-coord.png', bbox_inches='tight')
+        print("Done")
 
     # plt.show(block=True)
-    print("Done")
+
 
 
     # init_tf_environ(FLAGS.gpu_num)

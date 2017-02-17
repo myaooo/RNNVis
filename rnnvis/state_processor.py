@@ -15,6 +15,12 @@ from rnnvis.utils.io_utils import file_exists, get_path
 
 
 def cal_diff(arrays):
+    """
+    Given a list of same shape ndarray or an ndarray,
+    calculate the difference a_t - a_{t-1} along the axis 0
+    :param arrays: a list of same shaped ndarray or an ndarray
+    :return: a list of diff
+    """
     diff_arrays = []
     for i in range(len(arrays)-1):
         diff_arrays.append(arrays[i+1] - arrays[i])
@@ -89,7 +95,7 @@ def sort_by_id(word_ids, states):
     return id_to_states
 
 
-def compute_stats(states, sort_by_mean=True):
+def compute_stats(states, sort_by_mean=True, percent=50):
     layer_num = states[0].shape[0]
     states_layer_wise = []
     stds = []
@@ -103,8 +109,10 @@ def compute_stats(states, sort_by_mean=True):
         states_mat = np.vstack(state_list)
         std = np.std(states_mat, axis=0)
         mean = np.mean(states_mat, axis=0)
-        error_l = mean-np.min(states_mat, axis=0)
-        error_u = np.max(states_mat, axis=0)-mean
+        # error_l = mean-np.min(states_mat, axis=0)
+        # error_u = np.max(states_mat, axis=0)-mean
+        error_l = mean - np.percentile(states_mat, (100-percent)/2, axis=0)
+        error_u = np.percentile(states_mat, 50 + percent/2, axis=0) - mean
         if sort_by_mean:
             idx = np.argsort(mean)
             mean = mean[idx]
@@ -117,7 +125,7 @@ def compute_stats(states, sort_by_mean=True):
         errors_l.append(error_l)
         errors_u.append(error_u)
         states_layer_wise.append(states_mat)
-    return stds, means, errors_l, errors_u, indices
+    return means, stds, errors_l, errors_u, indices
 
 
 def fetch_freq_words(data_name, k=100):
@@ -159,7 +167,7 @@ class AnimatedScatter(object):
     def setup_plot(self):
         """Initial drawing of the scatter plot."""
         xy = self.data[0]
-        self.scat = self.ax.scatter(xy[:, 0], xy[:, 1], 8, xy[:, 2], animated=True, alpha=0.5)
+        self.scat = self.ax.scatter(xy[:, 0], xy[:, 1], 8, xy[:, 2:], animated=True, alpha=0.5)
         self.ax.axis([-self.figsize[0]/2.0, self.figsize[0]/2.0, -self.figsize[1]/2.0, self.figsize[1]/2.0])
 
         # For FuncAnimation's sake, we need to return the artist we'll be using
@@ -287,20 +295,20 @@ if __name__ == '__main__':
     #     sample = np.array(json.load(f))
 
 
-    print("doing tsne")
-    projected = tsne.tsne(sample, 2, 50, 40.0, 1000)
+    # print("doing tsne")
+    # projected = tsne.tsne(sample, 2, 50, 40.0, 1000)
 
-    # base = np.random.random((10, 2))*1.0
-    # projected = [base]
-    # for i in range(100):
-    #     projected.append(projected[i]+np.random.random((10,2))*0.5 - 0.25)
+    base = np.random.random((10, 2))*1.0
+    projected = [base]
+    for i in range(100):
+        projected.append(projected[i]+np.random.random((10,2))*0.5 - 0.25)
 
     points_num = projected[0].shape[0]
-    color = np.ones((points_num, 1), dtype=np.float32)
-    color[:points_num//2, :] -= 2
+    color = np.ones((points_num, 3), dtype=np.float32) * np.array([0.4,0.5,0.8], dtype=np.float32)
+    color[:points_num//2, :] += np.array([0.4, -0.1, -0.4], dtype=np.float32)
     projected = [np.hstack((project, color)) for project in projected]
 
     anim = AnimatedScatter(projected, [6, 6], 50)
 
-    anim.save('test.mp4')
-    # anim.show()
+    # anim.save('test.mp4')
+    anim.show()
