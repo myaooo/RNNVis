@@ -1,5 +1,6 @@
 """
 Helpers that deal with all the computations related to hidden states
+For example usage, see the main function below
 """
 
 import pickle
@@ -12,6 +13,7 @@ import matplotlib.pyplot as plt
 from rnnvis.db import get_dataset
 from rnnvis.db.language_model import query_evals, query_evaluation_records
 from rnnvis.utils.io_utils import file_exists, get_path, dict2json
+from rnnvis.vendor import tsne
 
 
 def cal_diff(arrays):
@@ -193,18 +195,37 @@ def get_state_signature(data_name, model_name, state_name, layer=None, sample_si
     return sample
 
 
-def tsne_project(data, perplexity, init_dim=50, lr=50):
+def tsne_project(data, perplexity, init_dim=50, lr=50, max_iter=1000):
+    """
+    Do t-SNE projection with given configuration
+    :param data: 2D numpy.ndarray of shape [n_data, feature_dim]
+    :param perplexity:
+    :param init_dim: in case feature size too large, do PCA to reduce feature dim if needed
+    :param lr: learning rate
+    :param max_iter: the max iterations to run
+    :return: the best solution in the run
+    """
     _tsne_solver = tsne.TSNE(2, perplexity, lr)
     _tsne_solver.set_inputs(data, init_dim)
-    _tsne_solver.run(1000)
+    _tsne_solver.run(max_iter)
     return _tsne_solver.get_best_solution()
 
 
-def solution2json(solution, states_num, labels, path):
+def solution2json(solution, states_num, labels=None, path=None):
+    """
+    Save the solution to json file
+    :param solution:
+    :param states_num: a list specifying number of states in each layer, should add up the the solution size
+    :param labels: additional labels for each states
+    :param path:
+    :return:
+    """
     if isinstance(solution, np.ndarray):
         solution = solution.tolist()
     if isinstance(labels, np.ndarray):
         labels = labels.tolist()
+    if labels is None:
+        labels = [0] * len(solution)
     layers = []
     state_ids = []
     for i, num in enumerate(states_num):
@@ -283,33 +304,14 @@ class AnimatedScatter(object):
 
 
 if __name__ == '__main__':
+
+    ###
+    # Scripts that run tsne on states and produce .json file for front-end rendering
+    ###
     data_name = 'ptb'
     model_name = 'LSTM-PTB'
     state_name = 'state_c'
     print('loading states...')
-
-    # print('calculating similarity')
-    # sim1 = cal_similar1(states_mat)
-    # cov = np.cov(states_mat)
-    # sims = [sim1, cov, sigmoid(sim1/100000)]
-    # sim1_path = '-'.join([data_name, model_name, state_name, '2', 'sim1']) + '.json'
-    # sim2_path = '-'.join([data_name, model_name, state_name, '2', 'cov']) + '.json'
-    # sim3_path = '-'.join([data_name, model_name, state_name, '2', 'sim1-sigmoid']) + '.json'
-    # print("max: {:f}, min: {:f}".format(np.max(sim1), np.min(sim1)))
-
-    # from rnnvis.utils.io_utils import dict2json
-    #
-    # for i, path in enumerate([sim1_path, sim2_path, sim3_path]):
-    #     dict2json(sims[i].tolist(), path)
-
-    # import matplotlib.pyplot as plt
-    # fig, axes = plt.subplots(ncols=2, figsize=(12, 6))
-    # axes[0].imshow(sims[0], extent=[0, 600, 0, 600])
-    # axes[1].imshow(sims[2], extent=[0, 600, 0, 600])
-    # plt.show(block=True)
-
-
-    import rnnvis.vendor.tsne as tsne
 
     sample = get_state_signature(data_name, model_name, state_name, None, 5000, 50)/10
 
@@ -318,7 +320,9 @@ if __name__ == '__main__':
     solution2json(solution, [600, 600], labels, get_path('_cached', 'tsne.json'))
     print("saved to tsne.json")
 
-
+    ###
+    # scripts that run t-sne animation
+    ###
     # print("doing tsne")
     # tsne_solver = tsne.TSNE(2, 40.0, 50)
     # tsne_solver.set_inputs(sample, 50)
