@@ -113,7 +113,7 @@ class Trainer(object):
         """
         if not isinstance(rnn_, rnn.RNN):
             raise TypeError("rnn should be instance of RNN")
-        self.model = rnn_.unroll(batch_size, num_steps, keep_prob, name="TrainModel")
+        self.model = rnn_.unroll(batch_size, num_steps, keep_prob, name='TrainModel')
         if callable(learning_rate):
             self.decay = learning_rate
         else:

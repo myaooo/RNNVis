@@ -254,6 +254,35 @@ class RNNModel(object):
         # do softmax
         return softmax(projected_outputs, axis=1)
 
+    def get_gate_tensor(self):
+        cell_type_name = type(self.cell._cells[0]).__name__
+        if cell_type_name == 'BasicRNNCell':
+            return None
+        with self.rnn.graph.as_default():
+            if cell_type_name == 'BasicLSTMCell':
+                head = "/".join([self.name, self.rnn.name, "RNN", "while", "MultiRNNCell", "Cell"])
+                gates = []
+                for j, cell in enumerate(self.cell._cells):
+                    # for BasicLSTM
+                    i = tf.get_default_graph().get_tensor_by_name(head + str(j) + "/" +
+                                                                  cell_type_name + "/split:0")
+                    f = tf.get_default_graph().get_tensor_by_name(head + str(j) + "/" +
+                                                                  cell_type_name + "/split:2")
+                    o = tf.get_default_graph().get_tensor_by_name(head + str(j) + "/" +
+                                                                  cell_type_name + "/split:3")
+                    gates.append((i, f, o))
+                return gates
+            elif cell_type_name == 'GRUCell':
+                head = "/".join([self.name, self.rnn.name, "RNN", "while", "MultiRNNCell", "Cell"])
+                gates = []
+                for j, cell in enumerate(self.cell._cells):
+                    # for GRUCell only needs forget gates
+                    gates.append(tf.get_default_graph().get_tensor_by_name(head + str(j) + "/" + cell_type_name +
+                                                                           "/Gates/Sigmoid_1:0"))
+                return gates
+            else:
+                raise TypeError("Unsupported Cell Type {:s}".format(cell_type_name))
+
 
 class RNN(object):
     """
@@ -466,17 +495,16 @@ class RNN(object):
         """
         assert self.evaluator is None
         with self.graph.as_default():
-            with tf.device("/cpu:0"):
-                self.evaluator = Evaluator(self, batch_size, num_steps, record_every, log_state,
-                                           log_input, log_output, log_gradients)
+            # with tf.device("/cpu:0"):
+            self.evaluator = Evaluator(self, batch_size, num_steps, record_every, log_state,
+                                       log_input, log_output, log_gradients)
 
     def add_generator(self, word_to_id=None):
         assert self.generator is None
         if word_to_id is not None:
             self.word_to_id = word_to_id
         with self.graph.as_default():
-            with tf.device("/cpu:0"):
-                self.generator = Generator(self)
+            self.generator = Generator(self)
 
     def train(self, inputs, targets, epoch_size, epoch_num, valid_inputs=None, valid_targets=None,
               valid_epoch_size=None, verbose=True, refresh_state=False):

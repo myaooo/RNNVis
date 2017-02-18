@@ -21,7 +21,7 @@ train:
   keep_prob: 0.5
   gradient_clip: global_norm
   gradient_clip_args:
-    clip_norm: 5.0
+    clip_norm: 3.0
   optimizer: Adam
-  learning_rate: 0.001 
+  learning_rate: 0.0005 
 

@@ -23,17 +23,17 @@ class Evaluator(object):
     """
 
     def __init__(self, rnn_, batch_size=1, num_steps=1, record_every=1, log_state=True, log_input=True, log_output=True,
-                 log_gradients=False):
+                 log_gradients=False, cal_salience=False):
         assert isinstance(rnn_, rnn.RNN)
         self._rnn = rnn_
         self.record_every = record_every
         self.log_state = log_state
         self.log_input = log_input
         self.log_output = log_output
-        self.model = rnn_.unroll(batch_size, num_steps, name='EvaluateModel')
+        self.model = rnn_.unroll(batch_size, num_steps, name='EvaluateModel{:d}'.format(len(rnn_.models)))
         summary_ops = defaultdict(list)
         if log_state:
-            for s in self.model.state:
+            for s in self.model.final_state:
                 # s is tuple
                 if isinstance(s, tf.nn.rnn_cell.LSTMStateTuple):
                     summary_ops['state_c'].append(s.c)
@@ -55,6 +55,24 @@ class Evaluator(object):
                                             # colocate_gradients_with_ops=True)
             summary_ops['inputs_gradients'] = inputs_gradients
         self.summary_ops = summary_ops
+
+        # adding salience computations
+        if cal_salience:
+            salience = defaultdict(list)
+            inputs = self.model.inputs
+            gates = self.model.get_gate_tensor()
+            for state in self.model.final_state:
+                if isinstance(state, tf.nn.rnn_cell.LSTMStateTuple):
+                    salience['state_c'].append(tf.gradients(state.c, inputs))
+                    salience['state_h'].append(tf.gradients(state.h, inputs))
+                else:
+                    salience['state'].append(tf.gradients(state, inputs))
+            if gates is None:
+                return
+            for gate in gates:
+                if isinstance(gate, tuple):  # LSTM gates are a tuple of (i, f, o)
+                    salience['gate_i'].append(tf.gradients(gate[0], ))
+
 
     def evaluate(self, sess, inputs, targets, input_size, verbose=True, refresh_state=False):
         """
@@ -126,7 +144,18 @@ class Evaluator(object):
                 recorder.record(message)
             if verbose and i % (input_size // 10) == 0 and i != 0:
                 print("[{:d}/{:d}] completed".format(i, input_size))
+        recorder.flush()
         print("Evaluation done!")
+
+    def cal_saliency(self, k):
+        """
+        Calculate the saliency matrix of states regarding inputs,
+        this should be called on a trained model for evaluation
+        (you can also call this on a just initialized one to compare)
+        :param k: the number of top frequent words you want to calculate
+        :return:
+        """
+
 
 
 class Recorder(object):
