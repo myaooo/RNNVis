@@ -3,32 +3,143 @@ import copy
 
 from py.utils.tree import TreeNode, Tree
 
+class XTree(object):
+    """"This class is just a wrap of class SuffixTree which provide both prefix and suffix
+    """
+    def __init__(self, data, sentence_delimiter='\n'):
+        self._data = data
+        self._prefix_data, self._suffix_data = self.data_preprocessing(
+            self._data, sentence_delimiter)
+
+        self._prefix_tree = SuffixTree(self._prefix_data)
+        self._suffix_tree = SuffixTree(self._suffix_data)
+
+
+    def fetch_prefix_suffix(self, gram):
+        if isinstance(gram, str):
+            gram = gram.split()
+        prefix_result = self._prefix_tree.search_suffix(list(reversed(gram)))
+        suffix_result = self._suffix_tree.search_suffix(gram)
+
+        return prefix_result, suffix_result
+
+    def data_preprocessing(self, data, sentence_delimiter='\n'):
+        """ Preprocess the raw data to produce prefix and suffix data
+        """
+        lines = data.split(sentence_delimiter)
+        prefix_data = []
+        for i, line in enumerate(lines):
+            words = line.split()
+            words = list(reversed(words))
+            words.append('<bos_' + str(i) + '>')
+            prefix_data.append(words)
+        suffix_data = []
+        for i, line in enumerate(lines):
+            words = line.split()
+            words.append('<eos_' + str(i) + '>')
+            suffix_data.append(words)
+
+        return prefix_data, suffix_data
 
 class SuffixTree(Tree):
     """This class is used to construct suffix tree
     """
 
-    def __init__(self, dataset, sentence_delimiter='\n'):
+    def __init__(self, data):
         Tree.__init__(self)
         root_node = SuffixTreeNode(data=[])
         self.add_node(root_node)
         self._root = self.get_root()
-        self._dataset = dataset
-        self._sentence_delimiter = sentence_delimiter
+        self._data = data
+
         self._leaves = set()
         self._status = None
+        self._remainder = 0
+        self._previous_node_added = None
+        self._reverse_suffix_links = {}
+        self._tmp_str = None
 
-    def construct(self, data, sentence_delimiter='\n'):
-        """Construct suffix tree
-        """
-        lines = data.split(sentence_delimiter)
-        for line in lines:
+        self.construct(self._data)
+        self._tree_dict = self.to_dict(self.get_root())
+
+    def construct(self, data):
+        for i, line in enumerate(data):
+            self._status = {'active_node': self._root,
+                            'active_edge': None,
+                            'active_length': 0
+                            }
+            self._leaves = set()
+            self._remainder = 0
+
+            for j, word in enumerate(line):
+                for leaf in self._leaves:
+                    self.get_node(leaf).append_suffix(word)
+                self._remainder += 1
+                self.add_to_tree(j, line)
+                self._previous_node_added = None
+                self._tmp_str = self.tree_str(self.get_root())
+            print(self.to_dict(self.get_root()))
+
+
+    def construct_1(self, sentence_delimiter='\n'):
+        lines = self._data.split(sentence_delimiter)
+        for i, line in enumerate(lines):
             words = line.split()
-            words.append('$')
-            suffixes = [words[i:] for i in range(len(words))]
-            for suffix in suffixes:
-                # insert_suffix(suffix)
-                pass
+            words = list(reversed(words))
+            words.append('<bos_' + str(i) + '>')
+            self._status = {'active_node': self._root,
+                            'active_edge': None,
+                            'active_length': 0
+                            }
+            self._leaves = set()
+            self._remainder = 0
+            self._previous_node_added = None
+
+            for j, word in enumerate(words):
+                for leaf in self._leaves:
+                    leaf_node = self.get_node(leaf)
+                    leaf_node.append_suffix(word)
+                self._remainder += 1
+                self.add_to_tree(j, words)
+                self._previous_node_added = None
+                self._tmp_str = self.tree_str(self.get_root())
+            # result = self.add_sentence(words)
+            print(self._tmp_str)
+        # print(result)
+
+    def search_suffix(self, gram):
+        if isinstance(gram, str):
+            gram = gram.split()
+        gram_node, position = self.find_node(self.get_root(), gram)
+        if position < 0:
+            return None
+        tree_dict = self.to_dict(gram_node)
+        tree_dict['data'] = ' '.join(gram_node.data[position:])
+        return tree_dict
+
+    def to_dict(self, node):
+        node_info = {}
+        node_info['data'] = ' '.join(node.data) if not node.is_root() else '#root#'
+        node_info['children'] = []
+        for child_id in node.children_id:
+            child_node = self.get_node(child_id)
+            node_info['children'].append(self.to_dict(child_node))
+        return node_info
+
+
+    def find_node(self, start_node, gram):
+        if not start_node.children_prefix(gram[0]):
+            return start_node, -1
+
+        edge = self.get_node(start_node.children_prefix(gram[0]))
+        for i in range(min(len(gram), len(edge.data))):
+            if gram[i] != edge.data[i]:
+                return start_node, -1
+        i += 1
+        if i == len(gram):
+            return edge, i
+        elif i == len(edge.data):
+            return self.find_node(edge, gram[i:])
 
     def tree_str(self, node):
         if len(node.children_id) < 1:
@@ -38,7 +149,6 @@ class SuffixTree(Tree):
             strs.append(self.tree_str(self.get_node(child_id)))
         key_ = ' '.join(node.data) if not node.is_root() else 'root'
         return {key_: strs}
-
 
     def add_node(self, node, parent=None):
         if not isinstance(node, TreeNode):
@@ -58,168 +168,111 @@ class SuffixTree(Tree):
             node.parent_id = parent.id
         self._dict[node.id] = node
 
-    def add_to_root(self, status):
+    def add_to_tree(self, i, words):
+        if self._remainder == 0:
+            return
 
-    def add_sentence(self, words):
-        # current_position = -1
-        status = {'active_node': self._root,
-                  'active_edge': None,
-                  'active_length': 0
-                  }
-        leaves = set()
-        remainder = 0
-        previous_node_added = None
+        # word = words[i]
+        # if self._status['active_node'].is_root():
+        #     tmp_word = words[i - self._remainder + 1]
+        # else:
+        #     tmp_word = words[i - self._status['active_length']]
+        word = words[i - self._remainder + 1] if self._status['active_node'].is_root() else \
+            words[i - self._status['active_length']]
+        if self._status['active_edge'] is None:
+            if not self._status['active_node'].children_prefix(word):
+                node = SuffixTreeNode(data=[word])
+                self.add_node(node, parent=self._status['active_node'])
+                self._leaves.add(node.id)
+                self._remainder -= 1
+                if not self._status['active_node'].is_root():
+                    self._status['active_node'] = self.get_node(
+                        self._status['active_node'].suffix_link) if \
+                        self._status['active_node'].suffix_link else self.get_root()
+                    # if self._previous_node_added is not None:
+                    #     self._previous_node_added.suffix_link = node.id
+                    # self._previous_node_added = node
+                    self._previous_node_added = None
+                    self.add_to_tree(i, words)
 
-        for i, word in enumerate(words):
-            remainder += 1
-            active_node = status['active_node']
-            for leaf in leaves:
-                leaf_node = self.get_node(leaf)
-                leaf_node.append_suffix(word)
-
-            if active_node.is_root():
-                if status['active_edge'] is None:
-                    if not active_node.children_prefix(word):
-                        node = SuffixTreeNode(data=[word])
-                        self.add_node(node, parent=self.root_id)
-                        leaves.add(node.id)
-                        remainder -= 1
-                    else:
-                        edge_node_id = active_node.children_prefix(word)
-                        edge_node = self.get_node(edge_node_id)
-                        status['active_edge'] = edge_node
-                        status['active_length'] += 1
-
-                else:
-                    active_edge_words = status['active_edge'].data
-                    if active_edge_words[status['active_length']] != word:
-                        for j in range(remainder):
-                            new_node = SuffixTreeNode(data=[word, ])
-                            if status['active_edge'] is not None:
-                                # split the node
-                                status['active_node'].remove_child(status['active_edge'])
-                                other_node = copy.deepcopy(status['active_edge'])
-                                # other_node.parent_id = status['active_edge'].id
-                                other_node.data = status['active_edge'].data[status['active_length']:]
-                                status['active_edge'].data = status['active_edge'].data[:status['active_length']]
-                                other_node.clean_suffix_link()
-                                # if status['active_edge'].id in leaves:
-                                #     leaves.remove(status['active_edge'].id)
-                                #     leaves.add(other_node.id)
-                                status['active_edge'].delete_all_children()
-                                status['active_edge'].id = uuid.uuid1().hex
-                                other_node.parent_id = status['active_edge'].id
-
-                                self._dict[other_node.id] = other_node
-                                status['active_edge'].add_child(other_node)
-
-                                self.add_node(status['active_edge'], parent=status['active_node'])
-                                if previous_node_added is not None:
-                                    previous_node_added.suffix_link = status['active_edge'].id
-                                previous_node_added = status['active_edge']
-                                # self.add_node(other_node, parent=status['active_edge'])
-                                self.add_node(new_node, parent=status['active_edge'])
-                                leaves.add(new_node.id)
-                                remainder -= 1
-                                if status['active_node'].children_prefix(words[i - remainder + 1]):
-                                    status['active_edge'] = self.get_node(
-                                        status['active_node'].children_prefix(words[i - remainder + 1]))
-                                else:
-                                    status['active_edge'] = None
-
-                                status['active_length'] -= 1
-                            else:
-                                assert remainder == 1
-                                node = SuffixTreeNode(data=[word])
-                                self.add_node(node, parent=status['active_node'])
-                                leaves.add(node.id)
-                                remainder -= 1
-
-                    else:
-                        status['active_length'] += 1
-                        if status['active_length'] == len(active_edge_words):
-                            # TODO
-                            # active_node changed
-                            status['active_node'] = status['active_edge']
-                            status['active_edge'] = None
-                            status['active_length'] = 0
             else:
-                if status['active_edge'] is None:
-                    if not active_node.children_prefix(word):
-                        while status['active_node']:
-                            node = SuffixTreeNode(data=[word])
-                            self.add_node(node, parent=status['active_node'].id)
-                            leaves.add(node.id)
-                            remainder -= 1
-                            status['active_node'] = self.get_node(status['active_node'].suffix_link)
-                        status['active_node'] = self.get_root()
-                        node = SuffixTreeNode(data=[word])
-                        self.add_node(node, parent=status['active_node'].id)
-                        leaves.add(node.id)
-                        remainder -= 1
-                    else:
-                        edge_node_id = active_node.children_prefix(word)
-                        edge_node = self.get_node(edge_node_id)
-                        status['active_edge'] = edge_node
-                        status['active_length'] += 1
-                else:
-                    active_edge_words = status['active_edge'].data
-                    if active_edge_words[status['active_length']] != word:
-                        while not status['active_node'].is_root():
-                            new_node = SuffixTreeNode(data=[word, ])
-                            # split the node
-                            status['active_node'].remove_child(status['active_edge'])
-                            other_node = copy.deepcopy(status['active_edge'])
-                            # other_node.parent_id = status['active_edge'].id
-                            other_node.data = status['active_edge'].data[status['active_length']:]
-                            status['active_edge'].data = status['active_edge'].data[:status['active_length']]
-                            other_node.clean_suffix_link()
-                            # if status['active_edge'].id in leaves:
-                            #     leaves.remove(status['active_edge'].id)
-                            #     leaves.add(other_node.id)
-                            status['active_edge'].delete_all_children()
-                            status['active_edge'].id = uuid.uuid1().hex
-                            other_node.parent_id = status['active_edge'].id
-                            self._dict[other_node.id] = other_node
+                edge_node_id = self._status['active_node'].children_prefix(words[i - self._status['active_length']])
+                edge_node = self.get_node(edge_node_id)
+                self._status['active_edge'] = edge_node
+                self._status['active_length'] = 0
+                counter = 0
+                while counter+1 <= self._remainder and self._status['active_edge'] and self._status['active_edge'].data[
+                    self._status['active_length']] == words[i - self._remainder + counter + 1]:
 
-                            status['active_edge'].add_child(other_node)
+                    self._status['active_length'] += 1
+                    counter += 1
+                    if len(self._status['active_edge'].data) == self._status['active_length']:
+                        self._status['active_node'] = self._status['active_edge']
+                        self._status['active_edge'] = self._status['active_node'].children_prefix(
+                            words[i - self._remainder + counter + 2]) if counter+2 <= self._remainder else None
+                        self._status['active_length'] = 0
 
-                            self.add_node(status['active_edge'], parent=status['active_node'])
-                            if previous_node_added is not None:
-                                previous_node_added.suffix_link = status['active_edge'].id
-                            previous_node_added = status['active_edge']
-                            self.add_node(new_node, parent=status['active_edge'])
-                            leaves.add(new_node.id)
-                            remainder -= 1
-                            if status['active_node'] == self.get_root():
-                                status['active_node'] = None
-                            else:
-                                status['active_node'] = self.get_node(
-                                    status['active_node'].suffix_link) if \
-                                    status['active_node'].suffix_link else self.get_root()
-                                new_edge_id = status['active_node'].children_prefix(
-                                    status['active_edge'].first_element())
-                                status['active_edge'] = self.get_node(new_edge_id) if new_edge_id else None
-                        # assert remainder == 1
-                        node = SuffixTreeNode(data=[word])
-                        self.add_node(node, parent=status['active_node'])
-                        leaves.add(node.id)
-                        remainder -= 1
-                    else:
-                        status['active_length'] += 1
-                        if status['active_length'] == len(active_edge_words):
-                            # TODO
-                            # active_node changed
-                            status['active_node'] = status['active_edge']
-                            status['active_edge'] = None
-                            status['active_length'] = 0
-                        else:
-                            status['active_length'] += 1
-            tmp_str = self.tree_str(self.get_root())
-            previous_node_added = None
+                if counter == self._remainder:
+                    # contain all infomation
+                    return
+                self.add_to_tree(i, words)
 
-            # def process(self, index, status, remainder):
+        elif self._status['active_edge'].data[self._status['active_length']] == word:
+            self._status['active_length'] += 1
+            if len(self._status['active_edge'].data) == self._status['active_length']:
+                self._status['active_node'] = self._status['active_edge']
+                self._status['active_edge'] = None
+                self._status['active_length'] = 0
 
+        elif self._status['active_edge'].data[self._status['active_length']] != word:
+            new_node = SuffixTreeNode(data=[word])
+            other_node = self.split_node(self._status['active_edge'], self._status['active_length'])
+            self.add_node(new_node, self._status['active_edge'])
+            self.add_node(other_node, self._status['active_edge'])
+            self._leaves.add(new_node.id)
+
+            if self._previous_node_added is not None:
+                self._previous_node_added.suffix_link = self._status['active_edge'].id
+            self._previous_node_added = self._status['active_edge']
+
+            self._remainder -= 1
+
+            # update active node and active edge
+            if self._status['active_node'].is_root():
+                self._status['active_length'] -= 1
+                edge_node_id = self._status['active_node'].children_prefix(words[i - self._status['active_length']])
+                self._status['active_edge'] = self.get_node(edge_node_id) if edge_node_id else None
+                while self._status['active_edge'] and self._status['active_length'] >= len(self._status['active_edge'].data):
+                    self._status['active_node'] = self._status['active_edge']
+                    self._status['active_length'] -= len(self._status['active_edge'].data)
+                    edge_node_id = self._status['active_node'].children_prefix(words[i - self._status['active_length']])
+                    self._status['active_edge'] = self.get_node(edge_node_id) if edge_node_id else None
+
+                self.add_to_tree(i, words)
+            elif self._status['active_node'].suffix_link:
+                self._status['active_node'] = self.get_node(
+                    self._status['active_node'].suffix_link)
+                edge_node_id = self._status['active_node'].children_prefix(words[i - self._status['active_length']])
+                self._status['active_edge'] = self.get_node(edge_node_id)
+                self.add_to_tree(i, words)
+            else:
+                self._status['active_node'] = self.get_root()
+                self._status['active_edge'] = None
+                self.add_to_tree(i, words)
+
+    def split_node(self, node, position):
+        new_node = SuffixTreeNode(data=node.data[position:])
+        node.data = node.data[:position]
+        for child_id in node.children_id:
+            child_node = self.get_node(child_id)
+            child_node.parent_id = new_node.id
+        new_node.children_id = node.children_id
+        new_node.child_prefix_dict = node.child_prefix_dict
+        node.delete_all_children()
+        if node.id in self._leaves:
+            self._leaves.remove(node.id)
+            self._leaves.add(new_node.id)
+        return new_node
 
 class SuffixTreeNode(TreeNode):
     '''Suffix tree node class, inherit from TreeNode
@@ -234,8 +287,8 @@ class SuffixTreeNode(TreeNode):
         self._suffix_link = None
 
     def first_element(self):
-        '''Return the first element of node data
-        '''
+        """Return the first element of node data
+        """
         if not isinstance(self._data, list):
             raise ValueError('The node data should be a list of words')
         if len(self._data) < 1:
@@ -256,22 +309,22 @@ class SuffixTreeNode(TreeNode):
         self._child_prefix_dict = {}
         self._children_id = set()
 
-    def clean_suffix_link(self):
-        self._suffix_link = None
-
-    def change_child(self, old_child, new_child):
-        if old_child == new_child:
-            return
-        self._child_prefix_dict[new_child.child_node.first_element()] = new_child.id
-        self._children_id.remove(old_child.id)
-        self._children_id.add(new_child.id)
-
-    def remove_child(self, child):
-        self._child_prefix_dict[child.first_element()] = None
-        self._children_id.remove(child.id)
+    @property
+    def child_prefix_dict(self):
+        return self._child_prefix_dict
 
 
+    @child_prefix_dict.setter
+    def child_prefix_dict(self, dict_):
+        self._child_prefix_dict = dict_
 
+    @property
+    def children_id(self):
+        return self._children_id
+
+    @children_id.setter
+    def children_id(self, children_id_):
+        self._children_id = children_id_
 
     @property
     def child_prefix(self):
