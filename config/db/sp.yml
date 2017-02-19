@@ -1,0 +1,21 @@
+datasets:
+  # Datasets and path configurations. Used for initializing the db
+  # The default base dir for all datasets is under cached_data/
+  - name: sst
+    type: sst
+    dir: stanfordSentimentTreebank
+    scheme:
+      split_scheme:
+        train: 0.9
+        valid: 0.05
+        test: 0.05
+  - name: imdb
+    type: imdb
+    dir: imdb
+    scheme:
+      n_words: 100000
+  - name: imdb-small
+    type: imdb
+    dir: imdb
+    scheme:
+      n_words: 10000
