@@ -1,7 +1,5 @@
 from py.data_preprocessing.suffix import XTree
-import sys
 import uuid
-import time
 
 
 # for backup
@@ -355,13 +353,9 @@ def construct_prefix(self, sentence_delimiter='\n'):
 
 if __name__ == '__main__':
     test_data = 'a b c a b x a b c d\na b c d e f g\na b e g i a\ne c d a c b i'
-    # test_data = 'e c d a c b i'
-    # test_data = 'a b c'
     xtree = XTree(test_data)
     prefix_result, suffix_result = xtree.fetch_prefix_suffix('a b')
     print(prefix_result)
     print(suffix_result)
 
-    # print(xtree.construct())
-    # print(stree.add_sentence(test_data_2))
 
