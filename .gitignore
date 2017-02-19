@@ -3,6 +3,8 @@
 cached_data/stanfordSentimentTreebank
 *.log
 *.pyc
+.vscode
+launch.json
 models
 
 .Python
