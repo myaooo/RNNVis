@@ -24,12 +24,16 @@ if __name__ == '__main__':
     # test_data = datasets['test']
 
     model, train_config = build_model(config_path(), True)
-    model.add_evaluator(10, 1, 1, True, True, False, False)
-
-    print('Preparing data')
-    producers = pour_data(train_config.dataset, ['test'], 10, 1)
-    inputs, targets, epoch_size = producers[0]
+    # model.add_evaluator(10, 1, 1, True, True, False, False);
+    model.add_evaluator(1, 1, 1, True, True, False, False, log_gates=False, cal_salience=True)
     model.restore()
 
-    model.run_with_context(model.evaluator.evaluate_and_record, inputs, targets,
-                           StateRecorder(train_config.dataset, model.name, 500), verbose=True)
+    # scripts that eval and record states
+    if False:
+        print('Preparing data')
+        producers = pour_data(train_config.dataset, ['test'], 10, 1)
+        inputs, targets, epoch_size = producers[0]
+        model.run_with_context(model.evaluator.evaluate_and_record, inputs, targets,
+                               StateRecorder(train_config.dataset, model.name, 500), verbose=True)
+
+    salience = model.run_with_context(model.evaluator.cal_saliency, 10)

@@ -23,7 +23,7 @@ class Evaluator(object):
     """
 
     def __init__(self, rnn_, batch_size=1, num_steps=1, record_every=1, log_state=True, log_input=True, log_output=True,
-                 log_gradients=False, cal_salience=False):
+                 log_gradients=False, log_gates=False, cal_salience=False):
         assert isinstance(rnn_, rnn.RNN)
         self._rnn = rnn_
         self.record_every = record_every
@@ -54,25 +54,23 @@ class Evaluator(object):
             inputs_gradients = tf.gradients(self.model.loss, self.model.inputs)  #,
                                             # colocate_gradients_with_ops=True)
             summary_ops['inputs_gradients'] = inputs_gradients
+        if log_gates:
+            gates = self.model.get_gate_tensor()
+            if gates is None:
+                print("WARN: No gates tensor available, Are you using RNN?")
+            else:
+                inputs = self.model.inputs
+                for gate in gates:
+                    if isinstance(gate, tuple):  # LSTM gates are a tuple of (i, f, o)
+                        summary_ops['gate_i'].append(tf.gradients(gate[0], inputs))
+                        summary_ops['gate_f'].append(tf.gradients(gate[1], inputs))
+                        summary_ops['gate_o'].append(tf.gradients(gate[2], inputs))
+                    else: # GRU only got one gate z
+                        summary_ops['gate'].append(tf.gradients(gate, inputs))
         self.summary_ops = summary_ops
 
         # adding salience computations
-        if cal_salience:
-            salience = defaultdict(list)
-            inputs = self.model.inputs
-            gates = self.model.get_gate_tensor()
-            for state in self.model.final_state:
-                if isinstance(state, tf.nn.rnn_cell.LSTMStateTuple):
-                    salience['state_c'].append(tf.gradients(state.c, inputs))
-                    salience['state_h'].append(tf.gradients(state.h, inputs))
-                else:
-                    salience['state'].append(tf.gradients(state, inputs))
-            if gates is None:
-                return
-            for gate in gates:
-                if isinstance(gate, tuple):  # LSTM gates are a tuple of (i, f, o)
-                    salience['gate_i'].append(tf.gradients(gate[0], ))
-
+        self.salience = self._init_salience_ops() if cal_salience else None
 
     def evaluate(self, sess, inputs, targets, input_size, verbose=True, refresh_state=False):
         """
@@ -103,7 +101,7 @@ class Evaluator(object):
         loss /= (input_size * self.record_every)
         acc /= (input_size * self.record_every)
         if verbose:
-            print("Evaluate Summary: acc-1: {:.4f}, avg loss:{:.4f}".format(acc, loss))
+            print("Evaluate Summary: acc-1: {:.4f}, avg loss:{:.4f}".format(acc, loss), flush=True)
 
     def evaluate_and_record(self, sess, inputs, targets, recorder, verbose=True, refresh_state=False):
         """
@@ -143,11 +141,11 @@ class Evaluator(object):
             for message in messages:
                 recorder.record(message)
             if verbose and i % (input_size // 10) == 0 and i != 0:
-                print("[{:d}/{:d}] completed".format(i, input_size))
+                print("[{:d}/{:d}] completed".format(i, input_size), flush=True)
         recorder.flush()
         print("Evaluation done!")
 
-    def cal_saliency(self, k):
+    def cal_saliency(self, sess, k):
         """
         Calculate the saliency matrix of states regarding inputs,
         this should be called on a trained model for evaluation
@@ -155,7 +153,30 @@ class Evaluator(object):
         :param k: the number of top frequent words you want to calculate
         :return:
         """
+        if self.salience is None:
+            raise ValueError("No salience ops available!")
+        results = sess.run(self.salience)
+        return results
 
+    def _init_salience_ops(self):
+        salience = defaultdict(list)
+        inputs = self.model.inputs
+        gates = self.model.get_gate_tensor()
+        for state in self.model.final_state:
+            if isinstance(state, tf.nn.rnn_cell.LSTMStateTuple):
+                salience['state_c'].append(tf.gradients(state.c, inputs))
+                salience['state_h'].append(tf.gradients(state.h, inputs))
+            else:
+                salience['state'].append(tf.gradients(state, inputs))
+        if gates is not None:
+            for gate in gates:
+                if isinstance(gate, tuple):  # LSTM gates are a tuple of (i, f, o)
+                    salience['gate_i'].append(tf.gradients(gate[0], inputs))
+                    salience['gate_f'].append(tf.gradients(gate[1], inputs))
+                    salience['gate_o'].append(tf.gradients(gate[2], inputs))
+                else:
+                    salience['gate'].append(tf.gradients(gate, inputs))
+        return salience
 
 
 class Recorder(object):

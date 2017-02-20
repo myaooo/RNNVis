@@ -7,6 +7,11 @@ let getProjectionData = function () {
   return require('../assets/tsne-test.json')
 }
 
+let getStrengthData = function () {
+  return require('../assets/strength-200.json')
+}
+
 export default {
-  getProjectionData
+  getProjectionData,
+  getStrengthData
 }
