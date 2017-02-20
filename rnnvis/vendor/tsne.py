@@ -1,5 +1,5 @@
 #
-#  Code borrowed from Laurens van der Maaten with minor changes to adapt python 3
+#  Code changed from Laurens van der Maaten
 #
 
 import numpy as np
@@ -74,89 +74,132 @@ def x2p(X = np.array([]), tol = 1e-5, perplexity = 30.0):
     return P
 
 
-def pca(X = np.array([]), no_dims = 50):
+def pca(X, no_dims=50):
     """Runs PCA on the NxD array X in order to reduce its dimensionality to no_dims dimensions."""
 
-    print("Preprocessing the data using PCA...")
-    (n, d) = X.shape
-    X = X - np.tile(np.mean(X, 0), (n, 1))
-    (l, M) = np.linalg.eig(np.dot(X.T, X))
+    X = X - np.mean(X, 0)
+    (l, M) = np.linalg.eig(np.dot(X.T, X)/X.shape[0])
     Y = np.dot(X, M[:, 0:no_dims])
-    return Y
+    l = l.real
+    variance = sum(l[:no_dims]) / sum(l)
+    return Y.real, variance
 
 
-def tsne(X = np.array([]), no_dims = 2, initial_dims = 50, perplexity = 30.0, max_iter=100):
-    """Runs t-SNE on the dataset in the NxD array X to reduce its dimensionality to no_dims dimensions.
-    The syntaxis of the function is Y = tsne.tsne(X, no_dims, perplexity), where X is an NxD NumPy array."""
+class TSNE(object):
+    """
+    A wrapper class for tsne
+    """
+    MIN_GAIN = 0.01
 
-    # Check inputs
-    if isinstance(no_dims, float):
-        print("Error: array X should have type float.")
-        return -1
-    if round(no_dims) != no_dims:
-        print("Error: number of dimensions should be an integer.")
-        return -1
+    def __init__(self, n_dims, perplexity, lr=50):
+        self.n_dims = int(n_dims)
+        self.perplexity = perplexity
+        self.init_dims = 50
+        self.lr = lr
+        self.X = None
+        self.Y = None
+        self.iter = 0
+        self.best_error = np.inf
+        self.best_sol = None
+        self.P = None
+        self.iY = None
+        self.dY = None
+        self.gains = None
 
-    # Initialize variables
-    if X.shape[1] != initial_dims:
-        X = pca(X, initial_dims).real
-    (n, d) = X.shape
-    eta = 50
-    min_gain = 0.01
-    Y = np.random.randn(n, no_dims)
-    dY = np.zeros((n, no_dims))
-    iY = np.zeros((n, no_dims))
-    gains = np.ones((n, no_dims))
+    def set_inputs(self, X, init_dims=50):
+        """
+        Set the inputs data
+        :param X: 2D np.ndarray, shaped (instance_num, feature_size)
+        :param init_dims: pca X into a smaller dimension for speed
+        :return: None
+        """
+        self.init_dims = init_dims
+        self.X = X
+        self.run_init()
 
-    # Compute P-values
-    P = x2p(X, 1e-5, perplexity)
-    P += np.transpose(P)
-    P /= np.sum(P)
-    P *= 4
-    # early exaggeration
-    P = np.maximum(P, 1e-12)
-    Ys = []
-    # Run iterations
-    for iter in range(max_iter):
+    def run_init(self):
+        # Initialize X
+        if self.X.shape[1] != self.init_dims:
+            print("doing PCA...")
+            self.X, variance = pca(self.X, self.init_dims)
+            print('PCA kept {:f}% of variance'.format(variance*100))
+        self.Y = np.random.randn(*(self.sol_shape))
+        # Compute P-values
+        P = x2p(self.X, 1e-5, self.perplexity)
+        P += np.transpose(P)
+        P /= np.sum(P) * 0.25
+        self.P = np.maximum(P, 1e-12)
+        self.dY = np.zeros(self.sol_shape)
+        self.iY = np.zeros(self.sol_shape)
+        self.gains = np.ones(self.sol_shape)
 
-        # Compute pairwise affinities
+    def run(self, max_iter=1000, record=False):
+        Ys = []
+        for i in range(max_iter):
+            cost = self.step(1)
+            if (i+1) % 10 == 0:
+                print("iteration {:d}/{:d}, error: {:f}".format(i+1, max_iter, cost))
+                if record:
+                    Ys.append(self.get_solution())
+        return Ys
+
+    def step(self, n=10, lr=None):
+
+        lr = self.lr if lr is None else lr
+        cost = None
+        for i in range(n):
+            # Compute pairwise affinities
+            cost, dY = self.cost_gradient(self.Y)
+            if cost < self.best_error:
+                self.best_error = cost
+                self.best_sol = self.Y
+            # Perform the update
+            self.gains = (self.gains + 0.2) * ((dY > 0) != (self.iY > 0)) + (self.gains * 0.8) * ((dY > 0) == (self.iY > 0))
+            self.gains[self.gains < self.MIN_GAIN] = self.MIN_GAIN
+            self.iY = self.momentum * self.iY - lr * (self.gains * dY)
+            Y = self.Y + self.iY
+            self.Y = Y - np.tile(np.mean(Y, 0), (self.n_points, 1))
+
+            self.iter += 1
+        return cost
+
+    def cost_gradient(self, Y):
+        """
+        calculate cost(error) and gradients of given Y
+        :param Y: self.Y
+        :return: a pair (cost, gradient)
+        """
+        n = self.n_points
+        P = self.P
+        if self.iter == 100:
+            self.P /= 4
         sum_Y = np.sum(np.square(Y), 1)
         num = 1 / (1 + np.add(np.add(-2 * np.dot(Y, Y.T), sum_Y).T, sum_Y))
         num[range(n), range(n)] = 0
         Q = num / np.sum(num)
         Q = np.maximum(Q, 1e-12)
-
         # Compute gradient
         PQ = P - Q
+        dY = np.zeros(self.sol_shape)
         for i in range(n):
-            dY[i, :] = np.sum(np.tile(PQ[:, i] * num[:, i], (no_dims, 1)).T * (Y[i, :] - Y), 0)
+            dY[i, :] = np.sum(np.tile(PQ[:, i] * num[:, i], (self.n_dims, 1)).T * (Y[i, :] - Y), 0)
+        cost = np.sum(P * np.log(P / Q))
+        return cost, dY
 
-        # Perform the update
-        momentum = 0.4 if iter < 250 else 0.5
-        gains = (gains + 0.2) * ((dY > 0) != (iY > 0)) + (gains * 0.8) * ((dY > 0) == (iY > 0))
-        gains[gains < min_gain] = min_gain
-        iY = momentum * iY - eta * (gains * dY)
-        Y = Y + iY
-        Y = Y - np.tile(np.mean(Y, 0), (n, 1))
+    @property
+    def momentum(self):
+        return 0.5 if self.iter < 250 else 0.7
 
-        # Compute current value of cost function
-        if (iter + 1) % 10 == 0:
-            C = np.sum(P * np.log(P / Q))
-            print("Iteration ", (iter + 1), ": error is ", C)
-            Ys.append(Y)
-        # Stop lying about P-values
-        if iter == 100:
-            P /= 4
+    @property
+    def sol_shape(self):
+        return self.X.shape[0], self.n_dims
 
-    # Return solution
-    return Ys
+    @property
+    def n_points(self):
+        return self.X.shape[0]
 
+    def get_solution(self):
+        return self.Y
 
-if __name__ == "__main__":
-    print("Run Y = tsne.tsne(X, no_dims, perplexity) to perform t-SNE on your dataset.")
-    print("Running example on 2,500 MNIST digits...")
-    X = np.loadtxt("mnist2500_X.txt")
-    labels = np.loadtxt("mnist2500_labels.txt")
-    Y = tsne(X, 2, 50, 20.0, 10)
-    plt.scatter(Y[:, 0], Y[:, 1], 20, labels)
-    plt.show()
+    def get_best_solution(self):
+        return self.best_sol

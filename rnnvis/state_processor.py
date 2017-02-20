@@ -1,5 +1,6 @@
 """
 Helpers that deal with all the computations related to hidden states
+For example usage, see the main function below
 """
 
 import pickle
@@ -11,10 +12,17 @@ import matplotlib.pyplot as plt
 
 from rnnvis.db import get_dataset
 from rnnvis.db.language_model import query_evals, query_evaluation_records
-from rnnvis.utils.io_utils import file_exists, get_path
+from rnnvis.utils.io_utils import file_exists, get_path, dict2json
+from rnnvis.vendor import tsne
 
 
 def cal_diff(arrays):
+    """
+    Given a list of same shape ndarray or an ndarray,
+    calculate the difference a_t - a_{t-1} along the axis 0
+    :param arrays: a list of same shaped ndarray or an ndarray
+    :return: a list of diff
+    """
     diff_arrays = []
     for i in range(len(arrays)-1):
         diff_arrays.append(arrays[i+1] - arrays[i])
@@ -68,7 +76,7 @@ def fetch_states(data_name, model_name, field_name='state_c', diff=True):
     :return: a pair (word_id, states)
     """
     evals = query_evals(data_name, model_name)
-    if evals is None:
+    if evals.count() == 0:
         raise LookupError("No eval records with data_name: {:s} and model_name: {:s}".format(data_name, model_name))
     word_ids = []
     states = []
@@ -89,7 +97,7 @@ def sort_by_id(word_ids, states):
     return id_to_states
 
 
-def compute_stats(states, sort_by_mean=True):
+def compute_stats(states, sort_by_mean=True, percent=50):
     layer_num = states[0].shape[0]
     states_layer_wise = []
     stds = []
@@ -103,8 +111,10 @@ def compute_stats(states, sort_by_mean=True):
         states_mat = np.vstack(state_list)
         std = np.std(states_mat, axis=0)
         mean = np.mean(states_mat, axis=0)
-        error_l = mean-np.min(states_mat, axis=0)
-        error_u = np.max(states_mat, axis=0)-mean
+        # error_l = mean-np.min(states_mat, axis=0)
+        # error_u = np.max(states_mat, axis=0)-mean
+        error_l = mean - np.percentile(states_mat, (100-percent)/2, axis=0)
+        error_u = np.percentile(states_mat, 50 + percent/2, axis=0) - mean
         if sort_by_mean:
             idx = np.argsort(mean)
             mean = mean[idx]
@@ -117,7 +127,7 @@ def compute_stats(states, sort_by_mean=True):
         errors_l.append(error_l)
         errors_u.append(error_u)
         states_layer_wise.append(states_mat)
-    return stds, means, errors_l, errors_u, indices
+    return means, stds, errors_l, errors_u, indices
 
 
 def fetch_freq_words(data_name, k=100):
@@ -140,6 +150,90 @@ def load_words_and_state(data_name, model_name, state_name, diff=True):
         with open(get_path('_cached', states_file), 'wb') as f:
             pickle.dump(states, f)
     return words, states
+
+
+def get_state_signature(data_name, model_name, state_name, layer=None, sample_size=5000, dim=50):
+    """
+
+    :param data_name: str
+    :param model_name: str
+    :param state_name: str
+    :param layer: start from 0
+    :param sample_size:
+    :param dim:
+    :return:
+    """
+    layer_str = 'all' if layer is None else ''.join([str(l) for l in layer])
+    file_name = '-'.join([data_name, model_name, state_name, 'all' if layer is None else layer_str,
+                          str(sample_size), str(dim)]) + '.pkl'
+    if file_exists(file_name):
+        print("sampling")
+        with open(file_name, 'rb') as f:
+            sample = pickle.load(f)
+    else:
+        words, states = load_words_and_state(data_name, model_name, state_name, diff=False)
+        layer = layer if layer is not None else list(range(states[0].shape[0]))
+        state_layers = []
+        for l in layer:
+            state_layers.append([state[l, :] for state in states])
+        states_mat = np.hstack(state_layers).T
+        # if layer is None:
+        #     states1 = [state[0, :] for state in states]
+        #     states2 = [state[1, :] for state in states]
+        #     states_mat = np.hstack([np.vstack(states1), np.vstack(states2)]).T
+        # else:
+        #     states = [state[i, :] for state in states]
+        #     states_mat = np.vstack(states).T
+        print("sampling")
+        sample_idx = np.random.randint(0, states_mat.shape[1], sample_size)
+        sample = states_mat[:, sample_idx]
+        print("doing PCA...")
+        sample, variance = tsne.pca(sample, dim)
+        print("PCA kept {:f}% of variance".format(variance*100))
+        with open(file_name, 'wb') as f:
+            pickle.dump(sample, f)
+    return sample
+
+
+def tsne_project(data, perplexity, init_dim=50, lr=50, max_iter=1000):
+    """
+    Do t-SNE projection with given configuration
+    :param data: 2D numpy.ndarray of shape [n_data, feature_dim]
+    :param perplexity:
+    :param init_dim: in case feature size too large, do PCA to reduce feature dim if needed
+    :param lr: learning rate
+    :param max_iter: the max iterations to run
+    :return: the best solution in the run
+    """
+    _tsne_solver = tsne.TSNE(2, perplexity, lr)
+    _tsne_solver.set_inputs(data, init_dim)
+    _tsne_solver.run(max_iter)
+    return _tsne_solver.get_best_solution()
+
+
+def solution2json(solution, states_num, labels=None, path=None):
+    """
+    Save the solution to json file
+    :param solution:
+    :param states_num: a list specifying number of states in each layer, should add up the the solution size
+    :param labels: additional labels for each states
+    :param path:
+    :return:
+    """
+    if isinstance(solution, np.ndarray):
+        solution = solution.tolist()
+    if isinstance(labels, np.ndarray):
+        labels = labels.tolist()
+    if labels is None:
+        labels = [0] * len(solution)
+    layers = []
+    state_ids = []
+    for i, num in enumerate(states_num):
+        layers += [i+1] * num
+        state_ids += range(num)
+    points = [{'coords': s, 'layer': layers[i], 'state_id': state_ids[i], 'label': labels[i]}
+              for i, s in enumerate(solution)]
+    return dict2json(points, path)
 
 
 class AnimatedScatter(object):
@@ -166,26 +260,17 @@ class AnimatedScatter(object):
         # Note that it expects a sequence of artists, thus the trailing comma.
         return self.scat,
 
-    # def data_stream(self):
-    #     """Generate a random walk (brownian motion). Data is scaled to produce
-    #     a soft "flickering" effect."""
-    #     len
-    #     for data in self.data:
-    #         yield data
-        # data = np.random.random((4, self.numpoints))
-        # xy = data[:2, :]
-        # s, c = data[2:, :]
-        # xy -= 0.5
-        # xy *= 10
-        # while True:
-        #     xy += 0.03 * (np.random.random((2, self.numpoints)) - 0.5)
-        #     s += 0.05 * (np.random.random(self.numpoints) - 0.5)
-        #     c += 0.02 * (np.random.random(self.numpoints) - 0.5)
-        #     yield data
+    def data_stream(self, i):
+        """Generate a random walk (brownian motion). Data is scaled to produce
+        a soft "flickering" effect."""
+        if callable(self.data):
+            return self.data()
+        else:
+            return self.data[i]
 
     def update(self, i):
         """Update the scatter plot."""
-        data = self.data[i]
+        data = self.data_stream(i)
         min_x = np.min(data[:, 0])
         max_x = np.max(data[:, 0])
         min_y = np.min(data[:, 1])
@@ -218,70 +303,24 @@ class AnimatedScatter(object):
         self.ani.save(filename, writer)
 
 
-
-
 if __name__ == '__main__':
+
+    ###
+    # Scripts that run tsne on states and produce .json file for front-end rendering
+    ###
     data_name = 'ptb'
     model_name = 'LSTM-PTB'
     state_name = 'state_c'
     print('loading states...')
 
-    # print('calculating similarity')
-    # sim1 = cal_similar1(states_mat)
-    # cov = np.cov(states_mat)
-    # sims = [sim1, cov, sigmoid(sim1/100000)]
-    sim1_path = '-'.join([data_name, model_name, state_name, '2', 'sim1']) + '.json'
-    sim2_path = '-'.join([data_name, model_name, state_name, '2', 'cov']) + '.json'
-    sim3_path = '-'.join([data_name, model_name, state_name, '2', 'sim1-sigmoid']) + '.json'
-    # print("max: {:f}, min: {:f}".format(np.max(sim1), np.min(sim1)))
+    sample = get_state_signature(data_name, model_name, state_name, None, 5000, 50)/10
 
-    # from rnnvis.utils.io_utils import dict2json
-    #
-    # for i, path in enumerate([sim1_path, sim2_path, sim3_path]):
-    #     dict2json(sims[i].tolist(), path)
+    solution = tsne_project(sample, 40.0, 50, 50)
+    labels = ([1] * (solution.shape[0] // 2)) + ([0] * (solution.shape[0] // 2))
+    solution2json(solution, [600, 600], labels, get_path('_cached', 'tsne.json'))
+    print("saved to tsne.json")
 
-    # import matplotlib.pyplot as plt
-    # fig, axes = plt.subplots(ncols=2, figsize=(12, 6))
-    # axes[0].imshow(sims[0], extent=[0, 600, 0, 600])
-    # axes[1].imshow(sims[2], extent=[0, 600, 0, 600])
-    # plt.show(block=True)
-
-
-    import rnnvis.vendor.tsne as tsne
-
-    # for layer 2
-    # if file_exists('sample5000pca50.pkl'):
-    #     print("sampling")
-    #     with open('sample5000pca50.pkl', 'rb') as f:
-    #         sample = pickle.load(f)
-    # else:
-    #     words, states = load_words_and_state(data_name, model_name, state_name, diff=False)
-    #     states2 = [state[1, :] for state in states]
-    #     states_mat = np.vstack(states2).T
-    #     print("sampling")
-    #     sample_idx = np.random.randint(0, states_mat.shape[1], 5000)
-    #     sample = states_mat[:, sample_idx]
-    #     sample = tsne.pca(sample / 100, 50).real
-    #     with open('sample5000pca50.pkl', 'wb') as f:
-    #         pickle.dump(sample, f)
-
-    # for both layer
-    if file_exists('sample5000pca50-2.pkl'):
-        print("sampling")
-        with open('sample5000pca50-2.pkl', 'rb') as f:
-            sample = pickle.load(f)
-    else:
-        words, states = load_words_and_state(data_name, model_name, state_name, diff=False)
-        states1 = [state[0, :] for state in states]
-        states2 = [state[1, :] for state in states]
-        states_mat = np.hstack([np.vstack(states1), np.vstack(states2)]).T
-        print("sampling")
-        sample_idx = np.random.randint(0, states_mat.shape[1], 5000)
-        sample = states_mat[:, sample_idx]
-        sample = tsne.pca(sample / 100, 50).real
-        with open('sample5000pca50-2.pkl', 'wb') as f:
-            pickle.dump(sample, f)
-
+<<<<<<< HEAD
     # import json
     # with open(sim1_path) as f:
     #     sample = np.array(json.load(f))
@@ -304,4 +343,31 @@ if __name__ == '__main__':
     anim = AnimatedScatter(projected, [6, 6], 50)
 
     anim.save('test.mp4')
+=======
+    ###
+    # scripts that run t-sne animation
+    ###
+    # print("doing tsne")
+    # tsne_solver = tsne.TSNE(2, 40.0, 50)
+    # tsne_solver.set_inputs(sample, 50)
+    # projected = []
+    # for i in range(100):
+    #     cost = tsne_solver.step(10)
+    #     projected.append(tsne_solver.get_solution())
+    #     print("iteration: {:d}, error: {:f}".format(i*10, cost))
+    #
+    # # base = np.random.random((10, 2))*1.0
+    # # projected = [base]
+    # # for i in range(100):
+    # #     projected.append(projected[i]+np.random.random((10,2))*0.5 - 0.25)
+    #
+    # points_num = projected[0].shape[0]
+    # color = np.ones((points_num, 3), dtype=np.float32) * np.array([0.4,0.5,0.8], dtype=np.float32)
+    # color[:points_num//2, :] += np.array([0.4, -0.1, -0.4], dtype=np.float32)
+    # projected = [np.hstack((project, color)) for project in projected]
+    #
+    # anim = AnimatedScatter(projected, [6, 6], 50)
+    #
+    # # anim.save('test.mp4')
+>>>>>>> 4db0e5129acdcb4ee57474adb4766639e07cbbd0
     # anim.show()

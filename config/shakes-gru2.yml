@@ -1,5 +1,5 @@
 model:
-  name: SHAKESPEARE-1
+  name: SHAKESPEARE-GRU-2
   initializer_name: random_uniform
   initializer_args:
     minval: -0.06
@@ -7,11 +7,11 @@ model:
   input_dtype: int32
   target_dtype: int32
   vocab_size: 14981
-  embedding_size: 500
-  cell_type: BasicLSTM
+  embedding_size: 512
+  cell_type: GRU
   cells:
-    - num_units: 500
-    - num_units: 500
+    - num_units: 512
+    - num_units: 512
   loss_func: sequence_loss
   dataset: shakespeare
 train:

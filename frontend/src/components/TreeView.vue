@@ -11,8 +11,8 @@
       }
     },
     mounted() {
-      var treeData = require('./test.json');
-      const maxDepth = 6;
+      var treeData = require('./test-large.json');
+      const maxDepth = 5;
       const duration = 500;
 
       function treeNode(x, parent = null) {
