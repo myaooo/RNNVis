@@ -1,7 +1,7 @@
 import uuid
 import queue
 
-from py.utils.tree import TreeNode, Tree
+from rnnvis.utils.tree import TreeNode, Tree
 
 class XTree(object):
     """"This class is just a wrap of class SuffixTree which provide both prefix and suffix
