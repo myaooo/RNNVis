@@ -145,6 +145,8 @@ if __name__ == '__main__':
     plot_words_states(id_to_state, [28, 11])
     plt.savefig('he-for.png', bbox_inches='tight')
 
+    plot_words_states(id_to_state, [28, 163]) 
+    plt.savefig('he-she.png', bbox_inches='tight')
     # plot_words_states(id_to_state, [28, 14])
     # plot_words_states(id_to_state, [28, 17])
 
@@ -158,11 +160,11 @@ if __name__ == '__main__':
     # plot_words_states(id_to_state, [28, 11])
     # plt.savefig('he-for.png', bbox_inches='tight')
 
-    # scatter(id_to_state, [28], [id_freq[28]])
-    # plt.savefig('he-scatter.png', bbox_inches='tight')
+    scatter(id_to_state, [28], [id_freq[28]])
+    plt.savefig('he-scatter.png', bbox_inches='tight')
 
-    # parallel_coord(id_to_state, 28)
-    # plt.savefig('he-para-coord.png', bbox_inches='tight')
+    parallel_coord(id_to_state, 28)
+    plt.savefig('he-para-coord.png', bbox_inches='tight')
 
     # plt.show(block=True)
     print("Done")
