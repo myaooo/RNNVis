@@ -159,7 +159,7 @@ class AnimatedScatter(object):
     def setup_plot(self):
         """Initial drawing of the scatter plot."""
         xy = self.data[0]
-        self.scat = self.ax.scatter(xy[:, 0], xy[:, 1], 8, xy[:, 2], animated=True, alpha=0.5)
+        self.scat = self.ax.scatter(xy[:, 0], xy[:, 1], 8, xy[:, 2:], animated=True, alpha=0.5)
         self.ax.axis([-self.figsize[0]/2.0, self.figsize[0]/2.0, -self.figsize[1]/2.0, self.figsize[1]/2.0])
 
         # For FuncAnimation's sake, we need to return the artist we'll be using
@@ -288,7 +288,7 @@ if __name__ == '__main__':
 
 
     print("doing tsne")
-    projected = tsne.tsne(sample, 2, 50, 40.0, 1000)
+    projected = tsne.tsne(sample, 2, 50, 100.0, 600)
 
     # base = np.random.random((10, 2))*1.0
     # projected = [base]
@@ -296,8 +296,9 @@ if __name__ == '__main__':
     #     projected.append(projected[i]+np.random.random((10,2))*0.5 - 0.25)
 
     points_num = projected[0].shape[0]
-    color = np.ones((points_num, 1), dtype=np.float32)
-    color[:points_num//2, :] -= 2
+    color = np.ones((points_num, 3), dtype=np.float32) * np.array([0.4,0.5,0.8], dtype=np.float32)
+    color[:points_num//2, :] += np.array([0.4, -0.1, -0.4], dtype=np.float32)
+
     projected = [np.hstack((project, color)) for project in projected]
 
     anim = AnimatedScatter(projected, [6, 6], 50)
