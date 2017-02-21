@@ -112,8 +112,8 @@ def scatter(id_states, ids, freqs):
 if __name__ == '__main__':
 
     data_name = 'ptb'
-    model_name = 'RNN-PTB'
-    state_name = 'state'
+    model_name = 'LSTM-PTB'
+    state_name = 'state_c'
     words, state_diff = load_words_and_state(data_name, model_name, state_name)
 
     # embedding = get_model_params('./config/rnn.yml')
@@ -145,63 +145,57 @@ if __name__ == '__main__':
         # plot_words_states(id_to_state, [25, 57], 60)
         # plt.savefig('he-she.png', bbox_inches='tight')
 
-<<<<<<< HEAD:tests/test_explore.py
-    plot_words_states(id_to_state, [28, 163]) 
-    plt.savefig('he-she.png', bbox_inches='tight')
-    # plot_words_states(id_to_state, [28, 14])
-    # plot_words_states(id_to_state, [28, 17])
-=======
         print("Done")
->>>>>>> 4db0e5129acdcb4ee57474adb4766639e07cbbd0:tests/test_plot.py
 
     if data_name == 'ptb':
         #####
         ## PTB
         #####
-        plot_words_states(id_to_state, [28, 11], 60)
-        plt.savefig('he-for.png', bbox_inches='tight')
+        plot_words_states(id_to_state, [104], 60)
+        plt.savefig('bank.png', bbox_inches='tight')
 
-        plot_words_states(id_to_state, [28, 14], 60)
-        plt.savefig('he-it.png', bbox_inches='tight')
+        scatter(id_to_state, [104], [id_freq[104]])
+        plt.savefig('bank-scatter.png', bbox_inches='tight')
 
-        plot_words_states(id_to_state, [28, 163], 60)
-        plt.savefig('he-she.png', bbox_inches='tight')
+        parallel_coord(id_to_state, 104)
+        plt.savefig('bank-para-coord.png', bbox_inches='tight')
 
-<<<<<<< HEAD:tests/test_explore.py
-    scatter(id_to_state, [28], [id_freq[28]])
-    plt.savefig('he-scatter.png', bbox_inches='tight')
+        # plot_words_states(id_to_state, [28, 11], 60)
+        # plt.savefig('he-for.png', bbox_inches='tight')
+        #
+        # plot_words_states(id_to_state, [28, 14], 60)
+        # plt.savefig('he-it.png', bbox_inches='tight')
+        #
+        # plot_words_states(id_to_state, [28, 163], 60)
+        # plt.savefig('he-she.png', bbox_inches='tight')
+        #
+        # plot_words_states(id_to_state, [28, 17], 60)
+        # plt.savefig('he-by.png', bbox_inches='tight')
+        #
+        # plot_words_states(id_to_state, [11, 17], 60)
+        # plt.savefig('for-by.png', bbox_inches='tight')
 
-    parallel_coord(id_to_state, 28)
-    plt.savefig('he-para-coord.png', bbox_inches='tight')
-=======
-        plot_words_states(id_to_state, [28, 17], 60)
-        plt.savefig('he-by.png', bbox_inches='tight')
+        # plot_words_states(id_to_state, [11], 60)
+        # plt.savefig('for.png', bbox_inches='tight')
+        #
+        # scatter(id_to_state, [11], [id_freq[11]])
+        # plt.savefig('for-scatter.png', bbox_inches='tight')
+        #
+        # scatter(id_to_state, [28, 163], [id_freq[28], id_freq[163]])
+        # plt.savefig('he-she-scatter.png', bbox_inches='tight')
+        #
+        # scatter(id_to_state, [28], [id_freq[28]])
+        # plt.savefig('he-scatter.png', bbox_inches='tight')
+        #
+        # parallel_coord(id_to_state, 28)
+        # plt.savefig('he-para-coord.png', bbox_inches='tight')
+        #
+        # parallel_coord(id_to_state, 11)
+        # plt.savefig('for-para-coord.png', bbox_inches='tight')
 
-        plot_words_states(id_to_state, [11, 17], 60)
-        plt.savefig('for-by.png', bbox_inches='tight')
-
-        plot_words_states(id_to_state, [11], 60)
-        plt.savefig('for.png', bbox_inches='tight')
-
-        scatter(id_to_state, [11], [id_freq[11]])
-        plt.savefig('for-scatter.png', bbox_inches='tight')
-
-        scatter(id_to_state, [28, 163], [id_freq[28], id_freq[163]])
-        plt.savefig('he-she-scatter.png', bbox_inches='tight')
-
-        scatter(id_to_state, [28], [id_freq[28]])
-        plt.savefig('he-scatter.png', bbox_inches='tight')
-
-        parallel_coord(id_to_state, 28)
-        plt.savefig('he-para-coord.png', bbox_inches='tight')
-
-        parallel_coord(id_to_state, 11)
-        plt.savefig('for-para-coord.png', bbox_inches='tight')
-
-        parallel_coord(id_to_state, 14)
-        plt.savefig('by-para-coord.png', bbox_inches='tight')
+        # parallel_coord(id_to_state, 14)
+        # plt.savefig('by-para-coord.png', bbox_inches='tight')
         print("Done")
->>>>>>> 4db0e5129acdcb4ee57474adb4766639e07cbbd0:tests/test_plot.py
 
     # plt.show(block=True)
 

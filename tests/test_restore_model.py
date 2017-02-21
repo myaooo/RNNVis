@@ -25,7 +25,7 @@ if __name__ == '__main__':
 
     model, train_config = build_model(config_path(), True)
 
-    model.add_evaluator(1, 1, 1, True, True, False, False, log_gates=False, cal_salience=True)
+    model.add_evaluator(1, 1, 1, True, True, False, False, log_gates=False)
     model.restore()
 
     # scripts that eval and record states
@@ -36,5 +36,8 @@ if __name__ == '__main__':
         model.run_with_context(model.evaluator.evaluate_and_record, inputs, targets,
                                StateRecorder(train_config.dataset, model.name, 500), verbose=True)
 
-    salience = model.run_with_context(model.evaluator.cal_saliency, 10)
+    salience = model.run_with_context(model.evaluator.cal_salience, list(range(200)), y_or_x='y')
 
+    import pickle
+    with open("salience-1000-states.pkl", 'wb') as f:
+        pickle.dump(salience, f)

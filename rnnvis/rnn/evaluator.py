@@ -3,6 +3,7 @@ Evaluator Class
 """
 
 from collections import defaultdict
+from functools import reduce
 
 import tensorflow as tf
 import numpy as np
@@ -23,14 +24,15 @@ class Evaluator(object):
     """
 
     def __init__(self, rnn_, batch_size=1, num_steps=1, record_every=1, log_state=True, log_input=True, log_output=True,
-                 log_gradients=False, log_gates=False, cal_salience=False):
+                 log_gradients=False, log_gates=False, dynamic=True):
         assert isinstance(rnn_, rnn.RNN)
         self._rnn = rnn_
         self.record_every = record_every
         self.log_state = log_state
         self.log_input = log_input
         self.log_output = log_output
-        self.model = rnn_.unroll(batch_size, num_steps, name='EvaluateModel{:d}'.format(len(rnn_.models)))
+        self.model = rnn_.unroll(batch_size, num_steps, name='EvaluateModel{:d}'.format(len(rnn_.models)),
+                                 dynamic=dynamic)
         summary_ops = defaultdict(list)
         if log_state:
             for s in self.model.final_state:
@@ -51,8 +53,7 @@ class Evaluator(object):
         if log_output:
             summary_ops['output'] = self.model.outputs
         if log_gradients:
-            inputs_gradients = tf.gradients(self.model.loss, self.model.inputs)  #,
-                                            # colocate_gradients_with_ops=True)
+            inputs_gradients = tf.gradients(self.model.loss, self.model.inputs)
             summary_ops['inputs_gradients'] = inputs_gradients
         if log_gates:
             gates = self.model.get_gate_tensor()
@@ -70,7 +71,7 @@ class Evaluator(object):
         self.summary_ops = summary_ops
 
         # adding salience computations
-        self.salience = self._init_salience_ops() if cal_salience else None
+        # self.salience = self._init_salience_ops() if cal_salience else None
 
     def evaluate(self, sess, inputs, targets, input_size, verbose=True, refresh_state=False):
         """
@@ -116,17 +117,7 @@ class Evaluator(object):
         :param verbose: verbosity
         :return:
         """
-        # try:
-        #     inputs = np.array(inputs)
-        # except:
-        #     raise TypeError('Unable to convert inputs of type {:s} into numpy array!'.format(str(type(inputs))))
-        # if targets is None:
-        #     pass
-        # else:
-        #     try:
-        #         targets = np.array(targets)
-        #     except:
-        #         raise TypeError('Unable to convert targets of type {:s} into numpy array!'.format(str(type(targets))))
+
         assert isinstance(inputs, Feeder)
         assert isinstance(targets, Feeder) or targets is None
         recorder.start(inputs, targets)
@@ -145,38 +136,110 @@ class Evaluator(object):
         recorder.flush()
         print("Evaluation done!")
 
-    def cal_saliency(self, sess, k):
+    def _cal_salience(self, sess, embedding=None, feed_dict=None, y_or_x=None):
         """
         Calculate the saliency matrix of states regarding inputs,
         this should be called on a trained model for evaluation
         (you can also call this on a just initialized one to compare)
-        :param k: the number of top frequent words you want to calculate
+        :param sess: the sess to run the computation
+        :param embedding: the word embedding to put into the computation of the gradients
+        :param feed_dict: extra feed_dict, should feed in the states
         :return:
         """
-        if self.salience is None:
-            raise ValueError("No salience ops available!")
-        results = sess.run(self.salience)
-        return results
-
-    def _init_salience_ops(self):
         salience = defaultdict(list)
         inputs = self.model.inputs
-        gates = self.model.get_gate_tensor()
-        for state in self.model.final_state:
-            if isinstance(state, tf.nn.rnn_cell.LSTMStateTuple):
-                salience['state_c'].append(tf.gradients(state.c, inputs))
-                salience['state_h'].append(tf.gradients(state.h, inputs))
-            else:
-                salience['state'].append(tf.gradients(state, inputs))
-        if gates is not None:
+        if feed_dict is None:
+            self.model.init_state(sess)
+            feed_dict = self.model.feed_state(self.model.current_state)
+        if isinstance(embedding, int):
+            embedding = sess.run(inputs, {self.model.input_holders: np.array([embedding]).reshape(1, 1)})
+        with sess.as_default():
+            for state in self.model.final_state:
+                if isinstance(state, tf.nn.rnn_cell.LSTMStateTuple):
+                    salience['state_c'].append(cal_jacobian(state.c, inputs, embedding, feed_dict, y_or_x))
+                    salience['state_h'].append(cal_jacobian(state.h, inputs, embedding, feed_dict, y_or_x))
+                else:
+                    salience['state'].append(cal_jacobian(state, inputs, embedding, feed_dict, y_or_x))
+            gates = self.model.get_gate_tensor()
+            if gates is None:
+                return salience
             for gate in gates:
                 if isinstance(gate, tuple):  # LSTM gates are a tuple of (i, f, o)
-                    salience['gate_i'].append(tf.gradients(gate[0], inputs))
-                    salience['gate_f'].append(tf.gradients(gate[1], inputs))
-                    salience['gate_o'].append(tf.gradients(gate[2], inputs))
+                    salience['gate_i'].append(cal_jacobian(gate[0], inputs, embedding, feed_dict, y_or_x))
+                    salience['gate_f'].append(cal_jacobian(gate[1], inputs, embedding, feed_dict, y_or_x))
+                    salience['gate_o'].append(cal_jacobian(gate[2], inputs, embedding, feed_dict, y_or_x))
                 else:
-                    salience['gate'].append(tf.gradients(gate, inputs))
+                    salience['gate'].append(cal_jacobian(gate, inputs, embedding, feed_dict, y_or_x))
+
         return salience
+
+    def cal_salience(self, sess, word_ids, feed_dict=None, y_or_x=None, verbose=True):
+        """
+        This function calculate the salience of states and gates w.r.t. given words.
+        The method used will not add any new TF ops, feel free to finalize the graph before calling this function
+        Note: this function is very time consuming. About 5s per word on a laptop
+        :param sess: the session to run the computation
+        :param word_ids: the word_ids as a list
+        :param feed_dict: additional feed_dict to feed in the sess.run()
+        :param y_or_x: see docs of cal_gradients
+        :param verbose: print progress
+        :return: a list of salience
+        """
+        if isinstance(word_ids, int):
+            word_ids = [word_ids]
+        elif not isinstance(word_ids, list):
+            raise TypeError("word_ids should be of type int of a list of int, but it's of type: {:s}"
+                            .format(str(type(word_ids))))
+        saliences = []
+        for i, word in enumerate(word_ids):
+            saliences.append(self._cal_salience(sess, word, feed_dict, y_or_x))
+            if (i+1) % 20 == 0 and verbose:
+                print("{:d}/{:d} completed".format(i+1, len(word_ids)))
+        print("salience computation finished.")
+        return saliences
+
+
+def cal_jacobian(y, x, x_val=None, feed_dict=None, y_or_x=None):
+    """
+    A numerical way of calculating the Jacobian Matrix of y w.r.t to x
+    :param y:
+    :param x:
+    :param x_val:
+    :param feed_dict:
+    :param y_or_x: if None, do not do any projection, directly return the Jacobian matrix,
+        if 'y', return a 1-D vector of length y_len, which is the sum(dy/dx) over x
+        if 'x', return a 1-D vector of length x_len, which is the sum(dy/dx) over y
+    :return:
+    """
+    delta = 1e-7
+    x_shape = x.get_shape().as_list()
+    x_len = reduce(lambda a, b: a*b, x_shape)
+    if x_val is None:
+        x_val = np.zeros((x_len, ), x.dtype.as_numpy.dtype)
+    else:
+        x_val = x_val.reshape((x_len, ))
+    if feed_dict is None:
+        feed_dict = {}
+
+    _jacobian = []
+    for i in range(x_len):
+        input_x = x_val.copy()
+
+        input_x[i] += delta
+        feed_dict[x] = input_x.reshape(x_shape)
+        y_val1 = y.eval(feed_dict, tf.get_default_session()).reshape(-1)
+        input_x[i] -= 2*delta
+        feed_dict[x] = input_x.reshape(x_shape)
+        y_val2 = y.eval(feed_dict, tf.get_default_session()).reshape(-1)
+        _jacobian.append((y_val1 - y_val2))
+
+    jacobian = (np.stack(_jacobian) / (2*delta)).T  # a correct jacobian should has shape [y_len, x_len]
+    if y_or_x is None:
+        return jacobian
+    elif y_or_x is 'x':  # ones(y_len) * jacobian => shape: [x_len,]
+        return np.sum(jacobian, axis=0)
+    elif y_or_x is 'y':  # jacobian * ones(x_len) => shape: [y_len,]
+        return np.sum(jacobian, axis=1)
 
 
 class Recorder(object):
