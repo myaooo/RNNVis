@@ -56,7 +56,7 @@ class RNNModel(object):
         self.current_state = None
         # Ugly hacks for DropoutWrapper
         if keep_prob is not None:
-            cell_list = [DropOutWrapper(cell, input_keep_prob=keep_prob, output_keep_prob=keep_prob)
+            cell_list = [DropOutWrapper(cell, output_keep_prob=keep_prob)
                          for cell in rnn.cell_list]
             self._cell = MultiRNNCell(cell_list, state_is_tuple=True)
         # The abstract name scope is not that easily dealt with, try to make the transparent to user
