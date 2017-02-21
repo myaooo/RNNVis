@@ -75,6 +75,8 @@ class RNNModel(object):
                 # ugly hacking for EmbeddingWrapper Badness
                 self.inputs = self.input_holders if not rnn.has_embedding \
                     else rnn.map_to_embedding(self.input_holders+1)
+                if keep_prob is not None and keep_prob < 1:
+                    self.inputs = tf.nn.dropout(self.inputs, keep_prob)
                 # Call TF api to create recurrent neural network
                 self.input_length = sequence_length(self.inputs)
                 if dynamic:
