@@ -19,14 +19,14 @@ and help practitioners to debug their model and data, and help reasearchers impr
    
    Then, at the project root dir, run
    
-   `python -m py.main seeddb`
+   `python -m rnnvis.main seeddb`
 
 ## Usage
 
 1. Run tests on PTB datasets to see whether the code runs normally: 
 
-    `python -m py.test_language_model --config_path=./config/lstm.yml --data_path=./cached_data/simple-examples/data`
+    `python -m tests.test_language_model --config_path=./config/lstm.yml --data_path=./cached_data/simple-examples/data`
 
 2. For a well performed model, and use pre-defined procedures, run:
 
-    `python -m py.test_procedures --config_path=./config/lstm-large3.yml --data_path=./cached_data/simple-examples/data`
+    `python -m tests.test_procedures --config_path=./config/lstm-large3.yml --data_path=./cached_data/simple-examples/data`

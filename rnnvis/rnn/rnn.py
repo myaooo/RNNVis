@@ -37,7 +37,7 @@ class RNNModel(object):
     """
     A RNN Model unrolled from a RNN instance
     """
-    def __init__(self, rnn, batch_size, num_steps, keep_prob=None, name=None):
+    def __init__(self, rnn, batch_size, num_steps, keep_prob=None, name=None, dynamic=True):
         """
         Create an unrolled rnn model with TF tensors
         :param rnn:
@@ -52,6 +52,7 @@ class RNNModel(object):
         self.batch_size = batch_size
         self.num_steps = num_steps
         self.name = name or "UnRolled"
+        self.dynamic =dynamic
         self.current_state = None
         # Ugly hacks for DropoutWrapper
         if keep_prob is not None:
@@ -76,9 +77,17 @@ class RNNModel(object):
                     else rnn.map_to_embedding(self.input_holders+1)
                 # Call TF api to create recurrent neural network
                 self.input_length = sequence_length(self.inputs)
-                self.outputs, self.final_state = \
-                    tf.nn.dynamic_rnn(self.cell, self.inputs, sequence_length=self.input_length,
-                                      initial_state=self.state, dtype=data_type(), time_major=False)
+                if dynamic:
+                    self.outputs, self.final_state = \
+                        tf.nn.dynamic_rnn(self.cell, self.inputs, sequence_length=self.input_length,
+                                          initial_state=self.state, dtype=data_type(), time_major=False)
+                else:
+                    inputs = [self.inputs[:, i] for i in range(num_steps)]
+                    # Since we do not want it to be dynamic, sequence length is not fed,
+                    # so that evaluator can fetch gate tensor values.
+                    outputs, self.final_state = \
+                        tf.nn.rnn(self.cell, inputs, initial_state=self.state, dtype=data_type())
+                    self.outputs = tf.stack(outputs, axis=1)
                 if rnn.use_last_output:
                     self.outputs = last_relevant(self.outputs, self.input_length)
                     target_shape = [batch_size] + list(rnn.target_shape)[1:]
@@ -194,7 +203,7 @@ class RNNModel(object):
             sum_str = ', '.join(["{:s}: {:.5f}".format(name, value / epoch_size) for name, value in sums.items()])
             if sum_str: sum_str = ', '+sum_str
             print("Epoch Summary: total time:{:.1f}s, speed:{:.1f} wps".format(
-                total_time, epoch_size * self.num_steps * batch_size / total_time) + sum_str)
+                total_time, epoch_size * self.num_steps * batch_size / total_time) + sum_str, flush=True)
         return evals, sums
 
     def feed_state(self, state):
@@ -259,9 +268,12 @@ class RNNModel(object):
         if cell_type_name == 'BasicRNNCell':
             return None
         with self.rnn.graph.as_default():
-            if cell_type_name == 'BasicLSTMCell':
+            if self.dynamic:
                 head = "/".join([self.name, self.rnn.name, "RNN", "while", "MultiRNNCell", "Cell"])
-                gates = []
+            else:
+                head = "/".join([self.name, self.rnn.name, "RNN", "MultiRNNCell", "Cell"])
+            gates = []
+            if cell_type_name == 'BasicLSTMCell':
                 for j, cell in enumerate(self.cell._cells):
                     # for BasicLSTM
                     i = tf.get_default_graph().get_tensor_by_name(head + str(j) + "/" +
@@ -273,8 +285,6 @@ class RNNModel(object):
                     gates.append((i, f, o))
                 return gates
             elif cell_type_name == 'GRUCell':
-                head = "/".join([self.name, self.rnn.name, "RNN", "while", "MultiRNNCell", "Cell"])
-                gates = []
                 for j, cell in enumerate(self.cell._cells):
                     # for GRUCell only needs forget gates
                     gates.append(tf.get_default_graph().get_tensor_by_name(head + str(j) + "/" + cell_type_name +
@@ -325,6 +335,7 @@ class RNN(object):
         self.models = []
         self.graph = graph if isinstance(graph, tf.Graph) else tf.get_default_graph()
         self.logdir = logdir or get_path('./models', name)
+        self._finalize = False
 
     def set_input(self, dshape, dtype, vocab_size, embedding_size=None, word_to_id=None):
         """
@@ -431,7 +442,7 @@ class RNN(object):
         # All done
         self.is_compiled = True
 
-    def unroll(self, batch_size, num_steps, keep_prob=None, name=None):
+    def unroll(self, batch_size, num_steps, keep_prob=None, name=None, dynamic=True):
         """
         Unroll the RNN Cell into a RNN Model with fixed num_steps and batch_size
         :param batch_size: batch_size of the model
@@ -442,7 +453,7 @@ class RNN(object):
         """
         assert self.is_compiled
         with self.graph.as_default():  # Ensure that the model is created under the managed graph
-            return RNNModel(self, batch_size, num_steps, keep_prob=keep_prob, name=name)
+            return RNNModel(self, batch_size, num_steps, keep_prob=keep_prob, name=name, dynamic=dynamic)
 
     def add_trainer(self, batch_size, num_steps, keep_prob=1.0,
                     optimizer="GradientDescent", learning_rate=1.0, clipper=None):
@@ -481,7 +492,7 @@ class RNN(object):
             self.validator = Evaluator(self, batch_size, num_steps, 1, False, False, False)
 
     def add_evaluator(self, batch_size=1, num_steps=1, record_every=1, log_state=True, log_input=True, log_output=True,
-                      log_gradients=False):
+                      log_gradients=False, log_gates=False, cal_salience=False):
         """
         Explicitly add evaluator instead of using the default one. You must call compile(evaluate=False)
             before calling this function
@@ -497,7 +508,7 @@ class RNN(object):
         with self.graph.as_default():
             # with tf.device("/cpu:0"):
             self.evaluator = Evaluator(self, batch_size, num_steps, record_every, log_state,
-                                       log_input, log_output, log_gradients)
+                                       log_input, log_output, log_gradients, log_gates, False)
 
     def add_generator(self, word_to_id=None):
         assert self.generator is None
@@ -588,7 +599,7 @@ class RNN(object):
         assert self.is_compiled
         self.finalize()
         with self.graph.as_default():
-            func(self.sess, *args, **kwargs)
+            return func(self.sess, *args, **kwargs)
 
     def save(self, path=None):
         """
@@ -628,14 +639,15 @@ class RNN(object):
         with self.graph.as_default():
             self._init_op = tf.global_variables_initializer()
             self._saver = tf.train.Saver(tf.trainable_variables())
-        self.graph.finalize()
+        self._finalize = True
+        # self.graph.finalize()
         # self.supervisor = tf.train.Supervisor(self.graph, logdir=self.logdir)
         return True
 
     @property
     def finalized(self):
         # return False if self.supervisor is None else True
-        return self.graph.finalized
+        return self._finalize
 
     @property
     def cell(self):

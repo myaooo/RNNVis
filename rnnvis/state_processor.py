@@ -6,14 +6,14 @@ For example usage, see the main function below
 import pickle
 
 import numpy as np
-
+from scipy.spatial.distance import pdist, squareform
 import matplotlib.pyplot as plt
 
 
 from rnnvis.db import get_dataset
 from rnnvis.db.language_model import query_evals, query_evaluation_records
 from rnnvis.utils.io_utils import file_exists, get_path, dict2json
-from rnnvis.vendor import tsne
+from rnnvis.vendor import tsne, mds
 
 
 def cal_diff(arrays):
@@ -68,7 +68,7 @@ def fetch_state_of_eval(eval_id, field_name='state_c', diff=True):
 
 def fetch_states(data_name, model_name, field_name='state_c', diff=True):
     """
-    Fetch the word_ids and states of the eval records by data_name and model_name
+    Fetch the word_ids and states of the eval records by data_name and model_name from db
     :param data_name:
     :param model_name:
     :param field_name: the name of the desired state, can be a list of fields
@@ -130,6 +130,41 @@ def compute_stats(states, sort_by_mean=True, percent=50):
     return means, stds, errors_l, errors_u, indices
 
 
+def get_empirical_strength(id_states, strength_func):
+    """
+
+    :param id_states: a list, with each
+    :param strength_func: np.mean, etc
+    :return:
+    """
+    state_shape = id_states[0][0].shape
+
+    def strenth_map(states):
+        if states is None:
+            return np.zeros(state_shape)
+        states_mat = np.stack(states, axis=0)
+        return strength_func(states_mat)
+
+    strength_list = list(map(strenth_map, id_states))
+    return strength_list
+
+
+def strength2json(strength_list, words, labels=None, path=None):
+    """
+
+    :param strength_list: a list of ndarray (n_layer, n_states)
+    :param words: word (str) for each strength
+    :param labels: additional labels
+    :param path: saving path
+    :return:
+    """
+    if labels is None:
+        labels = [0] * len(strength_list)
+    points = [{'word': words[i], 'strength': strength.tolist(), 'label': labels[i]}
+              for i, strength in enumerate(strength_list)]
+    return dict2json(points, path)
+
+
 def fetch_freq_words(data_name, k=100):
     id_to_word = get_dataset(data_name, ['id_to_word'])['id_to_word']
     return id_to_word[:k]
@@ -165,7 +200,7 @@ def get_state_signature(data_name, model_name, state_name, layer=None, sample_si
     """
     layer_str = 'all' if layer is None else ''.join([str(l) for l in layer])
     file_name = '-'.join([data_name, model_name, state_name, 'all' if layer is None else layer_str,
-                          str(sample_size), str(dim)]) + '.pkl'
+                          str(sample_size), str(dim) if dim is not None else str(sample_size)]) + '.pkl'
     if file_exists(file_name):
         print("sampling")
         with open(file_name, 'rb') as f:
@@ -177,19 +212,13 @@ def get_state_signature(data_name, model_name, state_name, layer=None, sample_si
         for l in layer:
             state_layers.append([state[l, :] for state in states])
         states_mat = np.hstack(state_layers).T
-        # if layer is None:
-        #     states1 = [state[0, :] for state in states]
-        #     states2 = [state[1, :] for state in states]
-        #     states_mat = np.hstack([np.vstack(states1), np.vstack(states2)]).T
-        # else:
-        #     states = [state[i, :] for state in states]
-        #     states_mat = np.vstack(states).T
         print("sampling")
         sample_idx = np.random.randint(0, states_mat.shape[1], sample_size)
         sample = states_mat[:, sample_idx]
-        print("doing PCA...")
-        sample, variance = tsne.pca(sample, dim)
-        print("PCA kept {:f}% of variance".format(variance*100))
+        if dim is not None:
+            print("doing PCA...")
+            sample, variance = tsne.pca(sample, dim)
+            print("PCA kept {:f}% of variance".format(variance*100))
         with open(file_name, 'wb') as f:
             pickle.dump(sample, f)
     return sample
@@ -234,6 +263,33 @@ def solution2json(solution, states_num, labels=None, path=None):
     points = [{'coords': s, 'layer': layers[i], 'state_id': state_ids[i], 'label': labels[i]}
               for i, s in enumerate(solution)]
     return dict2json(points, path)
+
+
+color_scheme = [[201/255, 90/255, 95/255], [88/255, 126/255, 182/255],
+                [114/255, 189/255, 210/255], [99/255, 176/255, 117/255]]
+
+
+def create_animated_tsne(data, perplexity, states_num, init_dim=50, lr=50, max_iter=1000, path=None):
+
+    tsne_solver = tsne.TSNE(2, perplexity, lr)
+    tsne_solver.set_inputs(data, init_dim)
+    projected = []
+    for i in range(max_iter//10):
+        cost = tsne_solver.step(10)
+        projected.append(tsne_solver.get_solution())
+        print("iteration: {:d}, error: {:f}".format(i*10, cost))
+
+    color_list = []
+    for i, num in enumerate(states_num):
+        color_list.append(np.tile(np.array(color_scheme[i], np.float32), (num, 1)))
+    color = np.vstack(color_list)
+
+    projected = [np.hstack((project, color)) for project in projected]
+    anim = AnimatedScatter(projected, [6, 6], 50)
+
+    if path is not None:
+        anim.save(path)
+    anim.show()
 
 
 class AnimatedScatter(object):
@@ -284,13 +340,6 @@ class AnimatedScatter(object):
 
         # Set x and y data...
         self.scat.set_offsets(data[:, :2])
-        # Set sizes...
-        # self.scat._sizes = 300 * abs(data[2])**1.5 + 100
-        # # Set colors..
-        # self.scat.set_array(data[:, 2])
-
-        # We need to return the updated artist for FuncAnimation to draw..
-        # Note that it expects a sequence of artists, thus the trailing comma.
         return self.scat,
 
     def show(self):
@@ -305,44 +354,55 @@ class AnimatedScatter(object):
 
 if __name__ == '__main__':
 
-    ###
-    # Scripts that run tsne on states and produce .json file for front-end rendering
-    ###
     data_name = 'ptb'
     model_name = 'LSTM-PTB'
     state_name = 'state_c'
+    ###
+    # Scripts that run tsne on states and produce .json file for front-end rendering
+    ###
     print('loading states...')
 
-    sample = get_state_signature(data_name, model_name, state_name, None, 5000, 50)/10
+    sample = get_state_signature(data_name, model_name, state_name, [1], 5000, 50)/10
 
     solution = tsne_project(sample, 40.0, 50, 50)
-    labels = ([1] * (solution.shape[0] // 2)) + ([0] * (solution.shape[0] // 2))
-    solution2json(solution, [600, 600], labels, get_path('_cached', 'tsne.json'))
-    print("saved to tsne.json")
+    labels = ([1] * (solution.shape[0])) # + ([0] * (solution.shape[0] // 2))
+    solution2json(solution, [0, 600], labels, get_path('_cached', 'tsne-1.json'))
+    print("saved to tsne-1.json")
 
-    ###
     # scripts that run t-sne animation
     ###
-    # print("doing tsne")
-    # tsne_solver = tsne.TSNE(2, 40.0, 50)
-    # tsne_solver.set_inputs(sample, 50)
-    # projected = []
-    # for i in range(100):
-    #     cost = tsne_solver.step(10)
-    #     projected.append(tsne_solver.get_solution())
-    #     print("iteration: {:d}, error: {:f}".format(i*10, cost))
+    # print('loading states...')
     #
-    # # base = np.random.random((10, 2))*1.0
-    # # projected = [base]
-    # # for i in range(100):
-    # #     projected.append(projected[i]+np.random.random((10,2))*0.5 - 0.25)
+    # sample = get_state_signature(data_name, model_name, state_name, None, 5000, 50)/10
+    # seed = (np.random.rand(30) + 5) * 2
+    # sample = np.vstack([
+    #     np.random.rand(100, 30) + seed,
+    #     np.random.rand(100, 30) - seed,
+    # ])
     #
-    # points_num = projected[0].shape[0]
-    # color = np.ones((points_num, 3), dtype=np.float32) * np.array([0.4,0.5,0.8], dtype=np.float32)
-    # color[:points_num//2, :] += np.array([0.4, -0.1, -0.4], dtype=np.float32)
-    # projected = [np.hstack((project, color)) for project in projected]
+    # create_animated_tsne(sample, 40.0, [600,600], init_dim=50, lr=50, max_iter=1000, path='test.mp4')
+
+    ###
+    # Scripts that calculate the mean
+    ###
+    words, states = load_words_and_state(data_name, model_name, state_name, diff=True)
+    id_to_states = sort_by_id(words, states)
+    strength_mat = get_empirical_strength(id_to_states[:200], lambda state_mat: np.mean(state_mat, axis=0)[1:, :])
+    id_to_word = get_dataset(data_name, ['id_to_word'])['id_to_word']
+    word_list = id_to_word[:200]
+    strength2json(strength_mat, word_list, path=get_path('_cached', 'strength-200-2.json'))
+
+    ###
+    # scripts performing mds
+    ###
+    # sample = get_state_signature(data_name, model_name, state_name, [1], 5000, None)
+    # dist = squareform(pdist(sample, 'euclidean'))
+    # y, eigs = mds.mds(dist)
     #
-    # anim = AnimatedScatter(projected, [6, 6], 50)
-    #
-    # # anim.save('test.mp4')
-    # anim.show()
+    # color = np.vstack([
+    #     np.tile(np.array(color_scheme[0], np.float32), (600, 1))
+    # ])
+    # fig, ax = plt.subplots(figsize=[6, 6])
+    # ax.scatter(y[:600, 0], y[:600, 1], 8, c=color[:600, :])
+    # plt.show()
+
