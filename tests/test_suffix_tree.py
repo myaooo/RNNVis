@@ -1,5 +1,6 @@
-from py.data_preprocessing.suffix import XTree
 import uuid
+
+from rnnvis.data_preprocessing.suffix import XTree
 
 
 # for backup
