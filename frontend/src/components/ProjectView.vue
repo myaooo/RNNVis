@@ -21,7 +21,9 @@
       var radius = 3.0;
       var opacity = 0.3;
       var opacityHigh = 1.0;
-      var defaultAlpha = 0.2;
+      var defaultAlpha = 0.15;
+      var repel = -300;
+      var strength_thred = 0.5;
       var color = d3.scaleOrdinal(d3.schemeCategory10);
       // set the dimensions and margins of the diagram
       var margin = {
@@ -33,8 +35,8 @@
         width = 1200 - margin.left - margin.right,
         height = 1200 - margin.top - margin.bottom;
 
-      var statesData = dataService.getProjectionData();
-      var strengthData = dataService.getStrengthData().slice(0,200);
+      var statesData = dataService.getProjectionData('gru', 'state');
+      var strengthData = dataService.getStrengthData('gru', 'state').slice(0,200);
       strengthData = [strengthData[163]].concat(strengthData.slice(15,50)).concat(strengthData.slice(170,190));
 
       // get a scale mapping fucntion from data to window
@@ -84,12 +86,12 @@
             let j = 0;  // state_id counter
             strengths.forEach(function(f) {
               let intensity = f;
-              if (intensity > 0.8){  // a threshold strength
+              if (intensity > strength_thred){  // a threshold strength
                 // create link
                 let link = {
                   source: "" + layers[i] + "-" + j,  // the id of the stateNode
                   target: node.id,
-                  strength: (intensity/2)**2/2,
+                  strength: (intensity/2)**3,
                   type: Math.sign(f)  // negative or positive strength
                 };
                 link._source = id2states[link.source];
@@ -120,7 +122,7 @@
         repelForce.initialize = function(nodes) {
           init(nodes.filter(function(d) {d.hasOwnProperty("word")})); // only apply between word Nodes
         }
-        var collideForce = d3.forceManyBody().strength(-300).distanceMax(200);
+        var collideForce = d3.forceManyBody().strength(repel).distanceMax(200);
         return d3.forceSimulation().alpha(defaultAlpha)
           .force("link", d3.forceLink().iterations(4)
             .id(function(d) { return d.id; })
@@ -204,6 +206,10 @@
         wordNodes
           .attr("x", function(d) { return d.x; })
           .attr("y", function(d) { return d.y; });
+
+        stateNodes
+          .attr("cx", function(d) { return d.fx; })
+          .attr("cy", function(d) { return d.fy; });
       }
 
       function dragstarted(d) {

@@ -61,13 +61,19 @@ class Evaluator(object):
                 print("WARN: No gates tensor available, Are you using RNN?")
             else:
                 inputs = self.model.inputs
+                gate_ops = defaultdict(list)
                 for gate in gates:
                     if isinstance(gate, tuple):  # LSTM gates are a tuple of (i, f, o)
-                        summary_ops['gate_i'].append(tf.gradients(gate[0], inputs))
-                        summary_ops['gate_f'].append(tf.gradients(gate[1], inputs))
-                        summary_ops['gate_o'].append(tf.gradients(gate[2], inputs))
+                        gate_ops['gate_i'].append(gate[0])
+                        gate_ops['gate_f'].append(gate[1])
+                        gate_ops['gate_o'].append(gate[2])
                     else: # GRU only got one gate z
-                        summary_ops['gate'].append(tf.gradients(gate, inputs))
+                        gate_ops['gate'].append(gate)
+                for name, gate in gate_ops.items():
+                    # states is a list of tensor of shape [batch_size, n_units],
+                    # we want the stacked shape to be [batch_size, n_layer, n_units]
+                    summary_ops[name] = tf.stack(gate, axis=1)
+                # summary_ops.update(gate_ops)
         self.summary_ops = summary_ops
 
         # adding salience computations
@@ -91,7 +97,7 @@ class Evaluator(object):
         loss = 0
         acc = 0
         # print("Start evaluating...")
-        for i in range(0, input_size, self.record_every):
+        for i in range(0, input_size):
             evals, sums = self.model.run(inputs, targets, self.record_every, sess, eval_ops=eval_ops, sum_ops=sum_ops,
                                          verbose=False, refresh_state=refresh_state)
             loss += sums["loss"]
@@ -99,8 +105,8 @@ class Evaluator(object):
             # if i % 500 == 0 and i != 0:
             #     if verbose:
             #         print("[{:d}/{:d}]: avg loss:{:.3f}".format(i, input_size, loss/(i+1)))
-        loss /= (input_size * self.record_every)
-        acc /= (input_size * self.record_every)
+        loss /= input_size
+        acc /= input_size / self.record_every
         if verbose:
             print("Evaluate Summary: acc-1: {:.4f}, avg loss:{:.4f}".format(acc, loss), flush=True)
 

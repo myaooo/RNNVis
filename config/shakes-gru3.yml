@@ -2,8 +2,8 @@ model:
   name: SHAKESPEARE-GRU-3
   initializer_name: random_uniform
   initializer_args:
-    minval: -0.06
-    maxval: 0.06
+    minval: -0.05
+    maxval: 0.05
   input_dtype: int32
   target_dtype: int32
   vocab_size: 14981
@@ -17,12 +17,12 @@ model:
   loss_func: sequence_loss
   dataset: shakespeare
 train:
-  epoch_num: 40
-  num_steps: 40
+  epoch_num: 50
+  num_steps: 50
   batch_size: 20
-  keep_prob: 0.5
+  keep_prob: 0.35
   gradient_clip: global_norm
   gradient_clip_args:
     clip_norm: 5.0
   optimizer: Adam
-  learning_rate: 0.001
+  learning_rate: 0.0002
