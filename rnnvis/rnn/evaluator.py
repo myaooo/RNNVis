@@ -92,21 +92,17 @@ class Evaluator(object):
         """
 
         self.model.reset_state()
-        eval_ops = self.summary_ops
+        # eval_ops = self.summary_ops
         sum_ops = {"loss": self.model.loss, 'acc-1': self.model.accuracy}
-        loss = 0
-        acc = 0
+        # loss = 0
+        # acc = 0
         # print("Start evaluating...")
-        for i in range(0, input_size):
-            evals, sums = self.model.run(inputs, targets, self.record_every, sess, eval_ops=eval_ops, sum_ops=sum_ops,
-                                         verbose=False, refresh_state=refresh_state)
-            loss += sums["loss"]
-            acc += sums['acc-1']
-            # if i % 500 == 0 and i != 0:
-            #     if verbose:
-            #         print("[{:d}/{:d}]: avg loss:{:.3f}".format(i, input_size, loss/(i+1)))
-        loss /= input_size
-        acc /= input_size / self.record_every
+        # for i in range(0, input_size):
+        evals, sums = self.model.run(inputs, targets, input_size, sess, sum_ops=sum_ops,
+                                     verbose=False, refresh_state=refresh_state)
+        loss = sums["loss"] / input_size
+        acc = sums['acc-1'] / input_size
+
         if verbose:
             print("Evaluate Summary: acc-1: {:.4f}, avg loss:{:.4f}".format(acc, loss), flush=True)
 
