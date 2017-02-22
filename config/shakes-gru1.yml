@@ -1,26 +1,27 @@
 model:
-  name: SHAKESPEARE-3
+  name: SHAKESPEARE-GRU-1
   initializer_name: random_uniform
   initializer_args:
-    minval: -0.03
-    maxval: 0.03
+    minval: -0.05
+    maxval: 0.05
   input_dtype: int32
   target_dtype: int32
-  vocab_size: 8000
-  embedding_size: 1000
-  cell_type: BasicLSTM
+  vocab_size: 14981
+  embedding_size: 512
+  cell_type: GRU
   cells:
-    - num_units: 1500
-    - num_units: 1500
+    - num_units: 512
+    - num_units: 512
+    - num_units: 512
   loss_func: sequence_loss
   dataset: shakespeare
 train:
   epoch_num: 50
-  num_steps: 40
+  num_steps: 50
   batch_size: 20
   keep_prob: 0.4
   gradient_clip: global_norm
   gradient_clip_args:
-    clip_norm: 20.0
+    clip_norm: 5.0
   optimizer: GradientDescent
-  learning_rate: "lambda epoch: 1.5 *(1.0 if epoch < 11 else 0.93**(epoch-11))"
+  learning_rate: "lambda epoch: 1.0 *(1.0 if epoch < 9 else 0.90**(epoch - 9))"

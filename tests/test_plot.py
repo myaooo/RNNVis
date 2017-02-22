@@ -67,7 +67,7 @@ def plot_words_states(id_states, ids, percent=50):
         axes[j].set_ylim([-2.1 - 0.3 * j, 2.1 + 0.3 * j])
 
 
-def parallel_coord(id_states, id_):
+def parallel_coord(id_states, id_, salience=None, fields=None):
 
     import matplotlib.pyplot as plt
 
@@ -79,9 +79,14 @@ def parallel_coord(id_states, id_):
     num = len(states)
     dim = slice(0, len(means[0]), 5)
     h_scale = range(len(means[0]))
+
     for j in range(layer_num):
         for state in states:
             axes[j].plot(h_scale[dim], state[j][idx[j]][dim], colors[0], linewidth=1, alpha=(1.0/num)**0.8)
+        if salience is not None:
+            _salience = salience[id_]
+            for k, field in enumerate(fields):
+                axes[j].plot(h_scale[dim], _salience[field][j][idx[j]][dim] / 4, colors[k+1], linewidth=1)
 
         axes[j].plot([0, len(means[0])], [0, 0], 'k', linewidth=1)
         axes[j].set_ylim([-2.1 - 0.3 * j, 2.1 + 0.3 * j])
@@ -112,8 +117,8 @@ def scatter(id_states, ids, freqs):
 if __name__ == '__main__':
 
     data_name = 'ptb'
-    model_name = 'RNN-PTB'
-    state_name = 'state'
+    model_name = 'LSTM-PTB'
+    state_name = 'state_h'
     words, state_diff = load_words_and_state(data_name, model_name, state_name)
 
     # embedding = get_model_params('./config/rnn.yml')
@@ -147,10 +152,19 @@ if __name__ == '__main__':
 
         print("Done")
 
-    if data_name == 'ptb':
+    if data_name == 'ptb' and False:
         #####
         ## PTB
         #####
+        plot_words_states(id_to_state, [104], 60)
+        plt.savefig('bank.png', bbox_inches='tight')
+
+        scatter(id_to_state, [104], [id_freq[104]])
+        plt.savefig('bank-scatter.png', bbox_inches='tight')
+
+        parallel_coord(id_to_state, 104)
+        plt.savefig('bank-para-coord.png', bbox_inches='tight')
+
         plot_words_states(id_to_state, [28, 11], 60)
         plt.savefig('he-for.png', bbox_inches='tight')
 
@@ -190,7 +204,14 @@ if __name__ == '__main__':
 
     # plt.show(block=True)
 
+    ###
+    # scripts loading salience
+    ###
+    with open("salience-1000-states.pkl", 'rb') as f:
+        salience200 = pickle.loads(f.read())
 
+    parallel_coord(id_to_state, 18, salience200, [state_name])
+    plt.savefig('he-para-sa.png', bbox_inches='tight')
 
     # init_tf_environ(FLAGS.gpu_num)
     # datasets = get_datasets_by_name('ptb', ['test'])

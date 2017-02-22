@@ -1,5 +1,5 @@
 model:
-  name: LSTM-PTB
+  name: GRU-PTB
   initializer_name: random_uniform
   initializer_args:
     minval: -0.05
@@ -8,14 +8,14 @@ model:
   target_dtype: int32
   vocab_size: 10000
   embedding_size: 600
-  cell_type: BasicLSTM
+  cell_type: GRU
   cells:
     - num_units: 600
     - num_units: 600
   loss_func: sequence_loss
   dataset: ptb
 train:
-  epoch_num: 40
+  epoch_num: 35
   num_steps: 40
   batch_size: 20
   keep_prob: 0.5
@@ -23,5 +23,5 @@ train:
   gradient_clip_args:
     clip_norm: 5.0
   optimizer: GradientDescent
-  learning_rate: "lambda epoch: 1.0 *(1.0 if epoch < 6 else 0.8**(epoch-6))"
+  learning_rate: "lambda epoch: 1.0 *(1.0 if epoch < 6 else 0.84**(epoch-6))"
 

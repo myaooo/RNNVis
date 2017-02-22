@@ -1,12 +1,8 @@
 """
-Tests the restore of trained model
+Tests: Restore a trained model and re-evaluate
 """
 import tensorflow as tf
 from rnnvis.procedures import build_model, init_tf_environ, pour_data
-from rnnvis.rnn.evaluator import StateRecorder
-from rnnvis.db import get_dataset
-from rnnvis.datasets.data_utils import SentenceProducer
-
 
 flags = tf.flags
 flags.DEFINE_string("config_path", None, "The path of the model configuration file")
@@ -24,12 +20,12 @@ if __name__ == '__main__':
     # test_data = datasets['test']
 
     model, train_config = build_model(config_path(), True)
-    model.add_evaluator(10, 1, 1, True, True, False, False)
 
-    print('Preparing data')
-    producers = pour_data(train_config.dataset, ['test'], 10, 1)
-    inputs, targets, epoch_size = producers[0]
+    model.add_evaluator(10, 1, 1, True, False, False, False, log_gates=True)
     model.restore()
 
-    model.run_with_context(model.evaluator.evaluate_and_record, inputs, targets,
-                           StateRecorder(train_config.dataset, model.name, 500), verbose=True)
+    print('Preparing data')
+    producers = pour_data(train_config.dataset, ['test'], train_config.batch_size, train_config.num_steps)
+    inputs, targets, epoch_size = producers[0]
+    print('Re-Testing...')
+    model.validate(inputs, targets, epoch_size)
