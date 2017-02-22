@@ -355,8 +355,8 @@ class AnimatedScatter(object):
 if __name__ == '__main__':
 
     data_name = 'ptb'
-    model_name = 'LSTM-PTB'
-    state_name = 'state_c'
+    model_name = 'GRU-PTB'
+    state_name = 'state'
     ###
     # Scripts that run tsne on states and produce .json file for front-end rendering
     ###
@@ -366,8 +366,8 @@ if __name__ == '__main__':
 
     solution = tsne_project(sample, 40.0, 50, 50)
     labels = ([1] * (solution.shape[0])) # + ([0] * (solution.shape[0] // 2))
-    solution2json(solution, [0, 600], labels, get_path('_cached', 'tsne-1.json'))
-    print("saved to tsne-1.json")
+    solution2json(solution, [0, 600], labels, get_path('_cached', 'gru-state-tsne.json'))
+    print("tsne saved")
 
     # scripts that run t-sne animation
     ###
@@ -390,7 +390,7 @@ if __name__ == '__main__':
     strength_mat = get_empirical_strength(id_to_states[:200], lambda state_mat: np.mean(state_mat, axis=0)[1:, :])
     id_to_word = get_dataset(data_name, ['id_to_word'])['id_to_word']
     word_list = id_to_word[:200]
-    strength2json(strength_mat, word_list, path=get_path('_cached', 'strength-200-2.json'))
+    strength2json(strength_mat, word_list, path=get_path('_cached', 'gru-state-strength.json'))
 
     ###
     # scripts performing mds

@@ -55,7 +55,7 @@ class RNNModel(object):
         self.dynamic =dynamic
         self.current_state = None
         # Ugly hacks for DropoutWrapper
-        if keep_prob is not None:
+        if keep_prob is not None and keep_prob < 1.0:
             cell_list = [DropOutWrapper(cell, output_keep_prob=keep_prob)
                          for cell in rnn.cell_list]
             self._cell = MultiRNNCell(cell_list, state_is_tuple=True)
@@ -75,7 +75,7 @@ class RNNModel(object):
                 # ugly hacking for EmbeddingWrapper Badness
                 self.inputs = self.input_holders if not rnn.has_embedding \
                     else rnn.map_to_embedding(self.input_holders+1)
-                if keep_prob is not None and keep_prob < 1:
+                if keep_prob is not None and keep_prob < 1.0:
                     self.inputs = tf.nn.dropout(self.inputs, keep_prob)
                 # Call TF api to create recurrent neural network
                 self.input_length = sequence_length(self.inputs)
@@ -148,7 +148,7 @@ class RNNModel(object):
         if run_ops is None: run_ops = {}
         if eval_ops is None: eval_ops = {}
         if sum_ops is None: sum_ops = {}
-        verbose_every = epoch_size//10 if verbose else math.inf
+        verbose_every = epoch_size//5 if verbose else math.inf
         # initialize state and add ops that must be run
         # for compatible with different input type
         # if isinstance(inputs, tf.Tensor):
