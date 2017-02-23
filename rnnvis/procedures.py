@@ -90,17 +90,6 @@ def build_model(config, train=True):
     return rnn_, train_config
 
 
-def produce_data(data_paths, train_config):
-    train_steps = train_config.num_steps
-    batch_size = train_config.batch_size
-
-    data_list, word_to_id, id_to_word = load_data_as_ids(data_paths)
-    producers = []
-    for data in data_list:
-        producers.append(get_lm_data_producer(data, batch_size, train_steps))
-    return producers
-
-
 def pour_data(dataset, fields, batch_size, num_steps):
     """
     Get data feeders from db
@@ -120,6 +109,17 @@ def pour_data(dataset, fields, batch_size, num_steps):
             producers.append(get_sp_data_producer(data['data'], data['label'], batch_size, num_steps))
         else:
             producers.append(get_lm_data_producer(data, batch_size, num_steps))
+    return producers
+
+
+def produce_data(data_paths, train_config):
+    train_steps = train_config.num_steps
+    batch_size = train_config.batch_size
+
+    data_list, word_to_id, id_to_word = load_data_as_ids(data_paths)
+    producers = []
+    for data in data_list:
+        producers.append(get_lm_data_producer(data, batch_size, train_steps))
     return producers
 
 
