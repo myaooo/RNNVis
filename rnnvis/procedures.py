@@ -90,7 +90,7 @@ def build_model(config, train=True):
     return rnn_, train_config
 
 
-def pour_data(dataset, fields, batch_size, num_steps):
+def pour_data(dataset, fields, batch_size, num_steps, max_length=None):
     """
     Get data feeders from db
     :param dataset: name of the dataset
@@ -105,10 +105,13 @@ def pour_data(dataset, fields, batch_size, num_steps):
     producers = []
     for field in fields:
         data = datasets[field]
-        if isinstance(data, dict):  # sp
-            producers.append(get_sp_data_producer(data['data'], data['label'], batch_size, num_steps))
+        if datasets['type'] == 'sp':  # sp
+            producers.append(get_sp_data_producer(data['data'], data['label'], batch_size,
+                                                  num_steps if max_length is None else max_length, num_steps))
+        elif datasets['type'] == 'lm':
+            producers.append(get_lm_data_producer(data['data'], batch_size, num_steps))
         else:
-            producers.append(get_lm_data_producer(data, batch_size, num_steps))
+            raise ValueError("Unknown dataset type!")
     return producers
 
 
