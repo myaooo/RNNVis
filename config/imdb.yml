@@ -2,8 +2,8 @@ model:
   name: IMDB
   initializer_name: random_uniform
   initializer_args:
-    minval: -0.06
-    maxval: 0.06
+    minval: -0.03
+    maxval: 0.03
   input_dtype: int32
   target_dtype: int32
   vocab_size: 10000

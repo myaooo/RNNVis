@@ -23,5 +23,5 @@ train:
   gradient_clip_args:
     clip_norm: 5.0
   optimizer: GradientDescent
-  learning_rate: "lambda epoch: 1.0 *(1.0 if epoch < 6 else 0.8**(epoch-6))"
+  learning_rate: "lambda epoch: 1.0 *(1.0 if epoch < 7 else 0.82**(epoch-7))"
 
