@@ -12,6 +12,7 @@ flags.DEFINE_integer('gpu_num', 0, "The number of the gpu to use, 0 to use no gp
 FLAGS = flags.FLAGS
 
 
+
 def config_path():
     return FLAGS.config_path
 
