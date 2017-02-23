@@ -233,7 +233,7 @@ class SentenceProducer(object):
         self.sentence_num = len(raw_data) // batch_size * batch_size
         raw_data = raw_data[:self.sentence_num]
         self.sentence_length = [len(l) for l in raw_data]
-        self.max_length = max_length+
+        self.max_length = max_length
         self.num_steps = self.max_length if num_steps is None else num_steps
         assert self.max_length % self.num_steps == 0, "the max_length should be complete times of num_steps"
         if isinstance(raw_data[0][0], int):
