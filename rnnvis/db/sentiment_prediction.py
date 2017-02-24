@@ -114,10 +114,10 @@ def store_imdb(data_path, name, n_words=100000, upsert=False):
 def store_yelp(data_path, name, n_words=10000, upsert=False):
     if upsert:
         def insertion(*args, **kwargs):
-            return replace_one_if_exists(db_name, *args, **kwargs)
+            return replace_one_if_exists
     else:
         def insertion(*args, **kwargs):
-            return insert_one_if_not_exists(db_name, *args, **kwargs)
+            return insert_one_if_not_exists
     with open(data_path, 'r') as file:
         data = json.load(file)
     training_data, validate_data, test_data = split(data)
@@ -131,11 +131,14 @@ def store_yelp(data_path, name, n_words=10000, upsert=False):
         all_words.extend(tokenized_review)
     word_to_id, counter, words = tokens2vocab(all_words)
 
+    word_to_id = {k: v+1 for k, v in word_to_id if v < n_words}
+    word_to_id['<unk>'] = 0
+
     id_to_word = {}
     for word, id_ in word_to_id.items():
         id_to_word[id_] = word
 
-    reviews = [[word_to_id[t] if word_to_id.get(t) else '<unk>' for t in sentence] for sentence in reviews]
+    reviews = [[word_to_id[t] if word_to_id.get(t) < n_words else 0 for t in sentence] for sentence in reviews]
     training_data = (reviews, stars)
 
     tmp_data = []
@@ -144,7 +147,7 @@ def store_yelp(data_path, name, n_words=10000, upsert=False):
         stars = []
         for item in _data:
             tokenized_review = list(itertools.chain.from_iterable(tokenize(item['review'])))
-            reviews.append([word_to_id[t] if word_to_id.get(t) else '<unk>' for t in tokenized_review])
+            reviews.append([word_to_id[t] if word_to_id.get(t) else 0 for t in tokenized_review])
             stars.append(item['stars'])
         tmp_data.append((reviews, stars))
     validate_data = tmp_data[0]
@@ -155,10 +158,12 @@ def store_yelp(data_path, name, n_words=10000, upsert=False):
     insertion('id_to_word', {'name': name}, {'name': name, 'data': id_to_word})
 
     data_names = ['train', 'validate', 'test']
+    data_dict = {}
     for i, data_set in enumerate([training_data, validate_data, test_data]):
         data, label = data_set
         ids = list(range(len(data)))
-        dict2json({'data': data, 'label': label, 'ids': ids}, get_path(get_dataset_path(name), data_names[i]))
+        data_dict[data_names[i]] = {'data': data, 'label': label, 'ids': ids}
+    store_dataset_by_default(name, data_dict)
 
 
 def get_dataset_path(name):
