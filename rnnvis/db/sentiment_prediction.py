@@ -118,7 +118,7 @@ def store_yelp(data_path, name, n_words=10000, upsert=False):
     else:
         def insertion(*args, **kwargs):
             return insert_one_if_not_exists
-    with open(os.path.join(data_path, 'review_stars.json'), 'r') as file:
+    with open(os.path.join(data_path, 'review_label.json'), 'r') as file:
         data = json.load(file)
     training_data, validate_data, test_data = split(data)
     all_words = []
