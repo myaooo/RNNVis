@@ -156,7 +156,7 @@ def store_yelp(data_path, name, n_words=10000, upsert=False):
     insertion('word_to_id', {'name': name}, {'name': name, 'data': word_to_id_json})
     insertion('id_to_word', {'name': name}, {'name': name, 'data': id_to_word})
 
-    data_names = ['train', 'validate', 'test']
+    data_names = ['train', 'valid', 'test']
     data_dict = {}
     for i, data_set in enumerate([training_data, validate_data, test_data]):
         data, label = data_set

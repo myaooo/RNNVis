@@ -100,6 +100,9 @@ def pour_data(dataset, fields, batch_size, num_steps, max_length=None):
     :return:
     """
     datasets = get_dataset(dataset, fields)
+    ###############
+    print(datasets)
+    ###############
     if datasets is None:
         raise EnvironmentError("Cannot get datasets named {:s}".format(dataset))
     producers = []
