@@ -331,5 +331,11 @@ def get_lm_data_producer(data, batch_size, num_steps, transpose=False):
 def get_sp_data_producer(data, label, batch_size, max_length, num_steps=None, transpose=False):
     s_producer = SentenceProducer(data, batch_size, max_length, num_steps)
     inputs = s_producer.get_feeder(transpose=transpose)
+
+    # normalize label to start from 0.
+    min_label = min(label)
+    label = label - min_label
+
     targets = ListFeeder(label[:s_producer.sentence_num], batch_size, inputs.sentence_size)
+
     return inputs, targets, targets.epoch_size
