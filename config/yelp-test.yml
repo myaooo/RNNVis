@@ -9,11 +9,11 @@ model:
   vocab_size: 10001
   target_size: 5
   use_last_output: True
-  embedding_size: 500
+  embedding_size: 400
   cell_type: BasicLSTM
   cells:
-    - num_units: 300
-    - num_units: 300
+    - num_units: 100
+    - num_units: 100
   loss_func: sentence_loss
   dataset: yelp-test
 train:
@@ -25,5 +25,5 @@ train:
   gradient_clip_args:
     clip_norm: 1.0
   optimizer: Adam
-  learning_rate: 0.001
+  learning_rate: 0.0001
 
