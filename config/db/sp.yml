@@ -21,6 +21,6 @@ datasets:
       n_words: 10000
   - name: yelp
     type: yelp
-    dir: yelp
+    dir: ../_cached
     scheme:
       n_words: 10000
