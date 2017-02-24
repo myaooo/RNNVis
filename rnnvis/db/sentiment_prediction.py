@@ -3,12 +3,15 @@ Use MongoDB to manage all the language modeling datasets
 """
 
 import os
+import json
+import itertools
+
 
 import yaml
 
 from rnnvis.utils.io_utils import dict2json, get_path, path_exists
 from rnnvis.datasets.data_utils import split
-from rnnvis.datasets.text_processor import SSTProcessor
+from rnnvis.datasets.text_processor import SSTProcessor, tokenize, tokens2vocab
 from rnnvis.datasets.sst_helper import download_sst
 from rnnvis.datasets import imdb
 from rnnvis.db.db_helper import insert_one_if_not_exists, replace_one_if_exists, \
@@ -108,6 +111,59 @@ def store_imdb(data_path, name, n_words=100000, upsert=False):
         data_dict[set_name] = {'data': data, 'label': label, 'ids': ids}
     store_dataset_by_default(name, data_dict)
 
+def store_yelp(data_path, name, n_words=10000, upsert=False):
+    if upsert:
+        def insertion(*args, **kwargs):
+            return replace_one_if_exists(db_name, *args, **kwargs)
+    else:
+        def insertion(*args, **kwargs):
+            return insert_one_if_not_exists(db_name, *args, **kwargs)
+    with open(data_path, 'r') as file:
+        data = json.load(file)
+    training_data, validate_data, test_data = split(data)
+    all_words = []
+    reviews = []
+    stars = []
+    for item in training_data:
+        tokenized_review = list(itertools.chain.from_iterable(tokenize(item['review'])))
+        reviews.append(tokenized_review)
+        stars.append(item['stars'])
+        all_words.extend(tokenized_review)
+    word_to_id, counter, words = tokens2vocab(all_words)
+
+    id_to_word = {}
+    for word, id_ in word_to_id.items():
+        id_to_word[id_] = word
+
+    reviews = [[word_to_id[t] if word_to_id.get(t) else '<unk>' for t in sentence] for sentence in reviews]
+    training_data = (reviews, stars)
+
+    tmp_data = []
+    for _data in [validate_data, test_data]:
+        reviews = []
+        stars = []
+        for item in _data:
+            tokenized_review = list(itertools.chain.from_iterable(tokenize(item['review'])))
+            reviews.append([word_to_id[t] if word_to_id.get(t) else '<unk>' for t in tokenized_review])
+            stars.append(item['stars'])
+        tmp_data.append((reviews, stars))
+    validate_data = tmp_data[0]
+    test_data = tmp_data[1]
+
+    word_to_id_json = dict2json(word_to_id)
+    insertion('word_to_id', {'name': name}, {'name': name, 'data': word_to_id_json})
+    insertion('id_to_word', {'name': name}, {'name': name, 'data': id_to_word})
+
+    data_names = ['train', 'validate', 'test']
+    for i, data_set in enumerate([training_data, validate_data, test_data]):
+        data, label = data_set
+        ids = list(range(len(data)))
+        dict2json({'data': data, 'label': label, 'ids': ids}, get_path(get_dataset_path(name), data_names[i]))
+
+
+def get_dataset_path(name):
+    return os.path.join('cached_data', 'sentiment_prediction', name)
+
 
 def seed_db(force=False):
     """
@@ -125,6 +181,8 @@ def seed_db(force=False):
             store_sst(data_dir, seed['name'], **seed['scheme'])
         elif seed['type'] == 'imdb':
             store_imdb(data_dir, seed['name'], **seed['scheme'])
+        elif seed['type'] == 'yelp':
+            store_yelp(data_dir, seed['name'], **seed['scheme'])
         else:
             print('not able to seed datasets with type: {:s}'.format(seed['type']))
             continue
