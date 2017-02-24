@@ -334,7 +334,7 @@ def get_sp_data_producer(data, label, batch_size, max_length, num_steps=None, tr
 
     # normalize label to start from 0.
     min_label = min(label)
-    label = label - min_label
+    label = list(map(lambda x: x - min_label, label))
 
     targets = ListFeeder(label[:s_producer.sentence_num], batch_size, inputs.sentence_size)
 
