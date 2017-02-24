@@ -12,8 +12,8 @@ model:
   embedding_size: 500
   cell_type: BasicLSTM
   cells:
-    - num_units: 300
-    - num_units: 300
+    - num_units: 100
+    - num_units: 100
   loss_func: sentence_loss
   dataset: yelp-test
 train:
@@ -24,6 +24,6 @@ train:
   gradient_clip: global_norm
   gradient_clip_args:
     clip_norm: 1.0
-  optimizer: GradientDescent
-  learning_rate: "lambda x: 0.5 * (1.0 if x < 4 else 0.9 ** (x - 4))"
+  optimizer: Adam
+  learning_rate: 0.001
 
