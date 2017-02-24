@@ -19,3 +19,8 @@ datasets:
     dir: imdb
     scheme:
       n_words: 10000
+  - name: yelp
+    type: yelp
+    dir: yelp
+    scheme:
+      n_words: 10000
