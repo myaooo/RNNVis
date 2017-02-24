@@ -119,7 +119,6 @@ def store_yelp(data_path, name, n_words=10000, upsert=False):
         insertion = insert_one_if_not_exists
     with open(os.path.join(data_path, 'review_label.json'), 'r') as file:
         data = json.load(file)
-    print("Finish load data")
     training_data, validate_data, test_data = split(data)
     all_words = []
     reviews = []
@@ -130,7 +129,6 @@ def store_yelp(data_path, name, n_words=10000, upsert=False):
         stars.append(item['label'])
         all_words.extend(tokenized_review)
     word_to_id, counter, words = tokens2vocab(all_words)
-    print("Got word_to_id")
 
     word_to_id = {k: v+1 for k, v in word_to_id.items() if v < n_words}
     word_to_id['<unk>'] = 0
@@ -154,8 +152,6 @@ def store_yelp(data_path, name, n_words=10000, upsert=False):
     validate_data = tmp_data[0]
     test_data = tmp_data[1]
 
-    print("Data is ready")
-
     word_to_id_json = dict2json(word_to_id)
     insertion('word_to_id', {'name': name}, {'name': name, 'data': word_to_id_json})
     insertion('id_to_word', {'name': name}, {'name': name, 'data': id_to_word})
@@ -166,6 +162,7 @@ def store_yelp(data_path, name, n_words=10000, upsert=False):
         data, label = data_set
         ids = list(range(len(data)))
         data_dict[data_names[i]] = {'data': data, 'label': label, 'ids': ids}
+        insertion('sentences', {'name': name, 'set': data_names[i], 'data': data, 'label': label, 'ids': ids})
     store_dataset_by_default(name, data_dict)
 
 
