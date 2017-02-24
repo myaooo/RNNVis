@@ -132,7 +132,7 @@ def store_yelp(data_path, name, n_words=10000, upsert=False):
     word_to_id, counter, words = tokens2vocab(all_words)
     print("Got word_to_id")
 
-    word_to_id = {k: v+1 for k, v in word_to_id if v < n_words}
+    word_to_id = {k: v+1 for k, v in word_to_id.items() if v < n_words}
     word_to_id['<unk>'] = 0
 
     id_to_word = {}
