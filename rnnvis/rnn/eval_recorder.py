@@ -49,7 +49,8 @@ class StateRecorder(Recorder):
         self.eval_doc_id = []
         self.buffer = defaultdict(list)
         self.batch_size = 1
-        self.inputs = None
+        self.input_data = None
+        self.input_length = None
         self.flush_every = flush_every
         self.step = 0
 
@@ -61,9 +62,14 @@ class StateRecorder(Recorder):
         :return: None
         """
         self.batch_size = inputs.shape[0]
-        self.inputs = inputs.full_data
-        for i in range(self.inputs.shape[0]):
-            self.eval_doc_id.append(insert_evaluation(self.data_name, self.model_name, self.inputs[i].tolist()))
+        self.input_data = inputs.full_data
+        self.input_length = self.input_data.shape[1]
+        # for i in range(self.inputs.shape[0]):
+        sentence_num = self.input_data.shape[0]
+        sentence_lengths = [count_length(self.input_data[i]) for i in range(sentence_num)]
+        self.eval_doc_id = insert_evaluation(self.data_name, self.model_name,
+                                             [self.input_data[i, :sentence_lengths[i]].tolist()
+                                              for i in range(sentence_num)], replace=True)
 
     def record(self, record_message):
         """
@@ -73,10 +79,19 @@ class StateRecorder(Recorder):
         :return:
         """
         records = [{name: value[i] for name, value in record_message.items()} for i in range(self.batch_size)]
+        start_x = self.step // self.input_length * self.batch_size
+        start_y = self.step % self.input_length
+
+        good_records = []
+        eval_ids = []
         for i, record in enumerate(records):
-            record['word_id'] = int(self.inputs[i, self.step])
-        self.buffer['records'] += records
-        self.buffer['eval_ids'] += self.eval_doc_id
+            word_id = int(self.input_data[start_x + i, start_y])
+            record['word_id'] = word_id
+            if word_id >= 0:
+                good_records.append(record)
+                eval_ids.append(self.eval_doc_id[start_x + i])
+        self.buffer['records'] += good_records
+        self.buffer['eval_ids'] += eval_ids
         self.step += 1
         if len(self.buffer['eval_ids']) >= self.flush_every:
             self.flush()
@@ -86,3 +101,10 @@ class StateRecorder(Recorder):
 
     def close(self):
         pass
+
+
+def count_length(inputs, marker=-1):
+    for i, data in enumerate(inputs):
+        if data == marker:
+            return i
+    return len(inputs)

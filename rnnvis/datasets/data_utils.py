@@ -26,6 +26,10 @@ class Feeder(object):
         return self.deque()
 
     @property
+    def top(self):
+        raise NotImplementedError("this is the base class of Feeder!")
+
+    @property
     def shape(self):
         raise NotImplementedError("this is the base class of Feeder!")
 
@@ -45,6 +49,14 @@ class Feeder(object):
         """
         raise NotImplementedError("this is the base class of Feeder!")
 
+    def step(self, k):
+        """
+        Step k * num_steps of the data
+        :param k: an integer
+        :return: None
+        """
+        raise NotImplementedError("this is the base class of Feeder!")
+
 
 class ListFeeder(Feeder):
     def __init__(self, raw_list, batch_size, repeat=1, epoch_num=None):
@@ -60,15 +72,14 @@ class ListFeeder(Feeder):
     def deque(self, transpose=None):
         if transpose is not None:
             raise NotImplementedError("ListFeeder has no transpose option!")
-        start = self.i // self.repeat * self.batch_size
-        _data = self.data[start:start+self.batch_size]
-        self.i += 1
-        if self.i >= self.epoch_size:
-            self.i = 0
-            self.epoch_num += 1
-        if self.epoch_num > self.max_epoch_num:
-            raise ValueError("Exceeds maximum epoch num!")
+        _data = self.top
+        self.step(1)
         return _data
+
+    @property
+    def top(self):
+        start = self.i // self.repeat * self.batch_size
+        return self.data[start:start + self.batch_size]
 
     @property
     def epoch_size(self):
@@ -84,7 +95,15 @@ class ListFeeder(Feeder):
 
     @property
     def need_refresh(self):
-        raise NotImplementedError("Don't support this method for list")
+        raise NotImplementedError("Don't support this method for list producer")
+
+    def step(self, k):
+        self.i += k
+        if self.i >= self.epoch_size:
+            self.i -= self.epoch_size
+            self.epoch_num += 1
+        if self.epoch_num > self.max_epoch_num:
+            raise ValueError("Exceeds maximum epoch num!")
 
 
 class InputFeeder(Feeder):
@@ -105,18 +124,17 @@ class InputFeeder(Feeder):
         self._shape = _shape
 
     def deque(self, transpose=None):
-        start = self.i * self.num_steps + self.offset
-        _data = self.data[:, start:(start + self.num_steps)]
+        _data = self.top
         transpose = self.transpose if transpose is None else transpose
         if transpose:
             _data = _data.transpose([1, 0, 2] if self.embedding else [1, 0])
-        self.i += 1
-        if self.i >= self.epoch_size:
-            self.i = 0
-            self.epoch_num += 1
-        if self.epoch_num > self.max_epoch_num:
-            raise ValueError("Exceeds maximum epoch num!")
+        self.step(1)
         return _data
+
+    @property
+    def top(self):
+        start = self.i * self.num_steps + self.offset
+        return self.data[:, start:(start + self.num_steps)]
 
     @property
     def shape(self):
@@ -133,6 +151,14 @@ class InputFeeder(Feeder):
     @property
     def need_refresh(self):
         return True if self.i == 0 else False
+
+    def step(self, k):
+        self.i += k
+        if self.i >= self.epoch_size:
+            self.i -= self.epoch_size
+            self.epoch_num += 1
+        if self.epoch_num > self.max_epoch_num:
+            raise ValueError("Exceeds maximum epoch num!")
 
 
 class InputProducer(object):
@@ -180,19 +206,18 @@ class SentenceFeeder(Feeder):
         self._shape = _shape
 
     def deque(self, transpose=None):
-        start_1 = (self.i // self.sentence_size) * self.batch_size
-        start_2 = (self.i % self.sentence_size) * self.num_steps
-        _data = self.data[start_1:(start_1 + self.batch_size), start_2:(start_2 + self.num_steps)]
+        _data = self.top
         transpose = self.transpose if transpose is None else transpose
         if transpose:
             _data = _data.transpose([1, 0, 2] if self.embedding else [1, 0])
-        self.i += 1
-        if self.i >= self.epoch_size:
-            self.i = 0
-            self.epoch_num += 1
-        if self.epoch_num > self.max_epoch_num:
-            raise ValueError("Exceeds maximum epoch num!")
+        self.step(1)
         return _data
+
+    @property
+    def top(self):
+        start_1 = (self.i // self.sentence_size) * self.batch_size
+        start_2 = (self.i % self.sentence_size) * self.num_steps
+        return self.data[start_1:(start_1 + self.batch_size), start_2:(start_2 + self.num_steps)]
 
     @property
     def shape(self):
@@ -208,11 +233,19 @@ class SentenceFeeder(Feeder):
 
     @property
     def need_refresh(self):
-        return True
+        return self.i % self.sentence_size == 0
 
     @property
     def sentence_size(self):
         return self._sentence_size
+
+    def step(self, k):
+        self.i += k
+        if self.i >= self.epoch_size:
+            self.i -= self.epoch_size
+            self.epoch_num += 1
+        if self.epoch_num > self.max_epoch_num:
+            raise ValueError("Exceeds maximum epoch num!")
 
 
 class SentenceProducer(object):
@@ -331,5 +364,7 @@ def get_lm_data_producer(data, batch_size, num_steps, transpose=False):
 def get_sp_data_producer(data, label, batch_size, max_length, num_steps=None, transpose=False):
     s_producer = SentenceProducer(data, batch_size, max_length, num_steps)
     inputs = s_producer.get_feeder(transpose=transpose)
+    # regularize label data
+
     targets = ListFeeder(label[:s_producer.sentence_num], batch_size, inputs.sentence_size)
     return inputs, targets, targets.epoch_size
