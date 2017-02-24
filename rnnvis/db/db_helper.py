@@ -140,6 +140,7 @@ def get_datasets_by_name(name, fields=None):
     for c_name in fields:
         if c_name in ['train', 'test', 'valid']:
             data = json.load(open(get_path(get_dataset_path(name), c_name)))
+            print("Got {}, the length of it is {}".format(c_name, len(data)))
             complete_data[c_name] = data
             continue
         results = db_hdlr[c_name].find_one({'name': name})
