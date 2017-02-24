@@ -111,15 +111,15 @@ def store_imdb(data_path, name, n_words=100000, upsert=False):
         data_dict[set_name] = {'data': data, 'label': label, 'ids': ids}
     store_dataset_by_default(name, data_dict)
 
+
 def store_yelp(data_path, name, n_words=10000, upsert=False):
     if upsert:
-        def insertion(*args, **kwargs):
-            return replace_one_if_exists
+        insertion = replace_one_if_exists
     else:
-        def insertion(*args, **kwargs):
-            return insert_one_if_not_exists
+        insertion = insert_one_if_not_exists
     with open(os.path.join(data_path, 'review_label.json'), 'r') as file:
         data = json.load(file)
+    print("Finish load data")
     training_data, validate_data, test_data = split(data)
     all_words = []
     reviews = []
@@ -130,6 +130,7 @@ def store_yelp(data_path, name, n_words=10000, upsert=False):
         stars.append(item['label'])
         all_words.extend(tokenized_review)
     word_to_id, counter, words = tokens2vocab(all_words)
+    print("Got word_to_id")
 
     word_to_id = {k: v+1 for k, v in word_to_id if v < n_words}
     word_to_id['<unk>'] = 0
@@ -152,6 +153,8 @@ def store_yelp(data_path, name, n_words=10000, upsert=False):
         tmp_data.append((reviews, stars))
     validate_data = tmp_data[0]
     test_data = tmp_data[1]
+
+    print("Data is ready")
 
     word_to_id_json = dict2json(word_to_id)
     insertion('word_to_id', {'name': name}, {'name': name, 'data': word_to_id_json})
