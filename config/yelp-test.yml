@@ -12,8 +12,8 @@ model:
   embedding_size: 500
   cell_type: BasicLSTM
   cells:
-    - num_units: 500
-    - num_units: 500
+    - num_units: 300
+    - num_units: 300
   loss_func: sentence_loss
   dataset: yelp-test
 train:
