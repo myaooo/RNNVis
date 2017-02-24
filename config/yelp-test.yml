@@ -9,7 +9,7 @@ model:
   vocab_size: 10001
   target_size: 5
   use_last_output: True
-  embedding_size: 500
+  embedding_size: 200
   cell_type: BasicLSTM
   cells:
     - num_units: 100
