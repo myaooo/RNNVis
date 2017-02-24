@@ -12,15 +12,15 @@ model:
   embedding_size: 400
   cell_type: BasicLSTM
   cells:
-    - num_units: 100
-    - num_units: 100
+    - num_units: 300
+    - num_units: 300
   loss_func: sentence_loss
   dataset: yelp-test
 train:
   epoch_num: 40
-  num_steps: 100
+  num_steps: 150
   batch_size: 32
-  keep_prob: 0.7
+  keep_prob: 0.8
   gradient_clip: global_norm
   gradient_clip_args:
     clip_norm: 1.0
