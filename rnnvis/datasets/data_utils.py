@@ -236,7 +236,7 @@ class SentenceProducer(object):
         self.max_length = max_length
         self.num_steps = self.max_length if num_steps is None else num_steps
         assert self.max_length % self.num_steps == 0, "the max_length should be complete times of num_steps"
-        print('raw_data is '.format(raw_data))
+        print('raw_data is {}'.format(raw_data))
         if isinstance(raw_data[0][0], int):
             self.embedding = False
             # Do －1 paddings if word_id
