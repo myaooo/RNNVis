@@ -137,7 +137,7 @@ def store_yelp(data_path, name, n_words=10000, upsert=False):
     for word, id_ in word_to_id.items():
         id_to_word[id_] = word
 
-    reviews = [[word_to_id[t] if word_to_id.get(t) < n_words else 0 for t in sentence] for sentence in reviews]
+    reviews = [[word_to_id[t] if word_to_id.get(t) else 0 for t in sentence] for sentence in reviews]
     training_data = (reviews, stars)
 
     tmp_data = []
