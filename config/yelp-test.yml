@@ -7,7 +7,7 @@ model:
   input_dtype: int32
   target_dtype: int32
   vocab_size: 10001
-  target_size: 2
+  target_size: 5
   use_last_output: True
   embedding_size: 500
   cell_type: BasicLSTM
