@@ -135,7 +135,7 @@ def store_yelp(data_path, name, n_words=10000, upsert=False):
     word_to_id = {k: v+1 for k, v in word_to_id.items() if v < n_words}
     word_to_id['<unk>'] = 0
 
-    id_to_word = {}
+    id_to_word = [None] * len(word_to_id)
     for word, id_ in word_to_id.items():
         id_to_word[id_] = word
 
