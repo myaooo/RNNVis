@@ -3,7 +3,7 @@ Tests the restore of trained model
 """
 import tensorflow as tf
 from rnnvis.procedures import build_model, init_tf_environ, pour_data
-from rnnvis.rnn.evaluator import StateRecorder
+from rnnvis.rnn.eval_recorder import StateRecorder
 from rnnvis.db import get_dataset
 from rnnvis.datasets.data_utils import SentenceProducer
 
@@ -31,7 +31,7 @@ if __name__ == '__main__':
     # scripts that eval and record states
     if True:  # False:
         print('Preparing data')
-        producers = pour_data(train_config.dataset, ['test'], 10, 1)
+        producers = pour_data(train_config.dataset, ['test'], 10, 1, train_config.num_steps)
         inputs, targets, epoch_size = producers[0]
         model.run_with_context(model.evaluator.evaluate_and_record, inputs, targets,
                                StateRecorder(train_config.dataset, model.name, 500), verbose=True)
