@@ -162,7 +162,8 @@ def store_yelp(data_path, name, n_words=10000, upsert=False):
         data, label = data_set
         ids = list(range(len(data)))
         data_dict[data_names[i]] = {'data': data, 'label': label, 'ids': ids}
-        insertion('sentences', {'name': name, 'set': data_names[i], 'data': data, 'label': label, 'ids': ids})
+        insertion('sentences', {'name': name, 'set': data_names[i]},
+                  {'name': name, 'set': data_names[i], 'data': data, 'label': label, 'ids': ids})
     store_dataset_by_default(name, data_dict)
 
 
