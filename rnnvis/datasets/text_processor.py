@@ -173,6 +173,14 @@ __punct_set = {':', ';', '--', ',', "'"}
 
 
 def tokenize(str_stream, eos=True, remove_punct=False):
+    """
+    Given a str or str_stream (f.read()) convert the str to a list of sentences,
+        e.g.: [[word, word], [word, word, ...], ...]
+    :param str_stream: a str or a str_stream
+    :param eos: wether turns '.' into <eos> tag
+    :param remove_punct: wether to remove punctuations: ':', ';', '--', ',', "'"
+    :return: a list of sentences, each sentence is a list of words (str)
+    """
     # do lazy import coz import nltk is very slow
     import nltk
     try:
@@ -192,6 +200,12 @@ def tokenize(str_stream, eos=True, remove_punct=False):
 
 
 def tokens2vocab(tokens, sort=True):
+    """
+    Given a list of tokens (words), get the word_to_id dict, as well as word_freq, and id_to_word
+    :param tokens: a list of words of type str
+    :param sort: whether to sort the words according to their frequency
+    :return: a tuple (word_to_id, word_freq, id_to_word)
+    """
     counter = Counter(tokens)
     print("vocab size: {:d}".format(len(counter)))
     if sort:
@@ -282,8 +296,8 @@ if __name__ == "__main__":
     processor = SSTProcessor(get_path('./cached_data/stanfordSentimentTreebank', 'datasetSentences.txt'),
                              get_path('./cached_data/stanfordSentimentTreebank', 'dictionary.txt'),
                              get_path('./cached_data/stanfordSentimentTreebank', 'sentiment_lables.txt'))
-    tokens = processor.tokens
-    processor.ids = None
-    word_to_id = processor.word_to_id
-    sentences = processor.sentence_tokens
+    # tokens = processor.tokens
+    # processor.ids = None
+    # word_to_id = processor.word_to_id
+    # sentences = processor.sentence_tokens
     processor.save()

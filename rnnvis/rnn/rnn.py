@@ -12,7 +12,8 @@ import numpy as np
 from rnnvis.datasets.data_utils import Feeder
 from rnnvis.utils.io_utils import get_path, before_save
 from rnnvis.rnn.command_utils import data_type, config_proto
-from rnnvis.rnn.evaluator import Evaluator, Recorder
+from rnnvis.rnn.evaluator import Evaluator
+from rnnvis.rnn.eval_recorder import StateRecorder
 from rnnvis.rnn.trainer import Trainer
 from rnnvis.rnn.generator import Generator
 from rnnvis.rnn.losses import softmax
@@ -520,7 +521,7 @@ class RNN(object):
             self.generator = Generator(self)
 
     def train(self, inputs, targets, epoch_size, epoch_num, valid_inputs=None, valid_targets=None,
-              valid_epoch_size=None, verbose=True, refresh_state=False):
+              valid_epoch_size=None, verbose=True, refresh_state=False, early_stop=5):
         """
         Training using given input and target data
         TODO: Clean up this messy function
@@ -540,7 +541,8 @@ class RNN(object):
         assert self.trainer is not None
         self.finalize()
         with self.graph.as_default():
-
+            losses = []
+            accs = []
             print("Start Running Train Graph")
             if valid_inputs is None:
                 # Only needs to run training graph
@@ -550,10 +552,19 @@ class RNN(object):
                 for i in range(epoch_num):
                     if verbose:
                         print("Epoch {}:".format(i))
-                    self.trainer.train_one_epoch(self.sess, inputs, targets, epoch_size, verbose=verbose,
-                                                 refresh_state=refresh_state)
+                    loss, acc = self.trainer.train_one_epoch(self.sess, inputs, targets, epoch_size, verbose=verbose,
+                                                             refresh_state=refresh_state)
                     self.validator.evaluate(self.sess, valid_inputs, valid_targets, valid_epoch_size,
                                             verbose=verbose, refresh_state=refresh_state)
+                    losses.append(loss)
+                    accs.append(accs)
+                    if i > early_stop:
+                        threshold = 5e-5
+                        abs_diff = [abs(losses[j] - losses[i-early_stop]) for j in range(i-early_stop, i)]
+                        if max(abs_diff) < threshold:
+                            print("{:d} consecutive epochs with loss difference less than {:f}, early stopped!"
+                                  .format(early_stop, threshold))
+                            return
 
     def validate(self, *args, **kwargs):
         """
@@ -593,7 +604,7 @@ class RNN(object):
         :param kwargs: see Evaluator.evaluate_and_record method
         :return:
         """
-        recorder = Recorder(datasets, self.name)
+        recorder = StateRecorder(datasets, self.name)
         kwargs['recorder'] = recorder
         self.run_with_context(self.evaluator.evaluate_and_record, *args, **kwargs)
 
