@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 
 
 from rnnvis.db import get_dataset
-from rnnvis.db.language_model import query_evals, query_evaluation_records
+from rnnvis.db.db_helper import query_evals, query_evaluation_records
 from rnnvis.utils.io_utils import file_exists, get_path, dict2json
 from rnnvis.vendor import tsne, mds
 
@@ -292,6 +292,18 @@ def create_animated_tsne(data, perplexity, states_num, init_dim=50, lr=50, max_i
     anim.show()
 
 
+def get_state_value(states, layer, dim):
+    """
+    Given the loaded states from load_words_and_states, a layer no. and a dim no.,
+    return values of a specific state as a list
+    :param states:
+    :param layer:
+    :param dim:
+    :return:
+    """
+    return [state[layer, dim] for state in states]
+
+
 class AnimatedScatter(object):
     """An animated scatter plot using matplotlib.animations.FuncAnimation."""
     def __init__(self, data, figsize=None, interval=5):
@@ -299,6 +311,7 @@ class AnimatedScatter(object):
         # self.stream = self.data_stream()
         self.figsize = [6, 6] if figsize is None else figsize
         self.data = data
+        self.scat = None
         # Setup the figure and axes...
         self.fig, self.ax = plt.subplots(figsize=self.figsize)
         self.setup_plot()

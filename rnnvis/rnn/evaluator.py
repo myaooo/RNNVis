@@ -27,7 +27,7 @@ class Evaluator(object):
                  log_gradients=False, log_gates=False, dynamic=True):
         assert isinstance(rnn_, rnn.RNN)
         self._rnn = rnn_
-        self.record_every = record_every
+        self._record_every = record_every
         self.log_state = log_state
         self.log_input = log_input
         self.log_output = log_output
@@ -76,8 +76,14 @@ class Evaluator(object):
                 # summary_ops.update(gate_ops)
         self.summary_ops = summary_ops
 
-        # adding salience computations
-        # self.salience = self._init_salience_ops() if cal_salience else None
+    @property
+    def record_every(self):
+        return self._record_every
+
+    @record_every.setter
+    def record_every(self, v):
+        assert isinstance(v, int), "record_every should be an integer!"
+        self._record_every = v
 
     def evaluate(self, sess, inputs, targets, input_size, verbose=True, refresh_state=False):
         """
