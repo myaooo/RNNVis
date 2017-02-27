@@ -2,12 +2,14 @@
 The backend manager for handling the models
 """
 
+import hashlib
 import os
 
+from datasets.data_utils import Feeder, SentenceProducer
 from rnnvis.utils.io_utils import get_path, assert_path_exists
 from rnnvis.procedures import build_model
-from rnnvis.db import language_model
-from rnnvis.rnn.evaluator import Recorder
+# from rnnvis.db import language_model
+from rnnvis.rnn.eval_recorder import BufferRecorder
 
 _config_dir = 'config'
 _data_dir = 'cached_data'
@@ -17,13 +19,15 @@ _model_dir = 'models'
 class ModelManager(object):
 
     _available_models = {
-        'PTB': {'config': 'lstm-large3.yml', 'data': 'ptb'},
-        'Shakespeare': {'config': 'shakespeare.yml', 'data': 'shakespeare'}
+        'PTB': {'config': 'lstm-large3.yml'},
+        'Shakespeare': {'config': 'shakespeare.yml'}
     }
 
     def __init__(self):
         self._models = {}
-        self._data = {}
+        self._train_configs = {}
+        self._records = {}
+        # self._data = {}
 
     @property
     def available_models(self):
@@ -50,23 +54,24 @@ class ModelManager(object):
     def _load_model(self, name, train=False):
         if name in self._available_models:
             config_file = get_path(_config_dir, self._available_models[name]['config'])
-            model, _ = build_model(config_file)
-            data_name = self._available_models[name]['data']
-            data = language_model.get_datasets_by_name(data_name)
-            if data is None:
-                if name == 'PTB':
-                    language_model.store_ptb(get_path('cached_data/simple-examples/data'), data_name)
-                elif name == 'Shakespeare':
-                    language_model.store_plain_text(get_path('cached_data/tinyshakespeare.txt', data_name),
-                                                    'shakespeare', {'train': 0.9, 'valid': 0.05, 'test': 0.05})
-                data = language_model.get_datasets_by_name(self._available_models[name]['data'])
-            model.add_generator(data['word_to_id'])
+            model, train_config = build_model(config_file)
+            # data_name = self._available_models[name]['data']
+            # data = language_model.get_datasets_by_name(data_name)
+            # if data is None:
+            #     if name == 'PTB':
+            #         language_model.store_ptb(get_path('cached_data/simple-examples/data'), data_name)
+            #     elif name == 'Shakespeare':
+            #         language_model.store_plain_text(get_path('cached_data/tinyshakespeare.txt', data_name),
+            #                                         'shakespeare', {'train': 0.9, 'valid': 0.05, 'test': 0.05})
+            #     data = language_model.get_datasets_by_name(self._available_models[name]['data'])
+            model.add_generator()
+            model.add_evaluator(1, 1, 100, True)
             if not train:
                 # If not training, the model should already be trained
                 assert_path_exists(get_path(_model_dir, model.name))
                 model.restore()
             self._models[name] = model
-            self._data[name] = data
+            self._train_configs[name] = train_config
             return True
         else:
             print('WARN: Cannot find model with name {:s}'.format(name))
@@ -90,12 +95,36 @@ class ModelManager(object):
             return None
         return model.generate(seeds, None, max_branch, accum_cond_prob, min_cond_prob, min_prob, max_step, neg_word_ids)
 
-    def model_evaluate(self, name, sequence):
+    def model_record(self, name, sequences):
         model = self._get_model(name)
+        config = self._train_configs[name]
         if model is None:
             return None
-        recorder = Recorder(self._available_models[name]['data'], name)
-        return model.evaluate_and_record(sequence, None, recorder, verbose=False)
+
+        max_len = max([len(s) for s in sequences])
+        recorder = BufferRecorder(config.dataset, name, 500)
+        if not isinstance(sequences, Feeder):
+            producer = SentenceProducer(sequences, 1, max_len, num_steps=1)
+            sequences = producer.get_feeder()
+        model.evaluator.record_every = max_len
+        try:
+            model.evaluate_and_record(sequences, None, recorder, verbose=False)
+            self._records[name].update({})
+            return True
+        except ValueError:
+            print("ERROR: Fail to evaluate given sequence! Sequence length too large!")
+            return None
+        except:
+            print("ERROR: Fail to evaluate given sequence! Unknown Reason.")
+            return None
+
+    def model_sentences_to_ids(self, name, sentences):
+        pass
+
+
+def hash_tag_str(text_list):
+    """Use hashlib.md5 to tag a hash str of a list of text"""
+    return hashlib.md5(" ".join(text_list).encode()).hexdigest()
 
 if __name__ == '__main__':
     print(os.path.realpath(__file__))

@@ -100,7 +100,7 @@ class RNNModel(object):
                 zero_initializer = tf.constant_initializer(value=0, dtype=rnn.target_dtype)
                 self.target_holders = tf.Variable(zero_initializer(shape=target_shape), trainable=False,
                                                   collections=_input_and_global, name='target_holders')
-                if rnn.has_projcet:
+                if rnn.has_project:
                     # Reshape outputs and targets into [batch_size * num_steps, feature_dims]
                     outputs = tf.reshape(self.outputs, [-1, self.outputs.get_shape().as_list()[-1]])
                     targets = tf.reshape(self.target_holders, [-1])
@@ -156,7 +156,7 @@ class RNNModel(object):
         #     get_data = lambda x: sess.run(x)
         # el
         if isinstance(inputs, Feeder):
-            get_data = lambda x: [y() for y in x]
+            get_data = lambda x: x()
         elif isinstance(inputs, np.ndarray):
             get_data = lambda x: x
         else:
@@ -178,10 +178,10 @@ class RNNModel(object):
             if refresh_state:
                 self.init_state(sess)
             feed_dict = self.feed_state(self.current_state)
-            _inputs, _targets = get_data((inputs, targets))
+            _inputs = get_data(inputs)
             feed_dict[self.input_holders] = _inputs
-            if _targets is not None:  # when we just need infer, we don't need to have targets
-                feed_dict[self.target_holders] = _targets
+            if targets is not None:  # when we just need infer, we don't need to have targets
+                feed_dict[self.target_holders] = get_data(targets)
 
             vals = sess.run(run_ops, feed_dict)
             self.current_state = vals['_state_']
@@ -494,7 +494,7 @@ class RNN(object):
         with self.graph.as_default():
             self.validator = Evaluator(self, batch_size, num_steps, 1, False, False, False)
 
-    def add_evaluator(self, batch_size=1, num_steps=1, record_every=1, log_state=True, log_input=True, log_output=True,
+    def add_evaluator(self, batch_size=1, num_steps=1, record_every=1, log_state=True, log_input=False, log_output=False,
                       log_gradients=False, log_gates=False, cal_salience=False):
         """
         Explicitly add evaluator instead of using the default one. You must call compile(evaluate=False)
@@ -675,7 +675,7 @@ class RNN(object):
         return bool(self.embedding_size)
 
     @property
-    def has_projcet(self):
+    def has_project(self):
         return self.cell_list[-1].output_size != self.output_shape[-1]
 
     @property
@@ -712,26 +712,42 @@ class RNN(object):
 
     @property
     def embedding_weights(self):
+
+        def get_embedding(sess):
+            with tf.variable_scope(self.name, reuse=True, initializer=self.initializer):
+                with tf.variable_scope('embedding'):
+                    with tf.device("/cpu:0"):  # Force CPU since GPU implementation is missing
+                        embedding = tf.get_variable("embedding",
+                                                    [self.vocab_size + 1, self.embedding_size],
+                                                    dtype=data_type())
+                        return embedding.eval(sess)
+
         if self.has_embedding:
-            def get_embedding(sess):
-                with tf.variable_scope(self.name, reuse=True, initializer=self.initializer):
-                    with tf.variable_scope('embedding'):
-                        with tf.device("/cpu:0"):  # Force CPU since GPU implementation is missing
-                            embedding = tf.get_variable("embedding",
-                                                        [self.vocab_size + 1, self.embedding_size],
-                                                        dtype=data_type())
-                            return embedding.eval(sess)
             return self.run_with_context(get_embedding)
         else:
             return None
 
+    @property
+    def project_weights(self):
+
+        def get_project(sess):
+            target_size = self.target_size if self.target_size is not None else self.vocab_size
+            with tf.variable_scope('project', reuse=True):
+                project_w = tf.get_variable(
+                    "project_w", [self.cell_list[-1].output_size, target_size], dtype=data_type())
+                projcet_b = tf.get_variable("project_b", [target_size], dtype=data_type())
+                return sess.run([project_w, projcet_b])
+        if self.has_project:
+            return self.run_with_context(get_project)
+        return None
+
     def project_output(self, outputs):
         """
-        Project outputs into softmax distributions
+        Project outputs into a distribution with same dimensions as the targets
         :param outputs: a tensor of shape (batch_size, output_size)
         :return: softmax distributions on vocab_size, a Tensor of shape (batch_size, vocab_size)
         """
-        if self.has_projcet:
+        if self.has_project:
             target_size = self.target_size if self.target_size is not None else self.vocab_size
             with tf.variable_scope('project', initializer=self.initializer):
                 project_w = tf.get_variable(

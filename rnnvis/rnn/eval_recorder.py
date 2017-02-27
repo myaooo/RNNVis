@@ -67,9 +67,7 @@ class StateRecorder(Recorder):
         # for i in range(self.inputs.shape[0]):
         sentence_num = self.input_data.shape[0]
         sentence_lengths = [count_length(self.input_data[i]) for i in range(sentence_num)]
-        self.eval_doc_id = insert_evaluation(self.data_name, self.model_name,
-                                             [self.input_data[i, :sentence_lengths[i]].tolist()
-                                              for i in range(sentence_num)], replace=True)
+        self.write_evaluation([self.input_data[i, :sentence_lengths[i]].tolist() for i in range(sentence_num)])
 
     def record(self, record_message):
         """
@@ -99,8 +97,52 @@ class StateRecorder(Recorder):
     def flush(self):
         push_evaluation_records(self.buffer.pop('eval_ids'), self.buffer.pop('records'))
 
+    def write_evaluation(self, sentences):
+        self.eval_doc_id = insert_evaluation(self.data_name, self.model_name, sentences, replace=True)
+
     def close(self):
         pass
+
+
+class BufferRecorder(StateRecorder):
+    """
+    A recorder that writes in a memory buffer, instead of DB.
+    """
+    def __init__(self, data_name, model_name, max_buffer=5000):
+        """
+        :param data_name:
+        :param model_name:
+        :param max_buffer: the max number of records that can be stored in the recorder,
+            since this recorder store all the data in the memory, it's better to set this value small.
+        """
+        super(BufferRecorder, self).__init__(data_name, model_name, 100)
+        self.max_buffer = max_buffer
+        self.eval_docs = None
+
+    def write_evaluation(self, sentences):
+        total_size = sum([len(sentence) for sentence in sentences])
+        if total_size > self.max_buffer:
+            raise ValueError("total size of the evaluating sequence is larger than permitted!")
+        self.eval_docs = [{'data': sentence, 'records': []} for sentence in sentences]
+        self.eval_doc_id = list(range(len(sentences)))
+
+    def flush(self):
+        def _flush(eval_ids, records):
+            for i, id_ in enumerate(eval_ids):
+                self.eval_docs[id_]['records'].append(records[i])
+        _flush(self.buffer.pop('eval_ids'), self.buffer.pop('records'))
+
+    def sentences(self):
+        for eval_doc in self.eval_docs:
+            yield eval_doc['data']
+
+    def records(self):
+        for eval_doc in self.eval_docs:
+            yield eval_doc['records']
+
+    def evals(self):
+        for eval_doc in self.eval_docs:
+            yield eval_doc['data'], eval_doc['records']
 
 
 def count_length(inputs, marker=-1):
