@@ -20,7 +20,7 @@ train:
   epoch_num: 40
   num_steps: 150
   batch_size: 32
-  keep_prob: 0.5
+  keep_prob: 0.4
   gradient_clip: global_norm
   gradient_clip_args:
     clip_norm: 1.0
