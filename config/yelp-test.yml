@@ -17,10 +17,10 @@ model:
   loss_func: sentence_loss
   dataset: yelp-test
 train:
-  epoch_num: 40
+  epoch_num: 60
   num_steps: 100
   batch_size: 32
-  keep_prob: 0.4
+  keep_prob: 0.3
   gradient_clip: global_norm
   gradient_clip_args:
     clip_norm: 1.0
