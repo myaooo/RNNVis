@@ -1,5 +1,5 @@
 model:
-  name: yelp-test
+  name: yelp
   initializer_name: random_uniform
   initializer_args:
     minval: -0.1
@@ -15,7 +15,7 @@ model:
     - num_units: 500
     - num_units: 500
   loss_func: sentence_loss
-  dataset: yelp-test
+  dataset: yelp
 train:
   epoch_num: 40
   num_steps: 300
