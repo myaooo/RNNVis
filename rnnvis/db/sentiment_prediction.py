@@ -111,31 +111,33 @@ def store_imdb(data_path, name, n_words=100000, upsert=False):
         data_dict[set_name] = {'data': data, 'label': label, 'ids': ids}
     store_dataset_by_default(name, data_dict)
 
+
 def store_yelp(data_path, name, n_words=10000, upsert=False):
     if upsert:
-        def insertion(*args, **kwargs):
-            return replace_one_if_exists(db_name, *args, **kwargs)
+        insertion = replace_one_if_exists
     else:
-        def insertion(*args, **kwargs):
-            return insert_one_if_not_exists(db_name, *args, **kwargs)
-    with open(data_path, 'r') as file:
+        insertion = insert_one_if_not_exists
+    with open(os.path.join(data_path, 'review_label.json'), 'r') as file:
         data = json.load(file)
-    training_data, validate_data, test_data = split(data)
+    training_data, validate_data, test_data = split(data, fractions=[0.8, 0.1, 0.1])
     all_words = []
     reviews = []
     stars = []
     for item in training_data:
         tokenized_review = list(itertools.chain.from_iterable(tokenize(item['review'])))
         reviews.append(tokenized_review)
-        stars.append(item['stars'])
+        stars.append(item['label'])
         all_words.extend(tokenized_review)
     word_to_id, counter, words = tokens2vocab(all_words)
 
-    id_to_word = {}
+    word_to_id = {k: v+1 for k, v in word_to_id.items() if v < n_words}
+    word_to_id['<unk>'] = 0
+
+    id_to_word = [None] * len(word_to_id)
     for word, id_ in word_to_id.items():
         id_to_word[id_] = word
 
-    reviews = [[word_to_id[t] if word_to_id.get(t) else '<unk>' for t in sentence] for sentence in reviews]
+    reviews = [[word_to_id[t] if word_to_id.get(t) else 0 for t in sentence] for sentence in reviews]
     training_data = (reviews, stars)
 
     tmp_data = []
@@ -144,8 +146,8 @@ def store_yelp(data_path, name, n_words=10000, upsert=False):
         stars = []
         for item in _data:
             tokenized_review = list(itertools.chain.from_iterable(tokenize(item['review'])))
-            reviews.append([word_to_id[t] if word_to_id.get(t) else '<unk>' for t in tokenized_review])
-            stars.append(item['stars'])
+            reviews.append([word_to_id[t] if word_to_id.get(t) else 0 for t in tokenized_review])
+            stars.append(item['label'])
         tmp_data.append((reviews, stars))
     validate_data = tmp_data[0]
     test_data = tmp_data[1]
@@ -154,11 +156,16 @@ def store_yelp(data_path, name, n_words=10000, upsert=False):
     insertion('word_to_id', {'name': name}, {'name': name, 'data': word_to_id_json})
     insertion('id_to_word', {'name': name}, {'name': name, 'data': id_to_word})
 
-    data_names = ['train', 'validate', 'test']
+    data_names = ['train', 'valid', 'test']
+    data_dict = {}
     for i, data_set in enumerate([training_data, validate_data, test_data]):
+        data_set = tuple(zip(*sorted(zip(*data_set), key=lambda x: len(x[0]))))
         data, label = data_set
         ids = list(range(len(data)))
-        dict2json({'data': data, 'label': label, 'ids': ids}, get_path(get_dataset_path(name), data_names[i]))
+        data_dict[data_names[i]] = {'data': data, 'label': label, 'ids': ids}
+        insertion('sentences', {'name': name, 'set': data_names[i]},
+                  {'name': name, 'set': data_names[i], 'data': data, 'label': label, 'ids': ids})
+    store_dataset_by_default(name, data_dict)
 
 
 def get_dataset_path(name):
