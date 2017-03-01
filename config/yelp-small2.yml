@@ -19,7 +19,7 @@ model:
 train:
   epoch_num: 40
   num_steps: 250
-  batch_size: 32
+  batch_size: 60
   keep_prob: 0.3
   gradient_clip: global_norm
   gradient_clip_args:
