@@ -1,3 +1,5 @@
 build/*.js
 config/*.js
 src/components/*.vue
+src/algorithm/*.js
+src/services/*.js

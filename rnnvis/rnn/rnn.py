@@ -412,14 +412,14 @@ class RNN(object):
 
     def get_id_from_word(self, words):
         """
-        Retrieve the ids from words
+        Retrieve the ids from words, unknown words will be map to id of "<unk>"
         :param words: a list of words
         :return: a list of corresponding ids
         """
         if isinstance(words, str) and words in self.word_to_id:
             return self.word_to_id[words]
         words = [w for w in words]
-        ids = [self.word_to_id[w] for w in words if w in self.word_to_id]
+        ids = [self.word_to_id[w] if w in self.word_to_id else self.word_to_id['<unk>'] for w in words ]
         return ids
 
     def compile(self):
@@ -690,7 +690,11 @@ class RNN(object):
     @property
     def id_to_word(self):
         if not hasattr(self, '_id_to_word'):
-            setattr(self, '_id_to_word', {id_: word for word, id_ in self.word_to_id.items()})
+            max_len = len(self.word_to_id)
+            id_to_word = [''] * max_len
+            for word, id_ in self.word_to_id.items():
+                id_to_word[id_] = word
+            setattr(self, '_id_to_word', id_to_word)
         return getattr(self, '_id_to_word')
 
     def map_to_embedding(self, inputs):

@@ -7,9 +7,11 @@ import os
 
 from datasets.data_utils import Feeder, SentenceProducer
 from rnnvis.utils.io_utils import get_path, assert_path_exists
-from rnnvis.procedures import build_model
+from rnnvis.procedures import build_model, pour_data
 # from rnnvis.db import language_model
-from rnnvis.rnn.eval_recorder import BufferRecorder
+from rnnvis.rnn.eval_recorder import BufferRecorder, StateRecorder
+from rnnvis.state_processor import get_state_signature, get_empirical_strength, strength2json, \
+    get_tsne_projection, solution2json
 
 _config_dir = 'config'
 _data_dir = 'cached_data'
@@ -19,14 +21,16 @@ _model_dir = 'models'
 class ModelManager(object):
 
     _available_models = {
-        'PTB': {'config': 'lstm-large3.yml'},
-        'Shakespeare': {'config': 'shakespeare.yml'}
+        'PTB-LSTM': {'config': 'lstm.yml'},
+        'Shakespeare': {'config': 'shakespeare.yml'},
+        'IMDB': {'config': 'imdb-tiny.yml'},
+        'PTB-GRU': {'config': 'gru.yml'}
     }
 
     def __init__(self):
         self._models = {}
         self._train_configs = {}
-        self._records = {}
+        # self._records = {}
         # self._data = {}
 
     @property
@@ -95,12 +99,11 @@ class ModelManager(object):
             return None
         return model.generate(seeds, None, max_branch, accum_cond_prob, min_cond_prob, min_prob, max_step, neg_word_ids)
 
-    def model_record(self, name, sequences):
+    def model_record_sequence(self, name, sequences):
         model = self._get_model(name)
-        config = self._train_configs[name]
         if model is None:
             return None
-
+        config = self._train_configs[name]
         max_len = max([len(s) for s in sequences])
         recorder = BufferRecorder(config.dataset, name, 500)
         if not isinstance(sequences, Feeder):
@@ -109,8 +112,7 @@ class ModelManager(object):
         model.evaluator.record_every = max_len
         try:
             model.evaluate_and_record(sequences, None, recorder, verbose=False)
-            self._records[name].update({})
-            return True
+            return recorder.evals()  # a sequence of eval_doc, records pairs
         except ValueError:
             print("ERROR: Fail to evaluate given sequence! Sequence length too large!")
             return None
@@ -118,8 +120,69 @@ class ModelManager(object):
             print("ERROR: Fail to evaluate given sequence! Unknown Reason.")
             return None
 
+    def model_record_default(self, name, dataset):
+        """
+        record default datasets
+        :param name: model name
+        :param dataset: 'train', 'valid', 'test'
+        :return: True or False, None if model not exists
+        """
+        model = self._get_model(name)
+        if model is None:
+            return None
+        config = self._train_configs[name]
+        assert dataset in ['test', 'train', 'valid'], "dataset should be 'train', 'valid' or 'test'"
+        recorder = StateRecorder(config.dataset, model.name, 500)
+        producers = pour_data(config.dataset, [dataset], 1, 1, config.num_steps)
+        inputs, targets, epoch_size = producers[0]
+        model.evaluator.record_every = config.num_steps
+        try:
+            model.evaluate_and_record(inputs, None, recorder, verbose=False)
+            return True
+        except:
+            print("ERROR: Fail to evaluate given sequence!")
+            return False
+
     def model_sentences_to_ids(self, name, sentences):
-        pass
+        model = self._get_model(name)
+        if model is None:
+            return None
+        ids = [model.get_id_from_word(sentence) for sentence in sentences]
+        return ids
+
+    def model_state_signature(self, name, state_name, layers, sample_size=1000):
+        model = self._get_model(name)
+        if model is None:
+            return None
+        config = self._train_configs[name]
+        model_name = model.name
+        data_name = config.dataset
+        return get_state_signature(data_name, model_name, state_name, layers, sample_size, dim=None).tolist()
+
+    def model_strength(self, name, state_name, layers, top_k=100):
+        model = self._get_model(name)
+        if model is None:
+            return None
+        config = self._train_configs[name]
+        strength_mat = get_empirical_strength(config.dataset, model.name, state_name, layers, top_k)
+        id_to_word = model.id_to_word
+        word_list = id_to_word[:top_k]
+        return strength2json(strength_mat, word_list)
+
+    def model_state_projection(self, name, state_name, layer=-1, method='tsne'):
+        model = self._get_model(name)
+        if model is None:
+            return None
+        config = self._train_configs[name]
+        layer_num = len(model.cell_list)
+        if method == 'tsne':
+            tsne_solution = get_tsne_projection(config.dataset, model.name, state_name, layer, 5000, 50, 40.0)
+            labels = [layer_num - 1 if layer < 0 else layer] * tsne_solution.shape[0]
+            states_num = [0] * layer_num
+            states_num[layer] = tsne_solution.shape[0]
+            return solution2json(tsne_solution, states_num, labels)
+        else:
+            return None
 
 
 def hash_tag_str(text_list):
