@@ -7,20 +7,23 @@
   import * as d3 from 'd3';
   import dataService from '../services/dataService.js';
 
-  var rScale = 0.5;
-  var radius = 3.0;
-  var opacity = 0.4;
-  var opacityHigh = 1.0;
-  var defaultAlpha = 0.15;
-  var repel = 0;
-  var strength_thred = 0.5;
-  var color = d3.scaleOrdinal(d3.schemeCategory10);
+  const defaultParams = {
+    rScale: 0.5,
+    radius: 3.0,
+    opacity: 0.4,
+    opacityHigh: 1.0,
+    defaultAlpha: 0.05,
+    repel: -5,
+    strength_thred: 0.5,
+    color: d3.scaleOrdinal(d3.schemeCategory10)
+  }
 
   export default {
     name: 'ProjectView',
     data() {
       return {
         fdGraph: null,
+        params: defaultParams
         // statesData: null,
         // strengthData: null
       }
@@ -28,11 +31,15 @@
     props: {
       width: {
         type: Number,
-        default: 600,
+        default: 800,
       },
       height: {
         type: Number,
-        default: 600
+        default: 800
+      },
+      modelName: {
+        type: String,
+        default: 'PTB-LSTM'
       }
     },
     watch: {
@@ -45,22 +52,23 @@
     },
     methods: {
       init() {
-        this.fdGraph = new ForceDirectedGraph("state_project");
+        this.fdGraph = new ForceDirectedGraph("state_project", this.params);
         let statesData, strengthData;
-        let p1 = dataService.getProjectionData('PTB-LSTM', 'state_h', {}, response => {
+        let p1 = dataService.getProjectionData(this.modelName, 'state_c', {}, response => {
           statesData = response.data;
           // console.log(this.statesData)
           // console.log(statesData);
           console.log('states data loaded')
           // return 'done'
         });
-        let p2 = dataService.getStrengthData('PTB-LSTM', 'state_h', { top_k: 200 }, response => {
+        let p2 = dataService.getStrengthData(this.modelName, 'state_c', { top_k: 200 }, response => {
           strengthData = response.data;
           strengthData = [strengthData[163]].concat(strengthData.slice(15, 50)).concat(strengthData.slice(170, 190));
           console.log('strength data loaded')
           // console.log(this.strengthData)
         });
         Promise.all([p1, p2]).then(values => {
+          normalize(statesData);
           let extents = calExtent(statesData);
           this.fdGraph.updateScale(extents);
           this.fdGraph.buildGraph(strengthData, statesData);
@@ -75,8 +83,20 @@
     }
   }
 
+  function normalize(points) {
+    const extents = calExtent(points);
+    const factor_x = 100 / (extents[0][1] - extents[0][0]);
+    const factor_y = 100 / (extents[1][1] - extents[1][0]);
+    const factor = Math.max(factor_x, factor_y)
+    for (let i = 0; i < points.length; i++){
+      points[i].coords[0] *= factor;
+      points[i].coords[1] *= factor;
+    }
+  }
+
   class ForceDirectedGraph {
-    constructor(svgId, strengthfn) {
+    constructor(svgId, params, strengthfn) {
+      let self = this;
       this.svgEl = document.getElementById(svgId);
       this.svg = d3.select(`#${svgId}`)
       this.graph = null;
@@ -86,7 +106,8 @@
       this.links = null;
       this.scale = {x: null, y: null, invert_x: null, invert_y: null};
       this.extents = null;
-      this.strengthfn = strengthfn || (v => { return (v*2) ** 2; });
+      this.strengthfn = strengthfn || (v => { return (v/2) ** 3; });
+      Object.keys(params).forEach((p) => { self[p] = params[p]; });
     }
 
     get width() {
@@ -106,13 +127,13 @@
         e.fx = e.coords[0];
         e.fy = e.coords[1];
         e.links = [];
-        e.force = -200;
+        // e.force = -200;
       });
       // console.log("initializing wordNodes")
       words.forEach(function (e) {
         e.id = e.word;
         e.links = [];
-        e.force = 0;
+        // e.force = 0;
       });
       // console.log("initializing nodeLinks")
 
@@ -127,7 +148,7 @@
           let j = 0;  // state_id counter
           strengths.forEach(function (f) {
             let intensity = f;
-            if (intensity > strength_thred) {  // a threshold strength
+            if (intensity > self.strength_thred) {  // a threshold strength
               // create link
               let link = {
                 source: "" + layers[i] + "-" + j,  // the id of the stateNode
@@ -159,18 +180,18 @@
     }
 
     initSimulation() {
-      // var repelForce = d3.forceManyBody().strength(0); // the force that repel words apart
-      // var init = repelForce.initialize;
-      // repelForce.initialize = function (nodes) {
-      //   init(nodes.filter(function (d) { d.hasOwnProperty("word") })); // only apply between word Nodes
-      // }
-      // var collideForce = d3.forceManyBody().strength(repel).distanceMax(5);
-      this.simulation = d3.forceSimulation().alpha(defaultAlpha)
-        .force("link", d3.forceLink().iterations(4)
+      var repelForce = d3.forceManyBody().strength(0); // the force that repel words apart
+      var init = repelForce.initialize;
+      repelForce.initialize = function (nodes) {
+        init(nodes.filter(function (d) { d.hasOwnProperty("word") })); // only apply between word Nodes
+      }
+      var collideForce = d3.forceManyBody().strength(this.repel).distanceMax(5);
+      this.simulation = d3.forceSimulation().alpha(this.defaultAlpha)
+        .force("link", d3.forceLink() //.iterations(4)
           .id(function (d) { return d.id; })
-          .strength(function (d) { return d.strength }));
-        // .force("collide", collideForce)
-        // .force("charge", repelForce);
+          .strength(function (d) { return d.strength }))
+        .force("collide", collideForce)
+        .force("charge", repelForce);
     }
 
     insertElements() {
@@ -184,10 +205,10 @@
         // .attr("cy", function(d) { return d.fy; })
         .attr("r", function (d) {
           if (d.links.length > 0)
-            return d.links.length * rScale + radius;
+            return d.links.length * self.rScale + self.radius;
           return 0;
         })
-        .style("fill", function (d, i) { return color(d.label); })
+        .style("fill", function (d, i) { return self.color(d.label); })
         .classed("active", false)
         .on("mouseover", d => mouseover(d, self))
         .on("mouseout", d => mouseout(d, self))
@@ -214,7 +235,7 @@
         .classed("active", false)
         .call(d3.drag()
           .on("start", d => {
-            if (!d3.event.active) self.simulation.alphaTarget(defaultAlpha).restart();
+            if (!d3.event.active) self.simulation.alphaTarget(self.defaultAlpha).restart();
             d.fx = d.x;
             d.fy = d.y;
             // graph.links.forEach( function(d) {d.active = false; });
@@ -300,28 +321,6 @@
     return [xExtent, yExtent]
   }
 
-  function dragstarted(d, g) {
-    if (!d3.event.active) simulation.alphaTarget(defaultAlpha).restart();
-    d.fx = d.x;
-    d.fy = d.y;
-    // graph.links.forEach( function(d) {d.active = false; });
-    d.links.forEach(function (d) { d.active = true; });
-    refreshLinkStyle(g);
-  }
-
-  function dragged(d) {
-    d.fx = d3.event.x;
-    d.fy = d3.event.y;
-  }
-
-  function dragended(d, g) {
-    if (!d3.event.active) simulation.alphaTarget(0);
-    d.fx = null;
-    d.fy = null;
-    d.links.forEach(function (d) { d.active = false; });
-    refreshLinkStyle(g);
-  }
-
   function mouseover(d, g) {
     if (d.active) return;
     d3.select(this).classed("active", true);
@@ -363,7 +362,7 @@
   function refreshLinkStyle(g) {
     g.links.classed("active", function (d) { return d.active; })
       .style("opacity", function (d) {
-        return d.strength * (d.active ? opacityHigh : opacity);
+        return d.strength * (d.active ? g.opacityHigh : g.opacity);
       })
       .style("stroke", function (d) {
         if (d.active)

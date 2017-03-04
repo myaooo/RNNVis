@@ -5,7 +5,7 @@ The backend manager for handling the models
 import hashlib
 import os
 
-from datasets.data_utils import Feeder, SentenceProducer
+from rnnvis.datasets.data_utils import Feeder, SentenceProducer
 from rnnvis.utils.io_utils import get_path, assert_path_exists
 from rnnvis.procedures import build_model, pour_data
 # from rnnvis.db import language_model

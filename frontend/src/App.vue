@@ -1,10 +1,10 @@
 <template>
   <div id="app">
     <el-row :gutter="10">
-      <el-col :span="6" class="col-bg">
+      <el-col :span="4" class="col-bg">
         <model-view></model-view>
       </el-col>
-      <el-col :span="18" class="col-bg">
+      <el-col :span="20" class="col-bg">
         <router-view></router-view>
       </el-col>
     </el-row>
@@ -12,12 +12,12 @@
 </template>
 
 <script>
-import ModelView from 'components/ModelView'
+import ModelView from './components/ModelView';
 
 export default {
   name: 'app',
-  components: { ModelView }
-}
+  components: { ModelView },
+};
 </script>
 
 <style>
@@ -32,7 +32,7 @@ export default {
 }
 
 .el-row {
-  margin-bottom: 20px;
+  margin-bottom: 10px;
   &:last-child {
     margin-bottom: 0;
   }

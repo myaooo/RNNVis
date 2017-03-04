@@ -38,7 +38,16 @@ let getTextData = function (model, field) {
 
 let getModels = function (callback) {
   const url = `${devMainUrl}/models/available`
-  $http.get(url).then(response => {
+  return $http.get(url).then(response => {
+    callback(response)
+  }, errResponse => {
+    console.log(errResponse)
+  })
+}
+
+let getModelConfig = function (model, callback) {
+  const url = `${devMainUrl}/models/config/${model}`
+  return $http.get(url).then(response => {
     callback(response)
   }, errResponse => {
     console.log(errResponse)
@@ -49,5 +58,6 @@ export default {
   getProjectionData,
   getStrengthData,
   getTextData,
-  getModels
+  getModels,
+  getModelConfig
 }
