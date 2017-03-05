@@ -26,6 +26,10 @@ class Feeder(object):
         return self.deque()
 
     @property
+    def top(self):
+        raise NotImplementedError("this is the base class of Feeder!")
+
+    @property
     def shape(self):
         raise NotImplementedError("this is the base class of Feeder!")
 
@@ -45,29 +49,37 @@ class Feeder(object):
         """
         raise NotImplementedError("this is the base class of Feeder!")
 
+    def step(self, k):
+        """
+        Step k * num_steps of the data
+        :param k: an integer
+        :return: None
+        """
+        raise NotImplementedError("this is the base class of Feeder!")
+
 
 class ListFeeder(Feeder):
-    def __init__(self, raw_list, batch_size, epoch_num=None):
+    def __init__(self, raw_list, batch_size, repeat=1, epoch_num=None):
         self.data = raw_list
         self.batch_size = batch_size
         self.max_epoch_num = math.inf if epoch_num is None else int(epoch_num)
         self._epoch_size = len(raw_list) // batch_size
         self.epoch_num = 0
         self.i = 0
+        self.repeat = repeat
         self._shape = [batch_size]
 
     def deque(self, transpose=None):
         if transpose is not None:
             raise NotImplementedError("ListFeeder has no transpose option!")
-        start = self.i * self.batch_size
-        _data = self.data[start:start+self.batch_size]
-        self.i += 1
-        if self.i >= self.epoch_size:
-            self.i = 0
-            self.epoch_num += 1
-        if self.epoch_num > self.max_epoch_num:
-            raise ValueError("Exceeds maximum epoch num!")
+        _data = self.top
+        self.step(1)
         return _data
+
+    @property
+    def top(self):
+        start = self.i // self.repeat * self.batch_size
+        return self.data[start:start + self.batch_size]
 
     @property
     def epoch_size(self):
@@ -83,7 +95,15 @@ class ListFeeder(Feeder):
 
     @property
     def need_refresh(self):
-        raise NotImplementedError("Don't support this method for list")
+        raise NotImplementedError("Don't support this method for list producer")
+
+    def step(self, k):
+        self.i += k
+        if self.i >= self.epoch_size:
+            self.i -= self.epoch_size
+            self.epoch_num += 1
+        if self.epoch_num > self.max_epoch_num:
+            raise ValueError("Exceeds maximum epoch num!")
 
 
 class InputFeeder(Feeder):
@@ -104,18 +124,17 @@ class InputFeeder(Feeder):
         self._shape = _shape
 
     def deque(self, transpose=None):
-        start = self.i * self.num_steps + self.offset
-        _data = self.data[:, start:(start + self.num_steps)]
+        _data = self.top
         transpose = self.transpose if transpose is None else transpose
         if transpose:
             _data = _data.transpose([1, 0, 2] if self.embedding else [1, 0])
-        self.i += 1
-        if self.i >= self.epoch_size:
-            self.i = 0
-            self.epoch_num += 1
-        if self.epoch_num > self.max_epoch_num:
-            raise ValueError("Exceeds maximum epoch num!")
+        self.step(1)
         return _data
+
+    @property
+    def top(self):
+        start = self.i * self.num_steps + self.offset
+        return self.data[:, start:(start + self.num_steps)]
 
     @property
     def shape(self):
@@ -132,6 +151,14 @@ class InputFeeder(Feeder):
     @property
     def need_refresh(self):
         return True if self.i == 0 else False
+
+    def step(self, k):
+        self.i += k
+        if self.i >= self.epoch_size:
+            self.i -= self.epoch_size
+            self.epoch_num += 1
+        if self.epoch_num > self.max_epoch_num:
+            raise ValueError("Exceeds maximum epoch num!")
 
 
 class InputProducer(object):
@@ -160,35 +187,37 @@ class InputProducer(object):
 
 
 class SentenceFeeder(Feeder):
-    def __init__(self, data, batch_size, offset=0, epoch_num=None, transpose=False):
+    def __init__(self, data, batch_size, num_steps=None, offset=0, epoch_num=None, transpose=False):
         self.i = 0
         self.data = data
-        self.num_steps = data.shape[1]
+        self.max_length = data.shape[1]
+        self.num_steps = self.max_length if num_steps is None else num_steps
+        self._sentence_size = self.max_length // self.num_steps
         self.batch_size = batch_size
         self.max_epoch_num = math.inf if epoch_num is None else int(epoch_num)
         self.epoch_num = 0
         self.offset = offset
         self.transpose = transpose
-        self._epoch_size = self.data.shape[0] // batch_size
+        self._epoch_size = self.data.shape[0] // batch_size * self.sentence_size
         self.embedding = data.ndim == 3
-        _shape = [data.shape[1], batch_size] if transpose else [batch_size, data.shape[1]]
+        _shape = [self.num_steps, batch_size] if transpose else [batch_size, self.num_steps]
         if self.embedding:
             _shape.append(data.shape[2])
         self._shape = _shape
 
     def deque(self, transpose=None):
-        start = self.i * self.batch_size + self.offset
-        _data = self.data[start:(start + self.batch_size)]
+        _data = self.top
         transpose = self.transpose if transpose is None else transpose
         if transpose:
             _data = _data.transpose([1, 0, 2] if self.embedding else [1, 0])
-        self.i += 1
-        if self.i >= self.epoch_size:
-            self.i = 0
-            self.epoch_num += 1
-        if self.epoch_num > self.max_epoch_num:
-            raise ValueError("Exceeds maximum epoch num!")
+        self.step(1)
         return _data
+
+    @property
+    def top(self):
+        start_1 = (self.i // self.sentence_size) * self.batch_size
+        start_2 = (self.i % self.sentence_size) * self.num_steps
+        return self.data[start_1:(start_1 + self.batch_size), start_2:(start_2 + self.num_steps)]
 
     @property
     def shape(self):
@@ -204,7 +233,19 @@ class SentenceFeeder(Feeder):
 
     @property
     def need_refresh(self):
-        return True
+        return self.i % self.sentence_size == 0
+
+    @property
+    def sentence_size(self):
+        return self._sentence_size
+
+    def step(self, k):
+        self.i += k
+        if self.i >= self.epoch_size:
+            self.i -= self.epoch_size
+            self.epoch_num += 1
+        if self.epoch_num > self.max_epoch_num:
+            raise ValueError("Exceeds maximum epoch num!")
 
 
 class SentenceProducer(object):
@@ -212,7 +253,7 @@ class SentenceProducer(object):
     A convenient input data producer which provide sentence level inputs,
         the num_steps are directly set by the max_length of the sentence
     """
-    def __init__(self, raw_data, batch_size, max_length=None):
+    def __init__(self, raw_data, batch_size, max_length, num_steps=None):
         """
         :param raw_data: a list of lists, with each element as word_id (int), or a word_embedding (list or ndarray)
             each nested list represents a sentence
@@ -220,31 +261,32 @@ class SentenceProducer(object):
         For word_embedding (array) input, we pad zero-arrays at the end of short sequence
         """
         self.batch_size = batch_size
-        if max_length is not None:  # trim off those too long
-            raw_data = [data for data in raw_data if len(data) <= max_length]
+        # if max_length is not None:  # trim off those too long
+        raw_data = [data for data in raw_data if len(data) <= max_length]
         self.sentence_num = len(raw_data) // batch_size * batch_size
         raw_data = raw_data[:self.sentence_num]
         self.sentence_length = [len(l) for l in raw_data]
-
-        self.num_steps = max(self.sentence_length) if max_length is None else max_length
+        self.max_length = max_length
+        self.num_steps = self.max_length if num_steps is None else num_steps
+        assert self.max_length % self.num_steps == 0, "the max_length should be complete times of num_steps"
         if isinstance(raw_data[0][0], int):
             self.embedding = False
             # Do －1 paddings if word_id
-            data = np.zeros((self.sentence_num, self.num_steps), dtype=int) - 1
+            data = np.zeros((self.sentence_num, self.max_length), dtype=int) - 1
             for i, l in enumerate(raw_data):
-                length = min(self.sentence_length[i], self.num_steps)
+                length = min(self.sentence_length[i], self.max_length)
                 data[i, :length] = np.array(l[:length])
         else:
             self.embedding = True
             # Do zero paddings if embedding
-            data = np.zeros((self.sentence_num, self.num_steps, len(raw_data[0][0])), dtype=float)
+            data = np.zeros((self.sentence_num, self.max_length, len(raw_data[0][0])), dtype=float)
             for i, l in enumerate(raw_data):
-                length = min(self.sentence_length[i], self.num_steps)
+                length = min(self.sentence_length[i], self.max_length)
                 data[i, :length, :] = np.array(l[:length])
         self.data = data
 
     def get_feeder(self, offset=0, epoch_num=None, transpose=False):
-        return SentenceFeeder(self.data, self.batch_size, offset, epoch_num, transpose)
+        return SentenceFeeder(self.data, self.batch_size, self.num_steps, offset, epoch_num, transpose)
 
 
 def split(data_list, fractions=None, shuffle=False):
@@ -319,8 +361,14 @@ def get_lm_data_producer(data, batch_size, num_steps, transpose=False):
     return inputs, targets, targets.epoch_size
 
 
-def get_sp_data_producer(data, label, batch_size, num_steps=None, transpose=False):
-    s_producer = SentenceProducer(data, batch_size, num_steps)
+def get_sp_data_producer(data, label, batch_size, max_length, num_steps=None, transpose=False):
+    s_producer = SentenceProducer(data, batch_size, max_length, num_steps)
     inputs = s_producer.get_feeder(transpose=transpose)
-    targets = ListFeeder(label[:s_producer.sentence_num], batch_size)
+
+    # normalize label to start from 0.
+    min_label = min(label)
+    label = list(map(lambda x: x - min_label, label))
+
+    targets = ListFeeder(label[:s_producer.sentence_num], batch_size, inputs.sentence_size)
+
     return inputs, targets, targets.epoch_size

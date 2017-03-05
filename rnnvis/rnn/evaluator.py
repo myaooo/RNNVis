@@ -9,8 +9,8 @@ import tensorflow as tf
 import numpy as np
 
 from rnnvis.rnn import rnn
-from rnnvis.db.language_model import insert_evaluation, push_evaluation_records
-from rnnvis.datasets.data_utils import InputProducer, Feeder
+from rnnvis.datasets.data_utils import Feeder
+from rnnvis.rnn.eval_recorder import Recorder
 
 
 tf.GraphKeys.EVAL_SUMMARIES = "eval_summarys"
@@ -27,7 +27,7 @@ class Evaluator(object):
                  log_gradients=False, log_gates=False, dynamic=True):
         assert isinstance(rnn_, rnn.RNN)
         self._rnn = rnn_
-        self.record_every = record_every
+        self._record_every = record_every
         self.log_state = log_state
         self.log_input = log_input
         self.log_output = log_output
@@ -60,7 +60,7 @@ class Evaluator(object):
             if gates is None:
                 print("WARN: No gates tensor available, Are you using RNN?")
             else:
-                inputs = self.model.inputs
+                # inputs = self.model.inputs
                 gate_ops = defaultdict(list)
                 for gate in gates:
                     if isinstance(gate, tuple):  # LSTM gates are a tuple of (i, f, o)
@@ -76,8 +76,14 @@ class Evaluator(object):
                 # summary_ops.update(gate_ops)
         self.summary_ops = summary_ops
 
-        # adding salience computations
-        # self.salience = self._init_salience_ops() if cal_salience else None
+    @property
+    def record_every(self):
+        return self._record_every
+
+    @record_every.setter
+    def record_every(self, v):
+        assert isinstance(v, int), "record_every should be an integer!"
+        self._record_every = v
 
     def evaluate(self, sess, inputs, targets, input_size, verbose=True, refresh_state=False):
         """
@@ -105,6 +111,7 @@ class Evaluator(object):
 
         if verbose:
             print("Evaluate Summary: acc-1: {:.4f}, avg loss:{:.4f}".format(acc, loss), flush=True)
+        return loss, acc
 
     def evaluate_and_record(self, sess, inputs, targets, recorder, verbose=True, refresh_state=False):
         """
@@ -122,19 +129,22 @@ class Evaluator(object):
 
         assert isinstance(inputs, Feeder)
         assert isinstance(targets, Feeder) or targets is None
+        assert isinstance(recorder, Recorder), "recorder should be an instance of rnn.eval_recorder.Recorder!"
         recorder.start(inputs, targets)
         input_size = inputs.epoch_size
         print("input size: {:d}".format(input_size))
         eval_ops = self.summary_ops
         self.model.reset_state()
-        for i in range(0, input_size):
-            evals, _ = self.model.run(inputs, targets, self.record_every, sess, eval_ops=eval_ops,
+        for i in range(0, input_size, self.record_every):
+            n_steps = input_size - i if i + self.record_every > input_size else self.record_every
+
+            evals, _ = self.model.run(inputs, targets, n_steps, sess, eval_ops=eval_ops,
                                       verbose=False, refresh_state=refresh_state)
-            messages = [{name: value[i] for name, value in evals.items()} for i in range(self.record_every)]
+            messages = [{name: value[i] for name, value in evals.items()} for i in range(n_steps)]
             for message in messages:
                 recorder.record(message)
-            if verbose and i % (input_size // 10) == 0 and i != 0:
-                print("[{:d}/{:d}] completed".format(i, input_size), flush=True)
+            if verbose and (i//self.record_every + 1) % (input_size // self.record_every // 10) == 0:
+                print("[{:d}/{:d}] completed".format(i+self.record_every, input_size), flush=True)
         recorder.flush()
         print("Evaluation done!")
 
@@ -242,75 +252,3 @@ def cal_jacobian(y, x, x_val=None, feed_dict=None, y_or_x=None):
         return np.sum(jacobian, axis=0)
     elif y_or_x is 'y':  # jacobian * ones(x_len) => shape: [y_len,]
         return np.sum(jacobian, axis=1)
-
-
-class Recorder(object):
-
-    def start(self, inputs, targets):
-        """
-        prepare the recording
-        :param inputs: should be an instance of data_utils.Feeder
-        :param targets: should be an instance of data_utils.Feeder or None
-        :return: None
-        """
-        raise NotImplementedError("This is the Recorder base class")
-
-    def record(self, message):
-        """
-        Do some preparations on the message, and then do the recording
-        :param message: a dictionary, containing the results of a run of the loo[
-        :return: None
-        """
-        raise NotImplementedError("This is the Recorder base class")
-
-    def flush(self):
-        """
-        Used for flushing the records to the disk / db
-        :return: None
-        """
-        raise NotImplementedError("This is the Recorder base class")
-
-
-class StateRecorder(Recorder):
-
-    def __init__(self, data_name, model_name, flush_every=100):
-        self.data_name = data_name
-        self.model_name = model_name
-        self.eval_doc_id = []
-        self.buffer = defaultdict(list)
-        self.batch_size = 1
-        self.inputs = None
-        self.flush_every = flush_every
-        self.step = 0
-
-    def start(self, inputs, targets):
-        """
-        prepare the recording
-        :param inputs: should be an instance of data_utils.Feeder
-        :param targets: should be an instance of data_utils.Feeder or None
-        :return: None
-        """
-        self.batch_size = inputs.shape[0]
-        self.inputs = inputs.full_data
-        for i in range(inputs.shape[0]):
-            self.eval_doc_id.append(insert_evaluation(self.data_name, self.model_name, self.inputs[i].tolist()))
-
-    def record(self, record_message):
-        """
-        Record one step of information, note that there is a batch of them
-        :param record_message: a dict, with keys as summary_names,
-            and each value as corresponding record info [batch_size, ....]
-        :return:
-        """
-        records = [{name: value[i] for name, value in record_message.items()} for i in range(self.batch_size)]
-        for i, record in enumerate(records):
-            record['word_id'] = int(self.inputs[i, self.step])
-        self.buffer['records'] += records
-        self.buffer['eval_ids'] += self.eval_doc_id
-        self.step += 1
-        if len(self.buffer['eval_ids']) >= self.flush_every:
-            self.flush()
-
-    def flush(self):
-        push_evaluation_records(self.buffer.pop('eval_ids'), self.buffer.pop('records'))
-

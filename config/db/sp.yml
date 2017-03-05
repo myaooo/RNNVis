@@ -19,3 +19,13 @@ datasets:
     dir: imdb
     scheme:
       n_words: 10000
+  - name: yelp-small
+    type: yelp
+    dir: ../_cached/yelp-small
+    scheme:
+      n_words: 10000
+#  - name: yelp
+#    type: yelp
+#    dir: ../_cached/yelp
+#    scheme:
+#      n_words: 100000

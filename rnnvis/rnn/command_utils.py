@@ -16,7 +16,7 @@ import tensorflow as tf
 
 flags = tf.flags
 flags.DEFINE_bool("use_fp16", False, "Train using 16-bit floats instead of 32bit floats")
-flags.DEFINE_float('gpu_memory', 0.5, "The fraction of gpu memory each process is allowed to use")
+flags.DEFINE_float('gpu_memory', 1.0, "The fraction of gpu memory each process is allowed to use")
 
 
 # class FLAGS:
@@ -56,7 +56,7 @@ def list_available_gpus():
     result = []
     for line in output.strip().split("\n"):
         m = gpu_regex.match(line)
-        assert m, "Couldnt parse "+line
+        assert m, "Couldn't parse "+line
         result.append(int(m.group("gpu_id")))
     return result
 

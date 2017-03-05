@@ -4,66 +4,45 @@ Use MongoDB to manage all the language modeling datasets
 
 import os
 import json
-import pickle
-import hashlib
+import itertools
+
 
 import yaml
-import numpy as np
-from bson.binary import Binary
-from bson.objectid import ObjectId
 
-from rnnvis.utils.io_utils import dict2json, get_path, lists2csv, path_exists
+from rnnvis.utils.io_utils import dict2json, get_path, path_exists
 from rnnvis.datasets.data_utils import split
-from rnnvis.datasets.text_processor import SSTProcessor
+from rnnvis.datasets.text_processor import SSTProcessor, tokenize, tokens2vocab
 from rnnvis.datasets.sst_helper import download_sst
 from rnnvis.datasets import imdb
-from rnnvis.db import mongo
-from rnnvis.db.db_helper import insert_one_if_not_exists, replace_one_if_exists
+from rnnvis.db.db_helper import insert_one_if_not_exists, replace_one_if_exists, \
+    store_dataset_by_default, dataset_inserted
 
-db_name = 'sentiment_prediction'
-# db definition
-collections = {
-    'word_to_id': {'name': (str, 'unique', 'name of the dataset'),
-                   'data': (str, '', 'a json str, encoding word to id mapping')},
-    'id_to_word': {'name': (str, 'unique', 'name of the dataset'),
-                   'data': (list, '', 'a list of str')},
-    'sentences': {'name': (str, '', 'name of the dataset'),
-                  'data': (list, '', 'a list of lists, each list as a sentence of word_ids, data of sst'),
-                  'set': (str, '', 'should be train, valid or test'),
-                  'ids': (list, '', 'the indices in SST')},
-    'eval': {'name': (str, '', 'name of the dataset'),
-             'tag': (str, 'unique', 'a unique tag of hash of the evaluating text sequence'),
-             'data': (list, '', 'a list of word_ids (int), eval text'),
-             'model': (str, '', 'the identifier of the model that the sequence evaluated on'),
-             'records': (list, '', 'a list of ObjectIds of the records')},
-    'record': {'word_id': (int, '', 'word_id in the word_to_id values'),
-               'state': (np.ndarray, 'optional', 'hidden state np.ndarray'),
-               'state_c': (np.ndarray, 'optional', 'hidden state np.ndarray'),
-               'state_h': (np.ndarray, 'optional', 'hidden state np.ndarray'),
-               'output': (np.ndarray, '', 'raw output (unprojected)')},
-    'model': {'name': (str, '', 'identifier of a trained model'),
-              'data_name': (str, '', 'name of the datasets that the model uses')}
-}
+# db_name = 'sentiment_prediction'
+# # db definition
+# collections = {
+#     'word_to_id': {'name': (str, 'unique', 'name of the dataset'),
+#                    'data': (str, '', 'a json str, encoding word to id mapping')},
+#     'id_to_word': {'name': (str, 'unique', 'name of the dataset'),
+#                    'data': (list, '', 'a list of str')},
+#     'sentences': {'name': (str, '', 'name of the dataset'),
+#                   'data': (list, '', 'a list of lists, each list as a sentence of word_ids, data of sst'),
+#                   'set': (str, '', 'should be train, valid or test'),
+#                   'ids': (list, '', 'the indices in SST')},
+#     'eval': {'name': (str, '', 'name of the dataset'),
+#              'tag': (str, 'unique', 'a unique tag of hash of the evaluating text sequence'),
+#              'data': (list, '', 'a list of word_ids (int), eval text'),
+#              'model': (str, '', 'the identifier of the model that the sequence evaluated on'),
+#              'records': (list, '', 'a list of ObjectIds of the records')},
+#     'record': {'word_id': (int, '', 'word_id in the word_to_id values'),
+#                'state': (np.ndarray, 'optional', 'hidden state np.ndarray'),
+#                'state_c': (np.ndarray, 'optional', 'hidden state np.ndarray'),
+#                'state_h': (np.ndarray, 'optional', 'hidden state np.ndarray'),
+#                'output': (np.ndarray, '', 'raw output (unprojected)')},
+#     'model': {'name': (str, '', 'identifier of a trained model'),
+#               'data_name': (str, '', 'name of the datasets that the model uses')}
+# }
 
-db_hdlr = mongo[db_name]
-
-
-def get_datasets_by_name(name, fields=None):
-    complete_data = {}
-    fields = ['word_to_id', 'id_to_word', 'train', 'valid', 'test'] if fields is None else fields
-    for c_name in fields:
-        if c_name in ['train', 'test', 'valid']:
-            data = json.load(open(get_path(get_dataset_path(name), c_name)))
-            complete_data[c_name] = data
-            continue
-        results = db_hdlr[c_name].find_one({'name': name})
-        if results is None:
-            print('WARN: No data in collection {:s} of db {:s} named {:s}'.format(c_name, db_name, name))
-            return None
-        complete_data[c_name] = results['data']
-    if 'word_to_id' in complete_data:
-        complete_data['word_to_id'] = json.loads(complete_data['word_to_id'])
-    return complete_data
+# db_hdlr = mongo[db_name]
 
 
 def store_sst(data_path, name, split_scheme, upsert=False):
@@ -77,11 +56,9 @@ def store_sst(data_path, name, split_scheme, upsert=False):
     if not path_exists(data_path):
         download_sst(os.path.abspath(os.path.join(data_path, '../')))
     if upsert:
-        def insertion(*args, **kwargs):
-            return replace_one_if_exists(db_name, *args, **kwargs)
+        insertion = replace_one_if_exists
     else:
-        def insertion(*args, **kwargs):
-            return insert_one_if_not_exists(db_name, *args, **kwargs)
+        insertion = insert_one_if_not_exists
     phrase_path = os.path.join(data_path, "dictionary.txt")
     sentence_path = os.path.join(data_path, "datasetSentences.txt")
     label_path = os.path.join(data_path, "sentiment_labels.txt")
@@ -103,42 +80,99 @@ def store_sst(data_path, name, split_scheme, upsert=False):
 
     if 'train' not in split_data:
         print('WARN: there is no train data in the split data!')
-    for c_name in ['train', 'valid', 'test']:
-        if c_name in split_data:
-            data, label, ids = zip(*split_data[c_name])
+    data_dict = {}
+    for set_name in ['train', 'valid', 'test']:
+        if set_name in split_data:
+            data, label, ids = zip(*split_data[set_name])
             # convert label to 1,2,3,4,5
             label = [float(i) for i in label]
             label = [(0 if i <= 0.2 else 1 if i <= 0.4 else 2 if i <= 0.6 else 3 if i <= 0.8 else 4) for i in label]
-            dict2json({'data': data, 'label': label, 'ids': ids},
-                      get_path(get_dataset_path(name), c_name))
+            data_dict[set_name] = {'data': data, 'label': label, 'ids': ids}
+    store_dataset_by_default(name, data_dict)
 
 
 def store_imdb(data_path, name, n_words=100000, upsert=False):
     if upsert:
-        def insertion(*args, **kwargs):
-            return replace_one_if_exists(db_name, *args, **kwargs)
+        insertion = replace_one_if_exists
     else:
-        def insertion(*args, **kwargs):
-            return insert_one_if_not_exists(db_name, *args, **kwargs)
+        insertion = insert_one_if_not_exists
     word_to_id, id_to_word = imdb.load_dict(os.path.join(data_path, 'imdb.dict.pkl.gz'), n_words)
     data_label = imdb.load_data(os.path.join(data_path, 'imdb.pkl'), n_words)
     word_to_id_json = dict2json(word_to_id)
     insertion('word_to_id', {'name': name}, {'name': name, 'data': word_to_id_json})
     insertion('id_to_word', {'name': name}, {'name': name, 'data': id_to_word})
 
+    data_dict = {}
     for i, set_name in enumerate(['train', 'valid', 'test']):
         data, label = data_label[i]
         ids = list(range(len(data)))
         # insertion('sentences', {'name': name, 'set': set_name},
         #           {'name': name, 'set': set_name, 'data': data, 'label': label, 'ids': ids})
-        dict2json({'data': data, 'label': label, 'ids': ids}, get_path(get_dataset_path(name), set_name))
+        data_dict[set_name] = {'data': data, 'label': label, 'ids': ids}
+    store_dataset_by_default(name, data_dict)
+
+
+def store_yelp(data_path, name, n_words=10000, upsert=False):
+    if upsert:
+        insertion = replace_one_if_exists
+    else:
+        insertion = insert_one_if_not_exists
+    with open(os.path.join(data_path, 'review_label.json'), 'r') as file:
+        data = json.load(file)
+    training_data, validate_data, test_data = split(data, fractions=[0.8, 0.1, 0.1])
+    all_words = []
+    reviews = []
+    stars = []
+    for item in training_data:
+        tokenized_review = list(itertools.chain.from_iterable(tokenize(item['review'])))
+        reviews.append(tokenized_review)
+        stars.append(item['label'])
+        all_words.extend(tokenized_review)
+    word_to_id, counter, words = tokens2vocab(all_words)
+
+    word_to_id = {k: v+1 for k, v in word_to_id.items() if v < n_words}
+    word_to_id['<unk>'] = 0
+
+    id_to_word = [None] * len(word_to_id)
+    for word, id_ in word_to_id.items():
+        id_to_word[id_] = word
+
+    reviews = [[word_to_id[t] if word_to_id.get(t) else 0 for t in sentence] for sentence in reviews]
+    training_data = (reviews, stars)
+
+    tmp_data = []
+    for _data in [validate_data, test_data]:
+        reviews = []
+        stars = []
+        for item in _data:
+            tokenized_review = list(itertools.chain.from_iterable(tokenize(item['review'])))
+            reviews.append([word_to_id[t] if word_to_id.get(t) else 0 for t in tokenized_review])
+            stars.append(item['label'])
+        tmp_data.append((reviews, stars))
+    validate_data = tmp_data[0]
+    test_data = tmp_data[1]
+
+    word_to_id_json = dict2json(word_to_id)
+    insertion('word_to_id', {'name': name}, {'name': name, 'data': word_to_id_json})
+    insertion('id_to_word', {'name': name}, {'name': name, 'data': id_to_word})
+
+    data_names = ['train', 'valid', 'test']
+    data_dict = {}
+    for i, data_set in enumerate([training_data, validate_data, test_data]):
+        data_set = tuple(zip(*sorted(zip(*data_set), key=lambda x: len(x[0]))))
+        data, label = data_set
+        ids = list(range(len(data)))
+        data_dict[data_names[i]] = {'data': data, 'label': label, 'ids': ids}
+        insertion('sentences', {'name': name, 'set': data_names[i]},
+                  {'name': name, 'set': data_names[i], 'data': data, 'label': label, 'ids': ids})
+    store_dataset_by_default(name, data_dict)
 
 
 def get_dataset_path(name):
     return os.path.join('cached_data', 'sentiment_prediction', name)
 
 
-def seed_db():
+def seed_db(force=False):
     """
     Use the `config/datasets/lm.yml` to generate example datasets and store them into db.
     :return: None
@@ -149,116 +183,17 @@ def seed_db():
     for seed in config:
         print('seeding {:s} data'.format(seed['name']))
         data_dir = get_path('cached_data', seed['dir'])
+        seed['scheme'].update({'upsert': force})
         if seed['type'] == 'sst':
             store_sst(data_dir, seed['name'], **seed['scheme'])
         elif seed['type'] == 'imdb':
             store_imdb(data_dir, seed['name'], **seed['scheme'])
+        elif seed['type'] == 'yelp':
+            store_yelp(data_dir, seed['name'], **seed['scheme'])
         else:
             print('not able to seed datasets with type: {:s}'.format(seed['type']))
-
-
-def insert_evaluation(data_name, model_name, eval_text_tokens):
-    """
-    Add an evaluation record to the 'eval' collection, with given data_name, model_name and a list of word tokens
-    :param data_name: name of the datasets, should be in word_to_id collection
-    :param model_name: name of the model, identifier
-    :param eval_text_tokens: a list of word tokens, or a list of word_ids
-    :return: the ObjectId of the inserted evaluation document
-    """
-    assert isinstance(eval_text_tokens, list)
-    if isinstance(eval_text_tokens[0], int):
-        id_to_word = get_datasets_by_name(data_name, ['id_to_word'])['id_to_word']
-        eval_ids = eval_text_tokens
-        try:
-            eval_text_tokens = [id_to_word[i] for i in eval_ids]
-        except:
-            print('word id of input eval text and dictionary not match!')
-            raise
-    elif isinstance(eval_text_tokens[0], str):
-        word_to_id = get_datasets_by_name(data_name, ['word_to_id'])['word_to_id']
-        try:
-            eval_ids = [word_to_id[token] for token in eval_text_tokens]
-        except:
-            print('token and dictionary not match!')
-            raise
-    else:
-        raise TypeError('The input eval text should be a list of int or a list of str! But its of type {}'
-                        .format(type(eval_text_tokens[0])))
-    tag = hash_tag_str(eval_text_tokens)
-    filt = {'name': data_name, 'tag': tag, 'model': model_name}
-    data = {'data': eval_ids}
-    data.update(filt)
-    doc = replace_one_if_exists(db_name, 'eval', filt, data)
-    return doc['_id']
-
-
-def push_evaluation_records(eval_ids, records):
-    """
-    Add a detailed record (of one step) of evaluation into db, and update the corresponding doc in 'eval'
-    :param eval_ids: a list, with each element as the ObjectId returned by insert_evaluation()
-    :param records: a list, with each element as a dict of record to be inserted,
-        record and eval_id must match for each element
-    :return: a pair of results (insert_many_result, update_result)
-    """
-    # check
-    for record in records:
-        if 'word_id' not in record:
-            raise KeyError('there is no key named "word_id" in record!')
-        # convert np.ndarry into binary
-        for key, value in record.items():
-            if isinstance(value, np.ndarray):
-                record[key] = Binary(pickle.dumps(value, protocol=3))
-            elif isinstance(value, str) or isinstance(value, int):
-                pass
-            else:
-                print('Unkown type {:s}'.format(str(type(value))))
-
-    results = db_hdlr['record'].insert_many(records)
-    update_results = []
-    for i, eval_id in enumerate(eval_ids):
-        update_results.append(db_hdlr['eval'].update_one({'_id': eval_id},
-                                                         {'$push': {'records': results.inserted_ids[i]}}))
-    return results, update_results
-
-
-def query_evaluation_records(eval_, range_, data_name=None, model_name=None):
-    """
-    Query for the evaluation records
-    :param eval_: a eval_id of type ObjectId, or a list of tokens, or a hash tag of the tokens
-    :param range_: a range object, specifying the range of indices of records
-    :param data_name: optional, when `eval` is not a ObjectId, this field should be filled
-    :param model_name: optional, when `eval` is not a ObjectId, this field should be filled
-    :return: a list of records
-    """
-    if isinstance(eval_, ObjectId):
-        # ignoring data_name and model_name
-        eval_record = db_hdlr['eval'].find_one({'_id': eval_})
-    else:
-        if isinstance(eval_, list):
-            try:
-                tag = hash_tag_str(eval_)
-            except:
-                print("Unable to hash the eval_ list!")
-                raise
-        elif isinstance(eval_, str):
-            tag = eval_
-        else:
-            raise TypeError("Expecting type ObjectId, list or str, but receive type {:s}".format(str(type(eval_))))
-        eval_record = db_hdlr['eval'].find_one({'tag':tag, 'name': data_name, 'model': model_name})
-    ids = eval_record['records']
-    records = []
-    for i in range_:
-        record = db_hdlr['record'].find_one({'_id': ids[i]})
-        for name, value in record:
-            if isinstance(value, Binary):
-                record[name] = pickle.loads(value)
-        records.append(record)
-    return records
-
-
-def hash_tag_str(text_list):
-    """Use hashlib.md5 to tag a hash str of a list of text"""
-    return hashlib.md5(" ".join(text_list).encode()).hexdigest()
+            continue
+        dataset_inserted(seed['name'], 'sp')
 
 
 if __name__ == '__main__':
