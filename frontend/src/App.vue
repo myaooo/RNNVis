@@ -4,19 +4,21 @@
       <el-col :span="4" class="col-bg">
         <model-view></model-view>
       </el-col>
-      <el-col :span="20" class="col-bg">
-        <router-view></router-view>
+      <el-col :span="16" class="col-bg">
+        <!--<router-view></router-view>-->
+        <main-view> </main-view>
       </el-col>
     </el-row>
   </div>
 </template>
 
 <script>
-import ModelView from './components/ModelView';
+import ModelView from 'components/ModelView';
+import MainView from 'components/MainView';
 
 export default {
   name: 'app',
-  components: { ModelView },
+  components: { ModelView, MainView },
 };
 </script>
 

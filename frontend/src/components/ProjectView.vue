@@ -1,11 +1,17 @@
 <template>
   <div class="project">
-    <svg id="state_project" :width="width" :height="height"> </svg>
+    <el-tabs v-model="selectedState">
+    <el-tab-pane v-for="state in states" :label="state" :name="state">
+      <svg :id="paneId(model, state)" :width="width" :height="height"> </svg>
+    </el-tab-pane>
+
+    </el-tabs>
   </div>
 </template>
 <script>
   import * as d3 from 'd3';
   import dataService from '../services/dataService.js';
+  import {bus, SELECT_MODEL} from 'event-bus.js';
 
   const defaultParams = {
     rScale: 0.5,
@@ -16,17 +22,26 @@
     repel: -5,
     strength_thred: 0.5,
     color: d3.scaleOrdinal(d3.schemeCategory10)
-  }
+  };
+
+  const cell2states = {
+    'GRU': ['state'],
+    'BasicLSTM': ['state_c', 'state_h'],
+    'BasicRNN': ['state'],
+  };
 
   export default {
     name: 'ProjectView',
     data() {
       return {
         fdGraph: null,
-        params: defaultParams
+        params: defaultParams,
+        model: '',
+        selectedState: '',
+        states: '',
         // statesData: null,
         // strengthData: null
-      }
+      };
     },
     props: {
       width: {
@@ -35,12 +50,11 @@
       },
       height: {
         type: Number,
-        default: 800
+        default: 800,
       },
-      modelName: {
-        type: String,
-        default: 'PTB-LSTM'
-      }
+    },
+    computed: {
+
     },
     watch: {
       width: function (newWidth) {
@@ -48,26 +62,43 @@
       },
       height: function (newWidth) {
         this.fdGraph.updateScale();
+      },
+      selectedState: function (newState) {
+        if (newState === 'state' || newState === 'state_c' || newState === 'state_h'){
+          this.reset();
+        }
       }
     },
     methods: {
-      init() {
-        this.fdGraph = new ForceDirectedGraph("state_project", this.params);
+      paneId(model, state) {
+        return `${model}-${state}-svg`;
+      },
+
+      reset() {
+        if (this.fdGraph){
+          this.fdGraph.destroy();
+        }
+        // const svg = d3.select(`#${this.paneId}`)//.append('svg')
+        //   .attr('width', this.width)
+        //   .attr('height', this.height);
+          // .attr('id', `${this.paneId}-svg`);
+        const svg = document.getElementById(this.paneId(this.model, this.selectedState));
+        this.fdGraph = new ForceDirectedGraph(svg, this.params);
         let statesData, strengthData;
-        let p1 = dataService.getProjectionData(this.modelName, 'state_c', {}, response => {
+        let p1 = dataService.getProjectionData(this.model, this.selectedState, {}, response => {
           statesData = response.data;
           // console.log(this.statesData)
           // console.log(statesData);
           console.log('states data loaded')
           // return 'done'
         });
-        let p2 = dataService.getStrengthData(this.modelName, 'state_c', { top_k: 200 }, response => {
+        let p2 = dataService.getStrengthData(this.model, this.selectedState, { top_k: 200 }, response => {
           strengthData = response.data;
           strengthData = [strengthData[163]].concat(strengthData.slice(15, 50)).concat(strengthData.slice(170, 190));
           console.log('strength data loaded')
           // console.log(this.strengthData)
         });
-        Promise.all([p1, p2]).then(values => {
+        return Promise.all([p1, p2]).then(values => {
           normalize(statesData);
           let extents = calExtent(statesData);
           this.fdGraph.updateScale(extents);
@@ -75,13 +106,29 @@
           this.fdGraph.insertElements();
           this.fdGraph.initSimulation();
           this.fdGraph.startSimulation();
-        })
+        }, errResponse => {
+          console.log("Failed to build force graph!");
+        });
       }
     },
     mounted() {
-      this.init();
+      bus.$on(SELECT_MODEL, (modelName) => {
+        console.log(`selected model: ${modelName}`);
+        this.model = modelName;
+        bus.loadModelConfig(modelName).then( (_) => {
+          const config = bus.state.modelConfigs[modelName];
+          const cell_type = config.model.cell_type;
+          if (cell2states.hasOwnProperty(cell_type)){
+            this.states = cell2states[cell_type];
+            console.log(this.states);
+            // this.selectedState = this.states[0];
+            // this.reset();
+          }
+        })
+      });
+      // this.reset();
     }
-  }
+  };
 
   function normalize(points) {
     const extents = calExtent(points);
@@ -95,10 +142,10 @@
   }
 
   class ForceDirectedGraph {
-    constructor(svgId, params, strengthfn) {
+    constructor(svg, params, strengthfn) {
       let self = this;
-      this.svgEl = document.getElementById(svgId);
-      this.svg = d3.select(`#${svgId}`)
+      this.svg = d3.select(`#${svg.id}`);
+      this.svgEl = svg;
       this.graph = null;
       this.simulation = null;
       this.stateNodes = null;
@@ -197,7 +244,7 @@
     insertElements() {
       let self = this;
       var g_states = this.svg.append('g')
-        .attr('id', 'states');
+        .attr('class', 'states');
       this.stateNodes = g_states.selectAll('circle')
         .data(this.graph.stateNodes)
         .enter().append("circle")
@@ -220,7 +267,7 @@
 
       // append a group for links
       this.links = this.svg.append("g")
-        .attr("id", "links")
+        .attr("class", "links")
         .selectAll("line")
         .data(this.graph.links)
         .enter().append("line")
@@ -228,7 +275,7 @@
 
       // append a group for text nodes
       this.wordNodes = this.svg.append("g")
-        .attr("id", "words")
+        .attr("class", "words")
         .selectAll("text")
         .data(this.graph.wordNodes)
         .enter().append("text")
@@ -243,8 +290,8 @@
             refreshLinkStyle(self);
           })
           .on("drag", d => {
-            d.fx = self.scale.invert_x(d3.event.x);
-            d.fy = self.scale.invert_y(d3.event.y);
+            d.fx = self.scale.invert_x(d3.mouse(self.svgEl)[0]);
+            d.fy = self.scale.invert_y(d3.mouse(self.svgEl)[1]);
           })
           .on("end", d => {
             if (!d3.event.active) self.simulation.alphaTarget(0);
@@ -311,6 +358,16 @@
       this.scale.invert_y = function (_y) {
         return yCenter - (_y - height / 2) / scaleFactor;
       };
+    }
+
+    destroy() {
+      console.log(`Destroying Graph ${this.svgEl.id}`)
+      this.simulation.nodes([]);
+      this.simulation.force("link").links([]);
+      this.links.remove();
+      this.stateNodes.remove();
+      this.wordNodes.remove();
+      // this.graph;
     }
 
   }
@@ -384,33 +441,33 @@
 
 </script>
 <style>
-  #links .active {
+  .links .active {
     stroke-width: 3;
   }
 
-  #links {
+  .links {
     stroke-width: 1.5;
     pointer-events: none;
   }
 
-  #states .active {
+  .states .active {
     stroke-width: 2.0;
     stroke: black;
     opacity: 1.0;
   }
 
-  #states {
+  .states {
     stroke-width: 0.0;
     opacity: 0.7;
   }
 
-  #words .active {
+  .words .active {
     stroke-width: 0.5;
     stroke: black;
     opacity: 1.0;
   }
 
-  #words {
+  .words {
     font-size: 13;
     opacity: 0.8;
     stroke: black;
