@@ -9,7 +9,7 @@
 
 </style>
 <script>
-  import dataService from '../services/dataService.js'
+  import dataService from '../services/dataService.js';
 
   let activeColorScheme = ["88, 126, 182", "201, 90, 95"];
   export default{
@@ -38,7 +38,7 @@
     }
   }
   function colorGrad(color1, color2, ratio) {
-    return color1.map((c, i) => c * ratio + color2[i] * (1-ratio))
+    return color1.map((c, i) => c * ratio + color2[i] * (1-ratio));
   }
 
 </script>

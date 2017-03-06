@@ -11,7 +11,7 @@ from rnnvis.rnn.config_utils import RNNConfig, TrainConfig
 from rnnvis.rnn.command_utils import data_type, pick_gpu_lowest_memory
 from rnnvis.rnn.rnn import RNN
 from rnnvis.datasets.data_utils import load_data_as_ids, get_lm_data_producer, get_sp_data_producer
-from rnnvis.db import get_dataset
+from rnnvis.db import get_dataset, NoDataError
 
 
 def init_tf_environ(gpu_num=0):
@@ -41,8 +41,11 @@ def build_rnn(rnn_config):
     :return: a compiled model
     """
     assert isinstance(rnn_config, RNNConfig)
-    _rnn = RNN(rnn_config.name, rnn_config.initializer, graph=tf.Graph(),
-               word_to_id=get_dataset(rnn_config.dataset, ['word_to_id'])['word_to_id'])
+    try:
+        word_to_id = get_dataset(rnn_config.dataset, ['word_to_id'])['word_to_id']
+    except:
+        raise NoDataError
+    _rnn = RNN(rnn_config.name, rnn_config.initializer, graph=tf.Graph(), word_to_id=word_to_id)
     _rnn.set_input([None], rnn_config.input_dtype, rnn_config.vocab_size, rnn_config.embedding_size)
     for cell in rnn_config.cells:
         _rnn.add_cell(rnn_config.cell, **cell)

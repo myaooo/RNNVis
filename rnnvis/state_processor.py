@@ -12,9 +12,10 @@ import matplotlib.pyplot as plt
 
 from rnnvis.db import get_dataset
 from rnnvis.db.db_helper import query_evals, query_evaluation_records
-from rnnvis.utils.io_utils import file_exists, get_path, dict2json
+from rnnvis.utils.io_utils import file_exists, get_path, dict2json, before_save
 from rnnvis.vendor import tsne, mds
 
+_tmp_dir = '_cached/tmp'
 
 def cal_diff(arrays):
     """
@@ -130,7 +131,7 @@ def compute_stats(states, sort_by_mean=True, percent=50):
     return means, stds, errors_l, errors_u, indices
 
 
-def get_empirical_strength(id_states, strength_func):
+def cal_empirical_strength(id_states, strength_func):
     """
 
     :param id_states: a list, with each
@@ -147,6 +148,27 @@ def get_empirical_strength(id_states, strength_func):
 
     strength_list = list(map(strenth_map, id_states))
     return strength_list
+
+
+def get_empirical_strength(data_name, model_name, state_name, layer=-1, top_k=100):
+    if not isinstance(layer, list):
+        layer = [layer]
+    if top_k > 1000:
+        raise ValueError("selected words range too large, only support top 1000 frequent words!")
+    top = 100 if top_k <= 100 else 500 if top_k <= 500 else 1000
+    tmp_file = '-'.join([data_name, model_name, state_name, str(top)]) + '.pkl'
+    tmp_file = get_path(_tmp_dir, tmp_file)
+    if file_exists(tmp_file):
+        with open(tmp_file, 'rb') as f:
+            id_strengths = pickle.loads(f.read())
+    else:
+        words, states = load_words_and_state(data_name, model_name, state_name, diff=True)
+        id_to_states = sort_by_id(words, states)
+        id_strengths = cal_empirical_strength(id_to_states[:top], lambda state_mat: np.mean(state_mat, axis=0))
+        with open(tmp_file, 'wb') as f:
+            pickle.dump(id_strengths, f)
+
+    return [id_strengths[i][layer] for i in range(top_k)]
 
 
 def strength2json(strength_list, words, labels=None, path=None):
@@ -172,17 +194,20 @@ def fetch_freq_words(data_name, k=100):
 
 def load_words_and_state(data_name, model_name, state_name, diff=True):
     word_file = data_name + '-' + model_name + '-words.pkl'
+    word_file = get_path(_tmp_dir, word_file)
     states_file = data_name + '-' + model_name + '-' + state_name + ('-diff' if diff else '') + '.pkl'
+    states_file = get_path(_tmp_dir, states_file)
     if file_exists(word_file) and file_exists(states_file):
-        with open(get_path('_cached', word_file), 'rb') as f:
+        with open(word_file, 'rb') as f:
             words = pickle.loads(f.read())
-        with open(get_path('_cached', states_file), 'rb') as f:
+        with open(states_file, 'rb') as f:
             states = pickle.loads(f.read())
     else:
         words, states = fetch_states(data_name, model_name, state_name, diff)
-        with open(get_path('_cached', word_file), 'wb') as f:
+        before_save(word_file)
+        with open(word_file, 'wb') as f:
             pickle.dump(words, f)
-        with open(get_path('_cached', states_file), 'wb') as f:
+        with open(states_file, 'wb') as f:
             pickle.dump(states, f)
     return words, states
 
@@ -198,9 +223,13 @@ def get_state_signature(data_name, model_name, state_name, layer=None, sample_si
     :param dim:
     :return:
     """
+    if layer is not None:
+        if not isinstance(layer, list):
+            layer = [layer]
     layer_str = 'all' if layer is None else ''.join([str(l) for l in layer])
     file_name = '-'.join([data_name, model_name, state_name, 'all' if layer is None else layer_str,
                           str(sample_size), str(dim) if dim is not None else str(sample_size)]) + '.pkl'
+    file_name = get_path(_tmp_dir, file_name)
     if file_exists(file_name):
         print("sampling")
         with open(file_name, 'rb') as f:
@@ -219,6 +248,7 @@ def get_state_signature(data_name, model_name, state_name, layer=None, sample_si
             print("doing PCA...")
             sample, variance = tsne.pca(sample, dim)
             print("PCA kept {:f}% of variance".format(variance*100))
+        before_save(file_name)
         with open(file_name, 'wb') as f:
             pickle.dump(sample, f)
     return sample
@@ -240,6 +270,22 @@ def tsne_project(data, perplexity, init_dim=50, lr=50, max_iter=1000):
     return _tsne_solver.get_best_solution()
 
 
+def get_tsne_projection(data_name, model_name, state_name, layer=-1, sample_size=5000, dim=50, perplexity=40.0):
+    assert isinstance(layer, int), "tsne projection of only one layer is reasonable"
+    tmp_file = '-'.join([data_name, model_name, state_name, str(layer), str(dim), str(int(perplexity))]) + '.pkl'
+    tmp_file = get_path(_tmp_dir, tmp_file)
+    if file_exists(tmp_file):
+        with open(tmp_file, 'rb') as f:
+            tsne_solution = pickle.loads(f.read())
+    else:
+        sample = get_state_signature(data_name, model_name, state_name, layer, sample_size, dim) / 10
+        tsne_solution = tsne_project(sample, perplexity, dim, 50)
+
+        with open(tmp_file, 'wb') as f:
+            pickle.dump(tsne_solution, f)
+    return tsne_solution
+
+
 def solution2json(solution, states_num, labels=None, path=None):
     """
     Save the solution to json file
@@ -259,7 +305,7 @@ def solution2json(solution, states_num, labels=None, path=None):
     state_ids = []
     for i, num in enumerate(states_num):
         layers += [i+1] * num
-        state_ids += range(num)
+        state_ids += list(range(num))
     points = [{'coords': s, 'layer': layers[i], 'state_id': state_ids[i], 'label': labels[i]}
               for i, s in enumerate(solution)]
     return dict2json(points, path)
@@ -374,13 +420,13 @@ if __name__ == '__main__':
     # Scripts that run tsne on states and produce .json file for front-end rendering
     ###
     print('loading states...')
-
-    sample = get_state_signature(data_name, model_name, state_name, [1], 5000, 50)/10
-
-    solution = tsne_project(sample, 40.0, 50, 50)
-    labels = ([1] * (solution.shape[0])) # + ([0] * (solution.shape[0] // 2))
-    solution2json(solution, [0, 600], labels, get_path('_cached', 'gru-state-tsne.json'))
-    print("tsne saved")
+    #
+    # sample = get_state_signature(data_name, model_name, state_name, [1], 5000, 50)/10
+    #
+    # solution = tsne_project(sample, 40.0, 50, 50)
+    # labels = ([1] * (solution.shape[0])) # + ([0] * (solution.shape[0] // 2))
+    # solution2json(solution, [0, 600], labels, get_path('_cached', 'gru-state-tsne.json'))
+    # print("tsne saved")
 
     # scripts that run t-sne animation
     ###
@@ -398,9 +444,7 @@ if __name__ == '__main__':
     ###
     # Scripts that calculate the mean
     ###
-    words, states = load_words_and_state(data_name, model_name, state_name, diff=True)
-    id_to_states = sort_by_id(words, states)
-    strength_mat = get_empirical_strength(id_to_states[:200], lambda state_mat: np.mean(state_mat, axis=0)[1:, :])
+    strength_mat = get_empirical_strength(data_name, model_name, state_name, layer=-1, top_k=200)
     id_to_word = get_dataset(data_name, ['id_to_word'])['id_to_word']
     word_list = id_to_word[:200]
     strength2json(strength_mat, word_list, path=get_path('_cached', 'gru-state-strength.json'))
