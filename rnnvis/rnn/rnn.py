@@ -560,7 +560,7 @@ class RNN(object):
                     accs.append(accs)
                     if i > early_stop:
                         threshold = 5e-5
-                        abs_diff = [abs(losses[j] - losses[i-early_stop]) for j in range(i-early_stop, i)]
+                        abs_diff = [abs(losses[j] - losses[i-early_stop]) for j in range(i+1-early_stop, i+1)]
                         if max(abs_diff) < threshold:
                             print("{:d} consecutive epochs with loss difference less than {:f}, early stopped!"
                                   .format(early_stop, threshold))

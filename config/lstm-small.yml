@@ -11,7 +11,9 @@ model:
   cell_type: BasicLSTM
   cells:
     - num_units: 200
+      forget_bias: 0.0
     - num_units: 200
+      forget_bias: 0.0
   loss_func: sequence_loss
   dataset: ptb
 train:
@@ -23,4 +25,4 @@ train:
   gradient_clip_args:
     clip_norm: 5.0
   optimizer: GradientDescent
-  learning_rate: "lambda epoch: 1.0 if epoch < 4 else 0.6**(epoch-4)"
+  learning_rate: "lambda epoch: 1.5 if epoch < 4 else 0.5**(epoch-4)"
