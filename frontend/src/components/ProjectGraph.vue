@@ -11,10 +11,11 @@
     radius: 3.0,
     opacity: 0.4,
     opacityHigh: 1.0,
-    defaultAlpha: 0.15,
-    repel: -10,
+    defaultAlpha: 0.25,
+    repel: -5,
     strength_thred: 0.5,
-    color: d3.scaleOrdinal(d3.schemeCategory20),
+    color: d3.scaleOrdinal(d3.schemeCategory10),
+    color2: d3.scaleOrdinal(d3.schemeCategory20),
     clusterNum: 0,
   };
 
@@ -82,9 +83,11 @@
         this.fdGraph.initSimulation();
         this.fdGraph.startSimulation();
       },
-      refreshGraph() {
-        this.fdGraph.refresh();
-        this.fdGraph.clusterStates(this.graphData.signature);
+      refreshGraph(ready) {
+        if (ready){
+          this.fdGraph.refresh();
+          this.fdGraph.clusterStates(this.graphData.signature);
+        }
       }
     },
     mounted() {
@@ -192,12 +195,13 @@
     }
 
     initSimulation() {
-      var repelForce = d3.forceManyBody().strength(-20).distanceMax(3); // the force that repel words apart
+      var repelForce = d3.forceManyBody().strength(-30).distanceMax(3); // the force that repel words apart
       var init = repelForce.initialize;
       repelForce.initialize = function (nodes) {
         init(nodes.filter(function (d) { d.hasOwnProperty("word") })); // only apply between word Nodes
       }
-      var collideForce = d3.forceManyBody().strength(this.params.repel).distanceMax(10);
+      // var collideForce = d3.forceManyBody().strength(this.params.repel).distanceMax(10);
+      var collideForce = d3.forceCollide().strength(0.7).radius(2);
       this.simulation = d3.forceSimulation().alpha(this.params.defaultAlpha)
         .force("link", d3.forceLink() //.iterations(4)
           .id((d) => { return d.id; })
@@ -334,7 +338,11 @@
       this.graph.stateNodes.forEach( (node, i) => {
         node.cluster = clusterAssignments[i];
       });
-      this.stateNodes.style('fill', (d, i) => { return this.params.color(d.cluster); });
+      this.stateNodes.style('fill', (d, i) => {
+        if (clusterNum < 11)
+          return this.params.color(d.cluster);
+        return this.params.color2(d.cluster);
+      });
     }
 
     destroy() {

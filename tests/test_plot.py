@@ -41,7 +41,7 @@ if __name__ == '__main__':
 
     data_name = 'ptb'
     model_name = 'LSTM-PTB'
-    state_name = 'state_c'
+    state_name = 'state_h'
     diff = False
     words, state_diff = load_words_and_state(data_name, model_name, state_name, diff)
 
@@ -112,7 +112,8 @@ if __name__ == '__main__':
     if state_name == 'state_c' or state_name == 'state_h':
 
         state_name2 = 'state_h' if state_name == 'state_c' else 'state_c'
-        _, state2_diff = load_words_and_state(data_name, model_name, state_name2, diff)
+        state_name2 = 'nondiff' if diff else 'diff'
+        _, state2_diff = load_words_and_state(data_name, model_name, state_name, not diff)
         id_to_state2 = sort_by_id(words, state2_diff)
 
         plot_words_states([id_to_state[he], id_to_state2[he]], 60, [state_name, state_name2], save_path='he-he.png')

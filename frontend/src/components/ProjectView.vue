@@ -58,6 +58,7 @@
         ready: false,
         graphData: { states: null, strength: null },
         config: drawConfig,
+        cache: {},
       };
     },
     components: { ProjectGraph },
@@ -65,21 +66,32 @@
 
     },
     watch: {
-      selectedState: function (newState) {
+      selectedState: function (newState, oldState) {
+        if (newState === oldState){
+          return;
+        }
         if (newState === 'state' || newState === 'state_c' || newState === 'state_h') {
           this.reset();
         }
       },
-      // config: function (newConfig)
     },
 
     methods: {
+
       paneId(model, state) {
         return `${model}-${state}-svg`;
       },
 
-      reset() {
-        this.ready = false;
+      reset() { // reset the whole graph
+        this.ready = false; // reset ready signal
+        delete this.graphData.signature; // reset signature data
+        this.config = Object.assign({}, ProjectGraph.defaultConfig); // reset controlings
+        const cacheTag = this.paneId(this.model, this.selectedState);
+        if (Object.prototype.hasOwnProperty.call(this.cache, cacheTag)) {
+          Object.assign(this.graphData, this.cache[cacheTag]);
+          setTimeout(() => { this.ready = true; }, 100);
+          return;
+        }
         // const data = {states: null, strength: null};
         const p1 = dataService.getProjectionData(this.model, this.selectedState, {}, response => {
           this.graphData.states = response.data;
@@ -87,15 +99,22 @@
         });
         const p2 = dataService.getStrengthData(this.model, this.selectedState, { top_k: 200 }, response => {
           const strengthData = response.data;
-          this.graphData.strength = [strengthData[163]].concat(strengthData.slice(15, 20)).concat(strengthData.slice(170, 190));
+          this.graphData.strength = [strengthData[163]].concat(strengthData.slice(20, 40)).concat(strengthData.slice(170, 190));
           console.log('strength data loaded');
         });
         const pAll = Promise.all([p1, p2]).then(values => {
-          setTimeout(() => { this.ready = true; }, 100)
-          // this.ready = true;
+          this.cache[cacheTag] = {states: this.graphData.states, strength: this.graphData.strength}; // cache fetched data;
+          setTimeout(() => { this.ready = true; }, 100);
+          // continue to download signature data which might be used for clustering
+          dataService.getStateSignature(this.model, this.selectedState, {}, response => {
+            this.graphData.signature = response.data;
+            this.cache[cacheTag].signature = this.graphData.signature;
+            console.log('signature data loaded');
+          });
         }, errResponse => {
           console.log("Failed to build force graph!");
         });
+
       },
 
       configWatcher() {
@@ -103,11 +122,15 @@
           dataService.getStateSignature(this.model, this.selectedState, {}, response => {
             this.graphData.signature = response.data;
             console.log('signature data loaded');
-            bus.$emit("REFRESH_PROJECT_GRAPH");
+            bus.$emit("REFRESH_PROJECT_GRAPH", this.ready);
           });
           return;
         }
-        bus.$emit("REFRESH_PROJECT_GRAPH");
+        bus.$emit("REFRESH_PROJECT_GRAPH", this.ready);
+      },
+
+      stateWatcher() {
+        this.reset();
       }
     },
 
@@ -121,8 +144,12 @@
           if (cell2states.hasOwnProperty(cell_type)) {
             this.states = cell2states[cell_type];
             // console.log(this.states);
-            setTimeout(() => {
+            setTimeout(() => { // wait 100ms to update incase the dom is not ready
+              if (this.states[0] === this.selectedState) { // ugly hacker incase states are same to manually reset the data.
+                this.reset();
+              }
               this.selectedState = this.states[0];
+              // this.reset();
             }, 100);
           }
         })

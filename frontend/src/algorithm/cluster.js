@@ -76,7 +76,8 @@ export class kMeans{
 
     var iterations = 0;
     var movement = true;
-    while (movement) {
+    // let iter = 0;
+    while (movement && iterations < maxIter) {
       // update point-to-centroid assignments
       for (let i = 0; i < points.length; i++) {
          assignment[i] = this.classify(points[i]);
@@ -103,9 +104,13 @@ export class kMeans{
         this.centroids[j] = newCentroid;
         clusters[j] = assigned;
       }
+      iterations++;
       if (snapshotFn){
-        snapshotFn(clusters, iterations++);
+        snapshotFn(clusters, iterations);
       }
+    }
+    if (iterations >= maxIter){
+      console.log("Clustering algorithm early stopped.");
     }
 
     return assignment;
