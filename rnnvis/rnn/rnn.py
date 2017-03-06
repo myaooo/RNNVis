@@ -53,7 +53,7 @@ class RNNModel(object):
         self.batch_size = batch_size
         self.num_steps = num_steps
         self.name = name or "UnRolled"
-        self.dynamic =dynamic
+        self.dynamic = dynamic
         self.current_state = None
         # Ugly hacks for DropoutWrapper
         if keep_prob is not None and keep_prob < 1.0:
