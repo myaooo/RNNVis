@@ -49,7 +49,8 @@ class StateRecorder(Recorder):
         self.eval_doc_id = []
         self.buffer = defaultdict(list)
         self.batch_size = 1
-        self.inputs = None
+        self.input_data = None
+        self.input_length = None
         self.flush_every = flush_every
         self.step = 0
 
@@ -61,9 +62,12 @@ class StateRecorder(Recorder):
         :return: None
         """
         self.batch_size = inputs.shape[0]
-        self.inputs = inputs.full_data
-        for i in range(self.inputs.shape[0]):
-            self.eval_doc_id.append(insert_evaluation(self.data_name, self.model_name, self.inputs[i].tolist()))
+        self.input_data = inputs.full_data
+        self.input_length = self.input_data.shape[1]
+        # for i in range(self.inputs.shape[0]):
+        sentence_num = self.input_data.shape[0]
+        sentence_lengths = [count_length(self.input_data[i]) for i in range(sentence_num)]
+        self.write_evaluation([self.input_data[i, :sentence_lengths[i]].tolist() for i in range(sentence_num)])
 
     def record(self, record_message):
         """
@@ -73,10 +77,19 @@ class StateRecorder(Recorder):
         :return:
         """
         records = [{name: value[i] for name, value in record_message.items()} for i in range(self.batch_size)]
+        start_x = self.step // self.input_length * self.batch_size
+        start_y = self.step % self.input_length
+
+        good_records = []
+        eval_ids = []
         for i, record in enumerate(records):
-            record['word_id'] = int(self.inputs[i, self.step])
-        self.buffer['records'] += records
-        self.buffer['eval_ids'] += self.eval_doc_id
+            word_id = int(self.input_data[start_x + i, start_y])
+            record['word_id'] = word_id
+            if word_id >= 0:
+                good_records.append(record)
+                eval_ids.append(self.eval_doc_id[start_x + i])
+        self.buffer['records'] += good_records
+        self.buffer['eval_ids'] += eval_ids
         self.step += 1
         if len(self.buffer['eval_ids']) >= self.flush_every:
             self.flush()
@@ -84,5 +97,56 @@ class StateRecorder(Recorder):
     def flush(self):
         push_evaluation_records(self.buffer.pop('eval_ids'), self.buffer.pop('records'))
 
+    def write_evaluation(self, sentences):
+        self.eval_doc_id = insert_evaluation(self.data_name, self.model_name, sentences, replace=True)
+
     def close(self):
         pass
+
+
+class BufferRecorder(StateRecorder):
+    """
+    A recorder that writes in a memory buffer, instead of DB.
+    """
+    def __init__(self, data_name, model_name, max_buffer=5000):
+        """
+        :param data_name:
+        :param model_name:
+        :param max_buffer: the max number of records that can be stored in the recorder,
+            since this recorder store all the data in the memory, it's better to set this value small.
+        """
+        super(BufferRecorder, self).__init__(data_name, model_name, 100)
+        self.max_buffer = max_buffer
+        self.eval_docs = None
+
+    def write_evaluation(self, sentences):
+        total_size = sum([len(sentence) for sentence in sentences])
+        if total_size > self.max_buffer:
+            raise ValueError("total size of the evaluating sequence is larger than permitted!")
+        self.eval_docs = [{'data': sentence, 'records': []} for sentence in sentences]
+        self.eval_doc_id = list(range(len(sentences)))
+
+    def flush(self):
+        def _flush(eval_ids, records):
+            for i, id_ in enumerate(eval_ids):
+                self.eval_docs[id_]['records'].append(records[i])
+        _flush(self.buffer.pop('eval_ids'), self.buffer.pop('records'))
+
+    def sentences(self):
+        for eval_doc in self.eval_docs:
+            yield eval_doc['data']
+
+    def records(self):
+        for eval_doc in self.eval_docs:
+            yield eval_doc['records']
+
+    def evals(self):
+        for eval_doc in self.eval_docs:
+            yield eval_doc['data'], eval_doc['records']
+
+
+def count_length(inputs, marker=-1):
+    for i, data in enumerate(inputs):
+        if data == marker:
+            return i
+    return len(inputs)

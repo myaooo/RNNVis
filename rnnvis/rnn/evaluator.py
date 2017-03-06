@@ -27,7 +27,7 @@ class Evaluator(object):
                  log_gradients=False, log_gates=False, dynamic=True):
         assert isinstance(rnn_, rnn.RNN)
         self._rnn = rnn_
-        self.record_every = record_every
+        self._record_every = record_every
         self.log_state = log_state
         self.log_input = log_input
         self.log_output = log_output
@@ -76,8 +76,14 @@ class Evaluator(object):
                 # summary_ops.update(gate_ops)
         self.summary_ops = summary_ops
 
-        # adding salience computations
-        # self.salience = self._init_salience_ops() if cal_salience else None
+    @property
+    def record_every(self):
+        return self._record_every
+
+    @record_every.setter
+    def record_every(self, v):
+        assert isinstance(v, int), "record_every should be an integer!"
+        self._record_every = v
 
     def evaluate(self, sess, inputs, targets, input_size, verbose=True, refresh_state=False):
         """
@@ -105,6 +111,7 @@ class Evaluator(object):
 
         if verbose:
             print("Evaluate Summary: acc-1: {:.4f}, avg loss:{:.4f}".format(acc, loss), flush=True)
+        return loss, acc
 
     def evaluate_and_record(self, sess, inputs, targets, recorder, verbose=True, refresh_state=False):
         """
@@ -128,14 +135,16 @@ class Evaluator(object):
         print("input size: {:d}".format(input_size))
         eval_ops = self.summary_ops
         self.model.reset_state()
-        for i in range(0, input_size):
-            evals, _ = self.model.run(inputs, targets, self.record_every, sess, eval_ops=eval_ops,
+        for i in range(0, input_size, self.record_every):
+            n_steps = input_size - i if i + self.record_every > input_size else self.record_every
+
+            evals, _ = self.model.run(inputs, targets, n_steps, sess, eval_ops=eval_ops,
                                       verbose=False, refresh_state=refresh_state)
-            messages = [{name: value[i] for name, value in evals.items()} for i in range(self.record_every)]
+            messages = [{name: value[i] for name, value in evals.items()} for i in range(n_steps)]
             for message in messages:
                 recorder.record(message)
-            if verbose and i % (input_size // 10) == 0 and i != 0:
-                print("[{:d}/{:d}] completed".format(i, input_size), flush=True)
+            if verbose and (i//self.record_every + 1) % (input_size // self.record_every // 10) == 0:
+                print("[{:d}/{:d}] completed".format(i+self.record_every, input_size), flush=True)
         recorder.flush()
         print("Evaluation done!")
 

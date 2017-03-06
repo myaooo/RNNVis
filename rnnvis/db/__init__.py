@@ -27,3 +27,11 @@ def get_dataset(name, fields):
         print("Data retrieved from db.")
     result.update({'type': data_info['type']})
     return result
+
+
+class NoDataError(LookupError):
+    """
+    When data is not find.
+    """
+    def __init__(self, message=''):
+        self.message = message

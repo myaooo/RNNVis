@@ -152,39 +152,55 @@ def get_datasets_by_name(name, fields=None):
     return complete_data
 
 
-def insert_evaluation(data_name, model_name, eval_text_tokens):
+def insert_evaluation(data_name, model_name, eval_text_tokens, replace=False):
     """
     Add an evaluation record to the 'eval' collection, with given data_name, model_name and a list of word tokens
+    Since we don't want duplicate evaluations, we must ensure one time there is only one same doc
     :param data_name: name of the datasets, should be in word_to_id collection
     :param model_name: name of the model, identifier
-    :param eval_text_tokens: a list of word tokens, or a list of word_ids
-    :return: the ObjectId of the inserted evaluation document
+    :param eval_text_tokens: a list of eval_sentences, each eval_sentence is a list of tokens,
+        or a single eval_sentence is also acceptable
+    :param force: if True, this will replace an already exists evaluation document, if exists
+        if False, then when encountered a different documents, it will not overwrite it.
+    :return: a list of ObjectIds of the inserted evaluation documents
     """
     assert isinstance(eval_text_tokens, list)
-    if isinstance(eval_text_tokens[0], int):
-        id_to_word = get_datasets_by_name(data_name, ['id_to_word'])['id_to_word']
-        eval_ids = eval_text_tokens
-        try:
-            eval_text_tokens = [id_to_word[i] for i in eval_ids]
-        except:
-            print('word id of input eval text and dictionary not match!')
-            raise
-    elif isinstance(eval_text_tokens[0], str):
-        word_to_id = get_datasets_by_name(data_name, ['word_to_id'])['word_to_id']
-        try:
-            eval_ids = [word_to_id[token] for token in eval_text_tokens]
-        except:
-            print('token and dictionary not match!')
-            raise
+    if not isinstance(eval_text_tokens[0], list): # convert a single sentence to standard list
+        eval_text_tokens = [eval_text_tokens]
+    dictionaries = get_datasets_by_name(data_name, ['id_to_word', 'word_to_id'])
+    id_to_word = dictionaries['id_to_word']
+    word_to_id = dictionaries['word_to_id']
+    doc_ids = []
+    datas = []
+    for eval_text_token in eval_text_tokens:
+        if isinstance(eval_text_token[0], int):
+            eval_ids = eval_text_token
+            try:
+                eval_text_token = [id_to_word[i] for i in eval_ids]
+            except:
+                print('word id of input eval text and dictionary not match!')
+                raise
+        elif isinstance(eval_text_token[0], str):
+            try:
+                eval_ids = [word_to_id[token] for token in eval_text_token]
+            except:
+                print('token and dictionary not match!')
+                raise
+        else:
+            raise TypeError('The input eval text should be a list of int or a list of str! But its of type {}'
+                            .format(type(eval_text_token[0])))
+        tag = hash_tag_str(eval_text_token)
+        filt = {'name': data_name, 'tag': tag, 'model': model_name}
+        data = {'data': eval_ids}
+        data.update(filt)
+        datas.append(data)
+    if replace:
+        existing_evals = query_evals(data_name, model_name)
+        delete_evals([eval_['_id'] for eval_ in existing_evals])
+        return db_hdlr['eval'].insert_many(datas).inserted_ids
     else:
-        raise TypeError('The input eval text should be a list of int or a list of str! But its of type {}'
-                        .format(type(eval_text_tokens[0])))
-    tag = hash_tag_str(eval_text_tokens)
-    filt = {'name': data_name, 'tag': tag, 'model': model_name}
-    data = {'data': eval_ids}
-    data.update(filt)
-    doc = replace_one_if_exists('eval', filt, data)
-    return doc['_id']
+        return db_hdlr['eval'].insert_many(datas).inserted_ids
+    # return doc_ids
 
 
 def push_evaluation_records(eval_ids, records):
@@ -254,6 +270,27 @@ def query_evaluation_records(eval_, range_=None, data_name=None, model_name=None
 
 def query_evals(data_name, model_name):
     return db_hdlr['eval'].find({'name': data_name, 'model': model_name})
+
+
+def delete_evals(eval_ids):
+    if isinstance(eval_ids, ObjectId):
+        eval_ids = [eval_ids]
+    evals = db_hdlr['eval'].find({'_id': {'$in': eval_ids}})
+    expect_record_num = 0
+    deleted_record_num = 0
+    for eval_ in evals:
+        if 'records' not in eval_:
+            continue
+        record_ids = eval_['records']
+        del_results = db_hdlr['record'].delete_many({'_id': {'$in': record_ids}})
+        expect_record_num += len(record_ids)
+        deleted_record_num += del_results.deleted_count
+        if del_results.deleted_count != len(record_ids):
+            print("WARN: Deleted records fewer than the records in the eval doc!")
+    del_evals = db_hdlr['eval'].delete_many({'_id': {'$in': eval_ids}})
+    print("{:d} eval docs are deleted, with {:d} out of {:d} expected record docs deleted"
+          .format(del_evals.deleted_count, deleted_record_num, expect_record_num))
+    return expect_record_num == deleted_record_num
 
 
 def hash_tag_str(text_list):
