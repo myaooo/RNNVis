@@ -11,7 +11,7 @@
       }
     },
     mounted() {
-      var treeData = require('./test-large.json');
+      var treeData = require('./testsmall.json');
       const maxDepth = 5;
       const duration = 500;
 
@@ -116,7 +116,7 @@
                 ' ' + y0 + ',' + x0 +
                 ' ' + y0 + ',' + x0)
             .remove();
-          
+
           d.link = null;
         });
 
@@ -184,7 +184,7 @@
           } else {
             node = d.data.node;
           }
-          
+
           node
             .transition()
             .duration(duration)

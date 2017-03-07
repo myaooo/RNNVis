@@ -33,13 +33,29 @@ def model_generate():
     return result
 
 
-# @app.route('/models/evaluate/<string:name>&<string:sequence>')
-# def model_evaluate(name, sequence):
-#     sequence = sequence.split(sep='+')
-#     result = _manager.model_evaluate(name, sequence)
-#     if result is None:
-#         return 'Cannot find model with name {:s}'.format(name), 404
-#     return result
+@app.route('/models/evaluate', methods=['POST', 'GET'])
+def model_evaluate():
+    if request.method == 'POST':
+        # print('entering post')
+        data = request.json
+        model = data['model']
+        state_name = data['state']
+        text = data['text']
+        print(text)
+        try:
+            layer = int(request.form['layer'])  # default to -1
+        except:
+            layer = -1
+        result = _manager.model_evaluate_sequence(model, text)
+        if result is None:
+            return 'Cannot find model with name {:s}'.format(model), 404
+        tokens, records = result
+        try:
+            records = [[record[state_name][layer].tolist() for record in sublist] for sublist in records]
+            return jsonify({'tokens': tokens, 'records': records})
+        except:
+            return 'Model with name {:s} contains no state: {:s}'.format(model, state_name), 404
+    return "Not Found", 404
 
 
 @app.route('/models/config/<string:model>')

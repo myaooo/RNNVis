@@ -1,4 +1,4 @@
-export const distance = {
+export const distances = {
   euclidean: function(v1, v2) {
     var total = 0;
     for (var i = 0; i < v1.length; i++) {
@@ -68,7 +68,7 @@ export class kMeans{
 
   cluster(points, k, maxIter, snapshotFn) {
     k = k || Math.max(2, Math.ceil(Math.sqrt(points.length / 2)));
-    maxIter = maxIter || 100
+    maxIter = maxIter || 100;
     this.centroids = this.randomCentroids(points, k);
 
     var assignment = new Int32Array(points.length);
@@ -76,23 +76,24 @@ export class kMeans{
 
     var iterations = 0;
     var movement = true;
-    while (movement) {
+    // let iter = 0;
+    while (movement && iterations < maxIter) {
       // update point-to-centroid assignments
       for (let i = 0; i < points.length; i++) {
-         assignment[i] = this.classify(points[i], distance);
+         assignment[i] = this.classify(points[i]);
       }
 
       // update location of each centroid
       movement = false;
       for (let j = 0; j < k; j++) { // iterate over k clusters
-        let assigned = points.filter((p, i) => {assignment[i] == j})
+        const assigned = points.filter((p, i) => { return assignment[i] == j;})
 
         if (!assigned.length) {
           continue;
         }
 
-        let centroid = this.centroids[j];
-        let newCentroid = new mean(assigned);
+        const centroid = this.centroids[j];
+        const newCentroid = new mean(assigned);
 
         for (let g = 0; g < centroid.length; g++) {
           if (newCentroid[g] != centroid[g]) {
@@ -103,12 +104,16 @@ export class kMeans{
         this.centroids[j] = newCentroid;
         clusters[j] = assigned;
       }
+      iterations++;
       if (snapshotFn){
-        snapshotFn(clusters, iterations++);
+        snapshotFn(clusters, iterations);
       }
     }
+    if (iterations >= maxIter){
+      console.log("Clustering algorithm early stopped.");
+    }
 
-    return clusters;
+    return assignment;
   }
 
   toJSON() {
@@ -122,5 +127,5 @@ export class kMeans{
 }
 
 export function kmeans(vectors, k, maxIter=100, distance="euclidean", snapshotFn=null) {
-   return (new KMeans(distance)).cluster(vectors, k, maxIter, snapshotFn);
+   return (new kMeans(distance)).cluster(vectors, k, maxIter, snapshotFn);
 }

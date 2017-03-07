@@ -405,9 +405,9 @@ class RNN(object):
         :param ids: a numpy.ndarray or a list or a python int
         :return: a list of words
         """
-        if isinstance(ids, int) and ids in self.id_to_word:
-            return self.id_to_word[ids]
-        words = [self.id_to_word[i] for i in ids if i in self.id_to_word]
+        if isinstance(ids, int):
+            ids = [ids]
+        words = [self.id_to_word[i] for i in ids if 0 <= i < len(self.id_to_word)]
         return words
 
     def get_id_from_word(self, words):
@@ -553,14 +553,14 @@ class RNN(object):
                     if verbose:
                         print("Epoch {}:".format(i))
                     loss, acc = self.trainer.train_one_epoch(self.sess, inputs, targets, epoch_size, verbose=verbose,
-                                                             refresh_state=refresh_state)
+                                                             refresh_state=self.use_last_output)
                     self.validator.evaluate(self.sess, valid_inputs, valid_targets, valid_epoch_size,
-                                            verbose=verbose, refresh_state=refresh_state)
+                                            verbose=verbose, refresh_state=self.use_last_output)
                     losses.append(loss)
                     accs.append(accs)
                     if i > early_stop:
                         threshold = 5e-5
-                        abs_diff = [abs(losses[j] - losses[i-early_stop]) for j in range(i-early_stop, i)]
+                        abs_diff = [abs(losses[j] - losses[i-early_stop]) for j in range(i+1-early_stop, i+1)]
                         if max(abs_diff) < threshold:
                             print("{:d} consecutive epochs with loss difference less than {:f}, early stopped!"
                                   .format(early_stop, threshold))
