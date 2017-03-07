@@ -42,7 +42,8 @@ if __name__ == '__main__':
 
     print('Start Training')
     model.train(train_inputs, train_targets, epoch_size, epoch_num,
-                valid_inputs=valid_inputs, valid_targets=valid_targets, valid_epoch_size=valid_epoch_size)
+                valid_inputs=valid_inputs, valid_targets=valid_targets, valid_epoch_size=valid_epoch_size,
+                refresh_state=train_config.)
 
     print('Finish Training')
     model.save()

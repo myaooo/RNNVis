@@ -12,11 +12,11 @@ let getProjectionData = function (model, state, parameters = {}, callback) {
   let url = `${devMainUrl}/projection?model=${model}&state=${state}`;
   Object.keys(parameters).forEach((p) => { url += `&${p}=${parameters[p]}`; });
   return $http.get(url).then(response => {
-      callback(response);
-    }, errResponse => {
-      console.log(errResponse);
-      throw errResponse;
-    });
+    callback(response);
+  }, errResponse => {
+    console.log(errResponse);
+    throw errResponse;
+  });
 }
 
 let getStrengthData = function (model, state, parameters = {}, callback) {
@@ -24,11 +24,11 @@ let getStrengthData = function (model, state, parameters = {}, callback) {
   let url = `${devMainUrl}/strength?model=${model}&state=${state}`
   Object.keys(parameters).forEach((p) => { url += `&${p}=${parameters[p]}`; });
   return $http.get(url).then(response => {
-      callback(response);
-    }, errResponse => {
-      console.log(errResponse);
-      throw errResponse;
-    });
+    callback(response);
+  }, errResponse => {
+    console.log(errResponse);
+    throw errResponse;
+  });
 }
 
 let getStateSignature = function (model, state, parameters = {}, callback) {
@@ -36,11 +36,11 @@ let getStateSignature = function (model, state, parameters = {}, callback) {
   let url = `${devMainUrl}/state_signature?model=${model}&state=${state}`
   Object.keys(parameters).forEach((p) => { url += `&${p}=${parameters[p]}`; });
   return $http.get(url).then(response => {
-      callback(response);
-    }, errResponse => {
-      console.log(errResponse);
-      throw errResponse;
-    });
+    callback(response);
+  }, errResponse => {
+    console.log(errResponse);
+    throw errResponse;
+  });
 }
 
 let getTextData = function (model, field) {
@@ -63,11 +63,24 @@ let getModels = function (callback) {
 let getModelConfig = function (model, callback) {
   const url = `${devMainUrl}/models/config/${model}`;
   return $http.get(url).then(response => {
-      callback(response);
-    }, errResponse => {
-      console.log(errResponse);
-      throw errResponse;
-    });
+    callback(response);
+  }, errResponse => {
+    console.log(errResponse);
+    throw errResponse;
+  });
+}
+
+let getTextEvaluation = function (model, state, layer, text, callback){
+  // layer: -1
+  layer = layer || -1;
+  let url = `${devMainUrl}/models/evaluate`;
+  // Object.keys(parameters).forEach((p) => { url += `&${p}=${parameters[p]}`; });
+  return $http.post(url, {model: model, state: state, layer: layer, text: text}).then(response => {
+    callback(response);
+  }, errResponse => {
+    console.log(errResponse);
+    throw errResponse;
+  });
 }
 
 export default {
@@ -77,4 +90,5 @@ export default {
   getTextData,
   getModels,
   getModelConfig,
+  getTextEvaluation,
 }

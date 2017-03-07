@@ -127,7 +127,7 @@ class Evaluator(object):
         :return:
         """
 
-        assert isinstance(inputs, Feeder)
+        assert isinstance(inputs, Feeder), 'expect inputs type Feeder but got type {:s}'.format(str(type(inputs)))
         assert isinstance(targets, Feeder) or targets is None
         assert isinstance(recorder, Recorder), "recorder should be an instance of rnn.eval_recorder.Recorder!"
         recorder.start(inputs, targets)
