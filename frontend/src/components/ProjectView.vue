@@ -31,12 +31,6 @@
   import { bus, SELECT_MODEL } from 'event-bus';
   import ProjectGraph from 'components/ProjectGraph';
 
-  const cell2states = {
-    'GRU': ['state'],
-    'BasicLSTM': ['state_c', 'state_h'],
-    'BasicRNN': ['state'],
-  };
-
   export default {
     name: 'ProjectView',
     props: {
@@ -59,6 +53,7 @@
         graphData: { states: null, strength: null },
         config: drawConfig,
         cache: {},
+        shared: bus.state,
       };
     },
     components: { ProjectGraph },
@@ -67,7 +62,8 @@
     },
     watch: {
       selectedState: function (newState, oldState) {
-        if (newState === oldState){
+        bus.state.selectedState = newState;
+        if (newState === oldState) {
           return;
         }
         if (newState === 'state' || newState === 'state_c' || newState === 'state_h') {
@@ -86,8 +82,11 @@
         this.ready = false; // reset ready signal
         delete this.graphData.signature; // reset signature data
         this.config = Object.assign({}, ProjectGraph.defaultConfig); // reset controlings
+        if(this.selectedState === 'state'){ //hack
+          this.config.strength_thred = 0.9;
+        }
         const cacheTag = this.paneId(this.model, this.selectedState);
-        if (Object.prototype.hasOwnProperty.call(this.cache, cacheTag)) {
+        if (Object.prototype.hasOwnProperty.call(this.cache, cacheTag)) { // already has the cache data
           Object.assign(this.graphData, this.cache[cacheTag]);
           setTimeout(() => { this.ready = true; }, 100);
           return;
@@ -99,11 +98,11 @@
         });
         const p2 = dataService.getStrengthData(this.model, this.selectedState, { top_k: 200 }, response => {
           const strengthData = response.data;
-          this.graphData.strength = [strengthData[163]].concat(strengthData.slice(20, 40)).concat(strengthData.slice(170, 190));
+          this.graphData.strength = [strengthData[163]].concat(strengthData.slice(20, 40)); //.concat(strengthData.slice(170, 190));
           console.log('strength data loaded');
         });
         const pAll = Promise.all([p1, p2]).then(values => {
-          this.cache[cacheTag] = {states: this.graphData.states, strength: this.graphData.strength}; // cache fetched data;
+          this.cache[cacheTag] = { states: this.graphData.states, strength: this.graphData.strength }; // cache fetched data;
           setTimeout(() => { this.ready = true; }, 100);
           // continue to download signature data which might be used for clustering
           dataService.getStateSignature(this.model, this.selectedState, {}, response => {
@@ -118,6 +117,7 @@
       },
 
       configWatcher() {
+        if (this.ready === false) return;
         if (this.config.clusterNum > 1 && !Object.prototype.hasOwnProperty.call(this.graphData, 'signature')) {
           dataService.getStateSignature(this.model, this.selectedState, {}, response => {
             this.graphData.signature = response.data;
@@ -128,10 +128,6 @@
         }
         bus.$emit("REFRESH_PROJECT_GRAPH", this.ready);
       },
-
-      stateWatcher() {
-        this.reset();
-      }
     },
 
     mounted() {
@@ -139,18 +135,19 @@
         console.log(`selected model: ${modelName}`);
         this.model = modelName;
         bus.loadModelConfig(modelName).then((_) => {
-          const config = bus.state.modelConfigs[modelName];
-          const cell_type = config.model.cell_type;
-          if (cell2states.hasOwnProperty(cell_type)) {
-            this.states = cell2states[cell_type];
+          const states = bus.availableStates(modelName);
+          if (states){
+            this.states = states;
             // console.log(this.states);
             setTimeout(() => { // wait 100ms to update incase the dom is not ready
               if (this.states[0] === this.selectedState) { // ugly hacker incase states are same to manually reset the data.
                 this.reset();
               }
-              this.selectedState = this.states[0];
-              // this.reset();
+              this.selectedState = null;
             }, 100);
+          }
+          else {
+            console.log("Unknown cell type!");
           }
         })
       });
@@ -160,7 +157,7 @@
 
 </script>
 <style>
-.config span {
-  line-height: 34px;
-}
+  .config span {
+    line-height: 34px;
+  }
 </style>

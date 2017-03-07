@@ -11,9 +11,9 @@
     radius: 3.0,
     opacity: 0.4,
     opacityHigh: 1.0,
-    defaultAlpha: 0.25,
+    defaultAlpha: 0.35,
     repel: -5,
-    strength_thred: 0.5,
+    strength_thred: 0.6,
     color: d3.scaleOrdinal(d3.schemeCategory10),
     color2: d3.scaleOrdinal(d3.schemeCategory20),
     clusterNum: 0,
@@ -195,13 +195,13 @@
     }
 
     initSimulation() {
-      var repelForce = d3.forceManyBody().strength(-30).distanceMax(3); // the force that repel words apart
+      var repelForce = d3.forceManyBody().strength(-30).distanceMax(4); // the force that repel words apart
       var init = repelForce.initialize;
       repelForce.initialize = function (nodes) {
         init(nodes.filter(function (d) { d.hasOwnProperty("word") })); // only apply between word Nodes
       }
       // var collideForce = d3.forceManyBody().strength(this.params.repel).distanceMax(10);
-      var collideForce = d3.forceCollide().strength(0.7).radius(2);
+      var collideForce = d3.forceCollide().strength(0.5).radius(1);
       this.simulation = d3.forceSimulation().alpha(this.params.defaultAlpha)
         .force("link", d3.forceLink() //.iterations(4)
           .id((d) => { return d.id; })

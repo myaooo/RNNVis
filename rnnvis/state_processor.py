@@ -272,13 +272,15 @@ def tsne_project(data, perplexity, init_dim=50, lr=50, max_iter=1000):
 
 def get_tsne_projection(data_name, model_name, state_name, layer=-1, sample_size=5000, dim=50, perplexity=40.0):
     assert isinstance(layer, int), "tsne projection of only one layer is reasonable"
-    tmp_file = '-'.join([data_name, model_name, state_name, str(layer), str(dim), str(int(perplexity))]) + '.pkl'
+    tmp_file = '-'.join([data_name, model_name, state_name, 'tsne',
+                         str(layer), str(dim), str(int(perplexity))]) + '.pkl'
     tmp_file = get_path(_tmp_dir, tmp_file)
     if file_exists(tmp_file):
         with open(tmp_file, 'rb') as f:
             tsne_solution = pickle.loads(f.read())
     else:
-        sample = get_state_signature(data_name, model_name, state_name, layer, sample_size, dim) / 10
+        sample = get_state_signature(data_name, model_name, state_name, layer, sample_size, dim) / 50
+        print('Start doing t-SNE...')
         tsne_solution = tsne_project(sample, perplexity, dim, 50)
 
         with open(tmp_file, 'wb') as f:
@@ -311,33 +313,6 @@ def solution2json(solution, states_num, labels=None, path=None):
     return dict2json(points, path)
 
 
-color_scheme = [[201/255, 90/255, 95/255], [88/255, 126/255, 182/255],
-                [114/255, 189/255, 210/255], [99/255, 176/255, 117/255]]
-
-
-def create_animated_tsne(data, perplexity, states_num, init_dim=50, lr=50, max_iter=1000, path=None):
-
-    tsne_solver = tsne.TSNE(2, perplexity, lr)
-    tsne_solver.set_inputs(data, init_dim)
-    projected = []
-    for i in range(max_iter//10):
-        cost = tsne_solver.step(10)
-        projected.append(tsne_solver.get_solution())
-        print("iteration: {:d}, error: {:f}".format(i*10, cost))
-
-    color_list = []
-    for i, num in enumerate(states_num):
-        color_list.append(np.tile(np.array(color_scheme[i], np.float32), (num, 1)))
-    color = np.vstack(color_list)
-
-    projected = [np.hstack((project, color)) for project in projected]
-    anim = AnimatedScatter(projected, [6, 6], 50)
-
-    if path is not None:
-        anim.save(path)
-    anim.show()
-
-
 def get_state_value(states, layer, dim):
     """
     Given the loaded states from load_words_and_states, a layer no. and a dim no.,
@@ -348,67 +323,6 @@ def get_state_value(states, layer, dim):
     :return:
     """
     return [state[layer, dim] for state in states]
-
-
-class AnimatedScatter(object):
-    """An animated scatter plot using matplotlib.animations.FuncAnimation."""
-    def __init__(self, data, figsize=None, interval=5):
-        from matplotlib import animation
-        # self.stream = self.data_stream()
-        self.figsize = [6, 6] if figsize is None else figsize
-        self.data = data
-        self.scat = None
-        # Setup the figure and axes...
-        self.fig, self.ax = plt.subplots(figsize=self.figsize)
-        self.setup_plot()
-        # Then setup FuncAnimation.
-        self.ani = animation.FuncAnimation(self.fig, self.update, len(data), interval=interval, repeat_delay=1000,
-                                           blit=True)
-
-    def setup_plot(self):
-        """Initial drawing of the scatter plot."""
-        xy = self.data[0]
-        self.scat = self.ax.scatter(xy[:, 0], xy[:, 1], 8, xy[:, 2:], animated=True, alpha=0.5)
-        self.ax.axis([-self.figsize[0]/2.0, self.figsize[0]/2.0, -self.figsize[1]/2.0, self.figsize[1]/2.0])
-
-        # For FuncAnimation's sake, we need to return the artist we'll be using
-        # Note that it expects a sequence of artists, thus the trailing comma.
-        return self.scat,
-
-    def data_stream(self, i):
-        """Generate a random walk (brownian motion). Data is scaled to produce
-        a soft "flickering" effect."""
-        if callable(self.data):
-            return self.data()
-        else:
-            return self.data[i]
-
-    def update(self, i):
-        """Update the scatter plot."""
-        data = self.data_stream(i)
-        min_x = np.min(data[:, 0])
-        max_x = np.max(data[:, 0])
-        min_y = np.min(data[:, 1])
-        max_y = np.max(data[:, 1])
-        cent_x = (max_x + min_x)/2
-        cent_y = (max_y + min_y)/2
-        scale = 0.9 * min(self.figsize[0], self.figsize[1]) / max(max_x - min_x, max_y - min_y)
-        data[:, 0] -= cent_x
-        data[:, 1] -= cent_y
-        data *= scale
-
-        # Set x and y data...
-        self.scat.set_offsets(data[:, :2])
-        return self.scat,
-
-    def show(self):
-        plt.show()
-
-    def save(self, filename, fps=15, bitrate=1800):
-        from matplotlib import animation
-        _writer = animation.writers['ffmpeg']
-        writer = _writer(fps=fps, metadata=dict(artist='Ming'), bitrate=bitrate)
-        self.ani.save(filename, writer)
 
 
 if __name__ == '__main__':

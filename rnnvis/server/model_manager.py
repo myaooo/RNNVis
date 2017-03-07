@@ -12,6 +12,7 @@ from rnnvis.procedures import build_model, pour_data
 from rnnvis.rnn.eval_recorder import BufferRecorder, StateRecorder
 from rnnvis.state_processor import get_state_signature, get_empirical_strength, strength2json, \
     get_tsne_projection, solution2json
+from rnnvis.datasets.text_processor import tokenize
 
 _config_dir = 'config'
 _data_dir = 'cached_data'
@@ -99,22 +100,41 @@ class ModelManager(object):
             return None
         return model.generate(seeds, None, max_branch, accum_cond_prob, min_cond_prob, min_prob, max_step, neg_word_ids)
 
-    def model_record_sequence(self, name, sequences):
+    def model_evaluate_sequence(self, name, sequences):
+        """
+        :param name:
+        :param sequence: a str of sentence, or a list of words
+        :return:
+        """
         model = self._get_model(name)
         if model is None:
             return None
+        if isinstance(sequences, str):
+            tokenized_sequences = tokenize(sequences, eos=True, remove_punct=True)
+            # flat_sequence = [items for sublist in tokenized_sequences for items in sublist]
+            sequences = [model.get_id_from_word(sequence) for sequence in tokenized_sequences]
         config = self._train_configs[name]
-        max_len = max([len(s) for s in sequences])
+        max_len = max([len(sequence) for sequence in sequences])
+        # print(sequence)
         recorder = BufferRecorder(config.dataset, name, 500)
-        if not isinstance(sequences, Feeder):
-            producer = SentenceProducer(sequences, 1, max_len, num_steps=1)
-            sequences = producer.get_feeder()
+        # if not isinstance(sequences, Feeder):
+        producer = SentenceProducer(sequences, 1, max_len, num_steps=1)
+        inputs = producer.get_feeder()
+        # print(inputs)
         model.evaluator.record_every = max_len
+        # model.evaluate_and_record(inputs, None, recorder, verbose=False)
+        # return list(recorder.evals())[0]
         try:
-            model.evaluate_and_record(sequences, None, recorder, verbose=False)
-            return recorder.evals()  # a sequence of eval_doc, records pairs
+            model.run_with_context(model.evaluator.evaluate_and_record, inputs, None, recorder, verbose=False)
+            # evals() retursn a sequence of eval_doc, records pairs, only needs the first one
+            tokens, records = zip(*recorder.evals())
+            print(tokens)
+            tokens = [model.get_word_from_id(token) for token in tokens]
+            print(tokens)
+            return tokens, records
         except ValueError:
             print("ERROR: Fail to evaluate given sequence! Sequence length too large!")
+            raise
             return None
         except:
             print("ERROR: Fail to evaluate given sequence! Unknown Reason.")

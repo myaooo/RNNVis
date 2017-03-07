@@ -1,15 +1,16 @@
 <template>
   <div class="model-view">
-    <h3>Models</h3>
-    <div class="grid-content bg-purple-light model-view">
+    <h4 class="normal">Models</h4>
+    <div class="grid-content bg-purple-light model-detail">
       <el-form label-position="top" :model="params">
         <el-form-item label="Model">
-          <el-select v-model="selected" placeholder="Select">
+          <el-select v-model="selected" placeholder="Select" @visible-change="getModels">
             <el-option v-for="(model, idx) in models" :value="idx" :label="model"></el-option>
           </el-select>
         </el-form-item>
-        <el-form-item label="Config"></el-form-item>
-        <el-tree :data="configTree" :props="configProps" class="config-tree" :indent="10"></el-tree>
+        <el-form-item label="Config">
+          <el-tree :data="configTree" :props="configProps" class="config-tree" :indent="8"></el-tree>
+        </el-form-item>
       </el-form>
     </div>
   </div>
@@ -17,15 +18,15 @@
 <style>
   .model-view {
     text-align: left;
-    padding: 14px;
+    padding: 5px;
   }
 
-  .model-config {
-    padding: 14px;
+  .model-detail {
+    padding: 10px;
   }
 
   el-form-item .model-view {
-    margin: 10px;
+    margin: 5px;
   }
 
   /*.config-tree {
@@ -65,7 +66,7 @@
     methods: {
       getModels() {
         bus.loadAvailableModels();
-      }
+      },
     },
     watch: {
       selected: function(selected){

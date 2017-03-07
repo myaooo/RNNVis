@@ -1,45 +1,51 @@
 import Vue from 'vue';
 import dataService from './services/dataService';
 
-export const SELECT_MODEL = 'SELECT_MODEL';
+const SELECT_MODEL = 'SELECT_MODEL';
 
 const state = {
   selectedModel: null,
+  selectedState: null,
   modelConfigs: {},
-  availableModels: [],
+  availableModels: null,
 };
 
-export const bus = new Vue({
+const bus = new Vue({
   data: {
-    state,
+    state: state,
+    cell2states: {
+      'GRU': ['state'],
+      'BasicLSTM': ['state_c', 'state_h'],
+      'BasicRNN': ['state'],
+    },
   },
   computed: {
   },
   methods: {
-    selectModel(modelName) {
-      // const state = this.state;
-      const originSelectedModel = state.selectedModel;
-      if (Object.prototype.hasOwnProperty.call(state.modelConfigs, modelName)) {
-        state.selectedModel = modelName;
-      } else {
-        dataService.getModelConfig(modelName, response => {
-          if (response.status === 200) {
-            state.modelConfigs[modelName] = response.data;
-            state.selectedModel = modelName;
-          }
-        });
-      }
-      if (originSelectedModel !== state.selectedModel) {
-        bus.$emit(SELECT_MODEL, state.selectedModel);
-      }
-    },
+    // selectModel(modelName) {
+    //   // const state = this.state;
+    //   const originSelectedModel = state.selectedModel;
+    //   if (Object.prototype.hasOwnProperty.call(state.modelConfigs, modelName)) {
+    //     state.selectedModel = modelName;
+    //   } else {
+    //     dataService.getModelConfig(modelName, response => {
+    //       if (response.status === 200) {
+    //         state.modelConfigs[modelName] = response.data;
+    //         state.selectedModel = modelName;
+    //       }
+    //     });
+    //   }
+    //   if (originSelectedModel !== state.selectedModel) {
+    //     bus.$emit(SELECT_MODEL, state.selectedModel);
+    //   }
+    // },
 
     loadModelConfig(modelName) { // return a Promise
       if (!Object.prototype.hasOwnProperty.call(state.modelConfigs, modelName)) {
         return dataService.getModelConfig(modelName, response => {
           if (response.status === 200) {
             state.modelConfigs[modelName] = response.data;
-            state.selectedModel = modelName;
+            // state.selectedModel = modelName;
           }
         });
       }
@@ -48,7 +54,7 @@ export const bus = new Vue({
 
     loadAvailableModels() {
       // console.log(this.availableModels);
-      if (this.state.availableModels.length === 0) {
+      if (this.state.availableModels === null) {
         return dataService.getModels(response => {
           if (response.status === 200) {
             const data = response.data;
@@ -59,12 +65,39 @@ export const bus = new Vue({
       }
       return Promise.resolve('Already Loaded');
     },
+    availableStates(modelName) { // helper function that returns available states of the current selected Model`
+      modelName = modelName || this.state.selectedModel;
+      if (Object.prototype.hasOwnProperty.call(this.state.modelConfigs, modelName)){
+        const config = this.state.modelConfigs[modelName];
+        return this.cell2states[config.model.cell_type];
+      }
+      return undefined;
+    },
+    layerNum(modelName) {
+      modelName = modelName || this.state.selectedModel;
+      if (Object.prototype.hasOwnProperty.call(this.state.modelConfigs, modelName)){
+        const config = this.state.modelConfigs[modelName];
+        return config.model.cells.length;
+      }
+      return undefined;
+    },
+    layerSize(modelName, layer){
+      modelName = modelName || this.state.selectedModel;
+      if (Object.prototype.hasOwnProperty.call(this.state.modelConfigs, modelName)){
+        if (!layer || layer === -1){
+          layer = this.layerNum(modelName) - 1;
+        }
+        const config = this.state.modelConfigs[modelName];
+        return config.model.cells[layer].num_units;
+      }
+      return undefined;
+    }
   },
 });
 
-// bus.$on(SELECT_MODEL, (modelName) => {
-
-// })
+bus.$on(SELECT_MODEL, (modelName) => {
+  bus.state.selectedModel = modelName;
+});
 
 // bus.$on('test', (message) => {
 //   console.log('1:' + message);
@@ -77,3 +110,8 @@ export const bus = new Vue({
 // bus.$emit('test', 'haha');
 
 export default bus;
+
+export {
+  bus,
+  SELECT_MODEL,
+}
