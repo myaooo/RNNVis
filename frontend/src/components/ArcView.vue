@@ -1,5 +1,5 @@
 <template>
-  <div class="project">
+  <div class="arc">
     <el-tabs v-model="selectedState">
     <el-tab-pane v-for="state in states" :label="state" :name="state">
       <svg :id="paneId(model, state)" :width="width" :height="height"> </svg>
@@ -31,7 +31,7 @@
   };
 
   export default {
-    name: 'ProjectView',
+    name: 'ArcView',
     data() {
       return {
         fdGraph: null,

@@ -1,5 +1,8 @@
 pyyaml==3.12
 flask==0.12
+flask-cors==3.0.2
 nltk==3.2.2
 pymongo>=3.3.0
 numpy>=1.11
+scipy==0.18.1
+
