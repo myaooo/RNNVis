@@ -348,7 +348,7 @@ def get_co_cluster(data_name, model_name, state_name, n_clusters, layer=-1, top_
     else:
         raise ValueError("Unkown mode '{:s}'".format(mode))
     # print(data)
-    n_jobs = 4  # parallel num
+    n_jobs = 1  # parallel num
     random_state = seed
     row_labels, col_labels = spectral_co_cluster(data, n_clusters, n_jobs, random_state)
     return raw_data, row_labels, col_labels

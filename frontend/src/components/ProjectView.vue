@@ -85,6 +85,11 @@
         if(this.selectedState === 'state'){ //hack
           this.config.strength_thred = 0.9;
         }
+        if(this.model === 'IMDB'){
+          this.config.strength_thred = 0.0;
+          this.config.strengthFn = (v => { return (v * 30) ** 2; });
+          this.config.farDistance = 120;
+        }
         const cacheTag = this.paneId(this.model, this.selectedState);
         if (Object.prototype.hasOwnProperty.call(this.cache, cacheTag)) { // already has the cache data
           Object.assign(this.graphData, this.cache[cacheTag]);
