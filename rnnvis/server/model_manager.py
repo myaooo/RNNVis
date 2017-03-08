@@ -24,7 +24,7 @@ class ModelManager(object):
     _available_models = {
         'PTB-LSTM': {'config': 'lstm.yml'},
         # 'Shakespeare': {'config': 'shakespeare.yml'},
-        # 'IMDB': {'config': 'imdb-tiny.yml'},
+        'IMDB': {'config': 'imdb-tiny.yml'},
         'PTB-GRU': {'config': 'gru.yml'}
     }
 

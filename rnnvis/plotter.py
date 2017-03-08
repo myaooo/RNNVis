@@ -132,6 +132,23 @@ def scatter(states, labels=None, every=5, rank=0, y_extents=None, save_path=None
         plt.savefig(save_path, bbox_inches='tight')
 
 
+def matshow(data, x_labels=None, y_labels=None, save_path=None):
+    if x_labels is None:
+        x_labels = range(data.shape[1])
+    if y_labels is None:
+        y_labels = range(data.shape[0])
+    x_size = int(data.shape[1] / data.shape[0] * 9)
+    fig, ax = plt.subplots(figsize=(x_size, 9))
+    cmap = plt.cm.Blues if np.min(data) * np.max(data) > 0 else plt.cm.coolwarm
+    ax.matshow(data, cmap=cmap)
+    plt.xticks(range(data.shape[1]), x_labels, size='xx-small', alpha=0.5, rotation=90)
+    plt.yticks(range(data.shape[0]), y_labels, size='xx-small', alpha=0.5)
+    if save_path is None:
+        plt.draw()
+    else:
+        plt.savefig(save_path, bbox_inches='tight')
+
+
 def create_animated_tsne(data, perplexity, states_num, init_dim=50, lr=50, max_iter=1000, path=None):
 
     tsne_solver = tsne.TSNE(2, perplexity, lr)
