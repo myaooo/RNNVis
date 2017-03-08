@@ -322,7 +322,7 @@ def tsne_project(data, perplexity, init_dim=50, lr=50, max_iter=1000):
     return _tsne_solver.get_best_solution()
 
 
-def get_co_cluster(data_name, model_name, state_name, n_clusters, layer=-1, top_k=100, mode='positive'):
+def get_co_cluster(data_name, model_name, state_name, n_clusters, layer=-1, top_k=100, mode='positive', seed=0):
     """
 
     :param data_name:
@@ -347,9 +347,9 @@ def get_co_cluster(data_name, model_name, state_name, n_clusters, layer=-1, top_
         data = np.abs(raw_data)
     else:
         raise ValueError("Unkown mode '{:s}'".format(mode))
-    print(data)
-    n_jobs = 1
-    random_state = 0
+    # print(data)
+    n_jobs = 4  # parallel num
+    random_state = seed
     row_labels, col_labels = spectral_co_cluster(data, n_clusters, n_jobs, random_state)
     return raw_data, row_labels, col_labels
 
