@@ -25,7 +25,8 @@ class ModelManager(object):
         'PTB-LSTM': {'config': 'lstm.yml'},
         # 'Shakespeare': {'config': 'shakespeare.yml'},
         'IMDB': {'config': 'imdb-tiny.yml'},
-        'PTB-GRU': {'config': 'gru.yml'}
+        'PTB-GRU': {'config': 'gru.yml'},
+        'PTB-SMALL': {'config': 'lstm-small-1.yml'}
     }
 
     def __init__(self):
