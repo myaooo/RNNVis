@@ -41,7 +41,7 @@ if __name__ == '__main__':
 
     data_name = 'ptb'
     model_name = 'LSTM-PTB'
-    state_name = 'gate_i'
+    state_name = 'state_c'
     diff = False
     words, state_diff = load_words_and_state(data_name, model_name, state_name, diff)
 

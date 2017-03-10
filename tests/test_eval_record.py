@@ -34,7 +34,8 @@ if __name__ == '__main__':
         producers = pour_data(train_config.dataset, ['test'], 10, 1, train_config.num_steps)
         inputs, targets, epoch_size = producers[0]
         model.run_with_context(model.evaluator.evaluate_and_record, inputs, None,
-                               StateRecorder(train_config.dataset, model.name, 500), verbose=True)
+                               StateRecorder(train_config.dataset, model.name, 500), verbose=True,
+                               refresh_state=False if hasattr(model, 'use_last_output') else model.use_last_output)
 
     # salience = model.run_with_context(model.evaluator.cal_salience, list(range(200)), y_or_x='y')
     #

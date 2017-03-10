@@ -136,3 +136,13 @@ def co_cluster():
         return jsonify({'data': results[0], 'row': results[1], 'col': results[2]})
     except:
         raise
+
+
+@app.route('/models/vocab')
+def model_vocab():
+    model = request.args.get('model', '')
+    top_k = int(request.args.get('top_k', 100))
+    results = _manager.model_vocab(model, top_k)
+    if results is None:
+        return 'Cannot find model with name {:s}'.format(model), 404
+    return jsonify(results)

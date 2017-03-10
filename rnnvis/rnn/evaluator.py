@@ -136,10 +136,12 @@ class Evaluator(object):
         eval_ops = self.summary_ops
         self.model.reset_state()
         for i in range(0, input_size, self.record_every):
+            if refresh_state:
+                self.model.reset_state()
             n_steps = input_size - i if i + self.record_every > input_size else self.record_every
 
             evals, _ = self.model.run(inputs, targets, n_steps, sess, eval_ops=eval_ops,
-                                      verbose=False, refresh_state=refresh_state)
+                                      verbose=False, refresh_state=False)
             messages = [{name: value[i] for name, value in evals.items()} for i in range(n_steps)]
             for message in messages:
                 recorder.record(message)

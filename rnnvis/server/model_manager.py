@@ -205,6 +205,14 @@ class ModelManager(object):
                                                                 layer, top_k, mode, seed)
         return strength_mat.tolist(), row_cluster.tolist(), col_cluster.tolist()
 
+    def model_vocab(self, name, top_k=None):
+        model = self._get_model(name)
+        if model is None:
+            return None
+        if top_k is None:
+            return model.id_to_word
+        return model.id_to_word[:top_k]
+
 
 def hash_tag_str(text_list):
     """Use hashlib.md5 to tag a hash str of a list of text"""
