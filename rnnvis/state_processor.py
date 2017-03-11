@@ -419,7 +419,14 @@ def get_co_cluster(data_name, model_name, state_name, n_clusters, layer=-1, top_
     :return:
     """
     strength_list = get_empirical_strength(data_name, model_name, state_name, layer, top_k)
-    raw_data = [strength_mat.reshape(-1) for strength_mat in strength_list]
+    strength_list = [strength_mat.reshape(-1) for strength_mat in strength_list]
+    word_ids = []
+    raw_data = []
+    for i, strength_vec in enumerate(strength_list):
+        if np.max(np.abs(strength_vec)) > 1e-8:
+            word_ids.append(i)
+            raw_data.append(strength_vec)
+
     raw_data = np.array(raw_data)
     if mode == 'positive':
         data = np.zeros(raw_data.shape, dtype=np.float32)
@@ -435,7 +442,7 @@ def get_co_cluster(data_name, model_name, state_name, n_clusters, layer=-1, top_
     n_jobs = 1  # parallel num
     random_state = seed
     row_labels, col_labels = spectral_co_cluster(data, n_clusters, n_jobs, random_state)
-    return raw_data, row_labels, col_labels
+    return raw_data, row_labels, col_labels, word_ids
 
 
 def spectral_co_cluster(data, n_clusters, para_jobs=1, random_state=None):

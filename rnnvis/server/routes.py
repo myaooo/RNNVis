@@ -134,7 +134,11 @@ def co_cluster():
         results = _manager.model_co_cluster(model, state_name, n_cluster, layer, top_k, mode, seed)
         if results is None:
             return 'Cannot find model with name {:s}'.format(model), 404
-        return jsonify({'data': results[0], 'row': results[1], 'col': results[2]})
+        return jsonify({'data': results[0],
+                        'row': results[1],
+                        'col': results[2],
+                        'ids': results[3],
+                        'words': results[4]})
     except:
         raise
 

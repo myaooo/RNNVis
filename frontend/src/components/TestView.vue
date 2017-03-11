@@ -151,8 +151,14 @@
       }
     },
     mounted() {
+      let coClusterData;
+      const p = dataService.getCoCluster(this.model, this.state, 10, {}, response => {
+        coClusterData = response.data;
+        console.log('co-cluster data:');
+        console.log(coClusterData);
+      })
       this.init();
-      this.draw2();
+      this.draw();
     }
 
   }

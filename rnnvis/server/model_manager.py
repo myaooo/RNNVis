@@ -200,10 +200,11 @@ class ModelManager(object):
         if model is None:
             return None
         config = self._train_configs[name]
-        layer_num = len(model.cell_list)
-        strength_mat, row_cluster, col_cluster = get_co_cluster(config.dataset, model.name, state_name, n_cluster,
-                                                                layer, top_k, mode, seed)
-        return strength_mat.tolist(), row_cluster.tolist(), col_cluster.tolist()
+        # layer_num = len(model.cell_list)
+        results = get_co_cluster(config.dataset, model.name, state_name, n_cluster, layer, top_k, mode, seed)
+        strength_mat, row_cluster, col_cluster, word_ids = results
+        words = model.get_word_from_id(word_ids)
+        return strength_mat.tolist(), row_cluster.tolist(), col_cluster.tolist(), word_ids, words
 
     def model_vocab(self, name, top_k=None):
         model = self._get_model(name)
