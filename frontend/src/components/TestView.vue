@@ -17,6 +17,8 @@
     data() {
       return {
         chart: null,
+        model: 'PTB-LSTM',
+        state: 'state_c',
       };
     },
     props: {},
@@ -26,19 +28,21 @@
       }
     },
     methods: {
+      init() {
+        const svg = d3.select(`#${this.svgId}`)
+          .attr('width', 500)
+          .attr('height', 200);
+        this.chart = new Chart(svg, 500, 200)
+          .background('lightgray', 0.3);
+      },
       draw() {
-        dataService.getWordStatistics('PTB-LSTM', 'state_c', -1, 'he', response => {
+        dataService.getWordStatistics(this.model, this.state, -1, 'he', response => {
           const data = response.data;
           const mean = data.sort_idx.map((d, i) => { return data.mean[d]; });
           const range  = data.sort_idx.map((d, i) => { return [data.low1[d], data.high1[d]]; });
           const range2  = data.sort_idx.map((d, i) => { return [data.low2[d], data.high2[d]]; });
 
           console.log(data);
-          const svg = d3.select(`#${this.svgId}`)
-            .attr('width', 500)
-            .attr('height', 200);
-          this.chart = new Chart(svg, 500, 200)
-            .background('lightgray', 0.3);
           const subchart = this.chart.subChart(250, 200)
             .margin(5,5,20,30)
             .xAxis()
@@ -49,24 +53,75 @@
           subchart.area(range2, (d, i) => i, (d) => d[0], (d) => d[1])
             .attr('opacity', 0.2);
           // subchart.draw();
-
-          const boxData = mean.map((m, i) => {
-            return {mean: m, range1: range[i], range2: range2[i]};
+        });
+        let processed;
+        const p1 = dataService.getStateStatistics(this.model, this.state, -1, 200, response => {
+          const data = response.data;
+          // console.log(data);
+          processed = data.mean[0].map((_, i) => {
+            return {
+              freqs: data.freqs,
+              mean: data.mean.map((m) => m[i]),
+              low1: data.low1.map((m) => m[i]),
+              low2: data.low2.map((m) => m[i]),
+              high1: data.high1.map((m) => m[i]),
+              high2: data.high2.map((m) => m[i]),
+              rank: data.sort_idx.map((indice) => {
+                return indice.findIndex((idx) => (idx === i));
+              })
+            };
+          });
+        });
+        let vocab;
+        const p2 = dataService.getVocab(this.model, 200, response => {
+          vocab = response.data;
+        })
+        Promise.all([p1, p2]).then(() =>{
+          console.log(processed);
+          console.log(vocab);
+          const dim = 10;
+          let data = processed[dim];
+          data = data.freqs.map((f, i) => {
+            return {
+              freqs: f,
+              mean: data.mean[i],
+              range1: [data.low1[i], data.high1[i]],
+              range2: [data.low2[i], data.high2[i]],
+              rank: data.rank[i],
+              word_id: i,
+              word: vocab[i],
+            };
           })
+          const boxData = data.sort((a, b) => {
+            return a.mean - b.mean;
+          })
+          // const boxData = mean.map((m, i) => {
+          //   return {mean: m, range1: range[i], range2: range2[i], idx: data.sort_idx[i]};
+          // });
+          const boxes = boxData.slice(0,10).concat(boxData.slice(boxData.length-10));
           const subchart2 = this.chart.subChart(250, 200)
             .translate(250, 0)
-            .margin(5, 30, 20, 5)
+            .margin(5, 30, 40, 5)
             .xAxis()
-            .yAxis('right')
-            .rotate()
-            .rotate();
-          // subchart2
+            .yAxis('right');
+          subchart2.axisHandles.x.tickFormat((d, i) => {
+            return boxes[d].word;
+          }).ticks(20);
           //   .group.attr('transform', 'rotate(90)');
-          subchart2.box(boxData.slice(0,10).concat(boxData.slice(boxData.length-10)), 5, (d, i) => i, (d) => d.mean, (d) => d.range1, (d) => d.range2)
+          subchart2.box(boxes, 5, (d, i) => i, (d) => d.mean, (d) => d.range1, (d) => d.range2)
             .attr('fill', 'steelblue')
             .attr('stroke', 'gray')
             .attr('fill-opacity', 0.5);
           this.chart.draw();
+
+          // formatting x axis labels
+          subchart2.axis.x.selectAll("text")
+            .attr("y", 0)
+            .attr("x", -9)
+            .attr("dy", ".35em")
+            .attr("transform", "rotate(-90)")
+            .style("text-anchor", "end");
+          // subchart2.axis.x.ticks(10);
 
             // .line([[0.1, 0.1], [0.3, 0.8], [0.9,0.9]]);
 
@@ -74,6 +129,7 @@
       }
     },
     mounted() {
+      this.init();
       this.draw();
     }
 

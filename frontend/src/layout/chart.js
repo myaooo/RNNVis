@@ -55,6 +55,7 @@ export class Chart {
     this.scale = { x: null, y: null };
     this.extents = [[Infinity, -Infinity], [Infinity, -Infinity]];
     this.axis = { x: null, y: null };
+    this.axisHandles = { x: null, y: null };
     this.charts = [];
     this.shapes = [];
     this.drawHooks = { xAxis: null, yAxis: null, shapes: [] };
@@ -79,7 +80,7 @@ export class Chart {
     if (this.offset.length) {
       this.group.attr('transform', `translate(${this.marginLeft}, ${this.marginTop})`);
     }
-    if (this.rotate === true) {
+    if (this.rotateFlag === true) {
       const x = this.width - this.marginLeft - this.marginRight;
       const y = this.height - this.marginTop - this.marginBottom;
       const rx = y / x;
@@ -176,41 +177,62 @@ export class Chart {
     }
   }
   xAxis(pos = 'bottom') {
+    let translateStr;
     if (pos === 'bottom') {
-      this.drawHooks.xAxis = () => {
-        this.axis.x = this.group.append('g')
-          .attr('transform', `translate(0, ${this.scale.y(this.extents[1][0])})`)
-          .call(d3.axisBottom(this.scale.x));
-      };
+      translateStr = () => `translate(0, ${this.scale.y(this.extents[1][0])})`;
+      this.axisHandles.x = d3.axisBottom();
     } else if (pos === 'top') {
-      this.drawHooks.xAxis = () => {
-        this.axis.x = this.group.append('g')
-          .attr('transform', `translate(0, ${this.scale.y(this.extents[1][1])})`)
-          .call(d3.axisTop(this.scale.x));
-      };
+      translateStr = () => `translate(0, ${this.scale.y(this.extents[1][1])})`;
+      this.axisHandles.x = d3.axisTop();
     } else {
       // eslint-disable-next-line
       console.log(`Unknown axis position: ${pos}`);
+      return this;
     }
+    this.drawHooks.xAxis = () => {
+      this.axisHandles.x.scale(this.scale.x);
+      this.axis.x = this.group.append('g')
+        .attr('transform', translateStr())
+        .call(this.axisHandles.x);
+    };
     return this;
+    // if (pos === 'bottom') {
+    //   this.drawHooks.xAxis = () => {
+    //     this.axis.x = this.group.append('g')
+    //       .attr('transform', `translate(0, ${this.scale.y(this.extents[1][0])})`)
+    //       .call(d3.axisBottom(this.scale.x));
+    //   };
+    // } else if (pos === 'top') {
+    //   this.drawHooks.xAxis = () => {
+    //     this.axis.x = this.group.append('g')
+    //       .attr('transform', `translate(0, ${this.scale.y(this.extents[1][1])})`)
+    //       .call(d3.axisTop(this.scale.x));
+    //   };
+    // } else {
+    //   // eslint-disable-next-line
+    //   console.log(`Unknown axis position: ${pos}`);
+    // }
+    // return this;
   }
   yAxis(pos = 'left') {
+    let translateStr;
     if (pos === 'left') {
-      this.drawHooks.yAxis = () => {
-        this.axis.y = this.group.append('g')
-          .attr('transform', `translate(${this.scale.x(this.extents[0][0])}, 0)`)
-          .call(d3.axisLeft(this.scale.y));
-      };
+      translateStr = () => `translate(${this.scale.x(this.extents[0][0])}, 0)`;
+      this.axisHandles.y = d3.axisLeft();
     } else if (pos === 'right') {
-      this.drawHooks.yAxis = () => {
-        this.axis.y = this.group.append('g')
-          .attr('transform', `translate(${this.scale.x(this.extents[0][1])}, 0)`)
-          .call(d3.axisRight(this.scale.y));
-      };
+      translateStr = () => `translate(${this.scale.x(this.extents[0][1])}, 0)`;
+      this.axisHandles.y = d3.axisRight();
     } else {
       // eslint-disable-next-line
       console.log(`Unknown axis position: ${pos}`);
+      return this;
     }
+    this.drawHooks.yAxis = () => {
+      this.axisHandles.y.scale(this.scale.y);
+      this.axis.y = this.group.append('g')
+        .attr('transform', translateStr())
+        .call(this.axisHandles.y);
+    };
     return this;
   }
   line(data, xfn = (d) => d[0], yfn = (d) => d[1]) {
