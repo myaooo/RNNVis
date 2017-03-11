@@ -57,7 +57,11 @@
             .translate(250, 0)
             .margin(5, 30, 20, 5)
             .xAxis()
-            .yAxis('right');
+            .yAxis('right')
+            .rotate()
+            .rotate();
+          // subchart2
+          //   .group.attr('transform', 'rotate(90)');
           subchart2.box(boxData.slice(0,10).concat(boxData.slice(boxData.length-10)), 5, (d, i) => i, (d) => d.mean, (d) => d.range1, (d) => d.range2)
             .attr('fill', 'steelblue')
             .attr('stroke', 'gray')
