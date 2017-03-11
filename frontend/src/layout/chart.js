@@ -42,9 +42,11 @@ function drawBox(el, xs, mean, range1, range2) {
   return box;
 }
 
+// Chart class, for usage example, see TestView.vue
+
 export class Chart {
+  // svg: a selector from d3.select, could be a <g>
   constructor(svg, width = 100, height = 100) {
-    // svg: a handler from d3.select
     this.bggroup = svg.append('g');
     this.bg = this.bggroup.append('rect')
       .attr('opacity', 0);
@@ -62,20 +64,24 @@ export class Chart {
     this.offset = [];
     this.rotateFlag = false;
   }
+  // set the width of the chart
   width(value) {
     this.width = value;
     return this;
   }
+  // set the height of the chart
   height(height) {
     this.height = height;
     return this;
   }
+  // set the relative translation regarding its mother element
   translate(x, y) {
     this.offset = [x, y];
     this.bggroup.attr('transform', `translate(${this.offset[0]},${this.offset[1]})`);
     // this.transform();
     return this;
   }
+  // perform the transform rendering, will be called by `draw()`
   transform() {
     if (this.offset.length) {
       this.group.attr('transform', `translate(${this.marginLeft}, ${this.marginTop})`);
@@ -93,6 +99,7 @@ export class Chart {
       });
     }
   }
+  // rotate the chart, and perform axis rotation as well
   rotate() {
     this.rotateFlag = !this.rotateFlag;
     if (this.rotateFlag) {
@@ -112,6 +119,7 @@ export class Chart {
     }
     return this;
   }
+  // set the background color and opacity
   background(color, alpha) {
     this.bg
       .attr('width', this.width)
@@ -120,10 +128,12 @@ export class Chart {
       .attr('opacity', alpha);
     return this;
   }
+  // set the margin of the chart
   margin(top, right = top, bottom = top, left = right) {
     this.marginAll = [top, right, bottom, left];
     return this;
   }
+  // a few getter helpers
   get marginTop() {
     return this.marginAll[0];
   }
@@ -136,24 +146,29 @@ export class Chart {
   get marginLeft() {
     return this.marginAll[3];
   }
+  // create a sub chart in this chart
   subChart(width = 100, height = 100) {
     const chart = new Chart(this.group, width, height)
       .translate(this.marginLeft, this.marginTop);
     this.charts.push(chart);
     return chart;
   }
+  // update a extent for one dimension, i=0 -> x, i=1 -> y
   updateExtentI(extent, i) {
     const range = extent[1] - extent[0];
     this.extents[i][0] = Math.min(extent[0] - (range * 0.05), this.extents[i][0]);
     this.extents[i][1] = Math.max(extent[1] + (range * 0.05), this.extents[i][1]);
     return this;
   }
+  // update both extent
   updateExtent(xExtent, yExtent) {
     return this.updateExtentI(xExtent, 0).updateExtentI(yExtent, 1);
   }
+  // update the scale function with given data
   updateScale(data, xfn = (d) => d[0], yfn = (d) => d[1]) {
     return this.updateScaleX(data, xfn).updateScaleY(data, yfn);
   }
+  // update scale.x
   updateScaleX(data, xfn) {
     if (data) this.updateExtentI(d3.extent(data, xfn), 0);
     this.scale.x = d3.scaleLinear()
@@ -161,6 +176,7 @@ export class Chart {
       .rangeRound([0, this.width - this.marginRight - this.marginLeft]);
     return this;
   }
+  // update scale.y
   updateScaleY(data, yfn) {
     if (data) this.updateExtentI(d3.extent(data, yfn), 1);
     this.scale.y = d3.scaleLinear()
@@ -168,6 +184,7 @@ export class Chart {
       .rangeRound([this.height - this.marginBottom - this.marginTop, 0]);
     return this;
   }
+  // a function that draw axis automatically
   drawAxis() {
     if (!this.axis.x && this.drawHooks.xAxis) {
       this.drawHooks.xAxis();
@@ -176,6 +193,7 @@ export class Chart {
       this.drawHooks.yAxis();
     }
   }
+  // set the x Axis draw function
   xAxis(pos = 'bottom') {
     let translateStr;
     if (pos === 'bottom') {
@@ -235,6 +253,10 @@ export class Chart {
     };
     return this;
   }
+  /*
+  * major api of drawing a line,
+  * this method will return a handle of <path> selector for users to further set styles
+  */
   line(data, xfn = (d) => d[0], yfn = (d) => d[1]) {
     // console.log(data);
     this.updateScale(data, xfn, yfn);
@@ -256,6 +278,10 @@ export class Chart {
     // this.drawAxis();
     return handle;
   }
+  /*
+  * major api of filling an area surrounded by 2 lines,
+  * this method will return a handle of <path> selector for users to further set styles
+  */
   area(data, xfn, y0fn, y1fn) {
     this.updateScaleX(data, xfn)
       .updateScaleY(data, y0fn)
@@ -280,6 +306,10 @@ export class Chart {
     this.drawHooks.shapes.push(drawHook);
     return handle;
   }
+  /*
+  * major api of drawing box plot,
+  * this method will return a handle of <g> selector for users to further set styles
+  */
   box(data, width, xfn, y0fn, r1fn, r2fn) {
     this.updateScaleX(data, xfn)
       .updateScaleY(data, (d, i) => r2fn(d, i)[0])
@@ -302,6 +332,7 @@ export class Chart {
     this.drawHooks.shapes.push(drawHook);
     return handle;
   }
+  // after all settings, call this methods for rendering
   draw() {
     this.transform();
     this.drawHooks.shapes.forEach((hook) => hook());
