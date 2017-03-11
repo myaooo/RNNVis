@@ -6,3 +6,4 @@ src/services/*.js
 src/router/*.js
 src/*.js
 src/App.vue
+src/lib/*.js

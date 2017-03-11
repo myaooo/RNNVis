@@ -80,15 +80,6 @@
   export default{
     name: 'TextView',
     data() {
-      const texts = dataService.getTextData('1', '2');
-      // const sentences = Array.from(texts,
-      //   function(words, i) {
-      //     return Array.from( words,
-      //       word => { return {text: word[0], value: word[1]}; }
-      //     )
-      //   }
-      // );
-      // console.log(sentences);
       return {
         // sentences: sentences,
         inputs: null,

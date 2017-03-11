@@ -11,7 +11,7 @@ from rnnvis.procedures import build_model, pour_data
 # from rnnvis.db import language_model
 from rnnvis.rnn.eval_recorder import BufferRecorder, StateRecorder
 from rnnvis.state_processor import get_state_signature, get_empirical_strength, strength2json, \
-    get_tsne_projection, solution2json, get_co_cluster
+    get_tsne_projection, solution2json, get_co_cluster, get_state_statistics
 from rnnvis.datasets.text_processor import tokenize
 
 _config_dir = 'config'
@@ -212,6 +212,16 @@ class ModelManager(object):
         if top_k is None:
             return model.id_to_word
         return model.id_to_word[:top_k]
+
+    def state_statistics(self, name, state_name, diff=True, layer=-1, top_k=500, k=None):
+        model = self._get_model(name)
+        if model is None:
+            return None
+        config = self._train_configs[name]
+        if isinstance(k, str):
+            k = model.get_id_from_word(k.lower())[0]
+        stats = get_state_statistics(config.dataset, model.name, state_name, diff, layer, top_k, k)
+        return stats
 
 
 def hash_tag_str(text_list):
