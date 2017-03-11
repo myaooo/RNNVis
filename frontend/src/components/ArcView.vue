@@ -1,46 +1,43 @@
 <template>
   <div class="arc">
     <el-tabs v-model="selectedState">
-    <el-tab-pane v-for="state in states" :label="state" :name="state">
-      <svg :id="paneId(model, state)" :width="width" :height="height"> </svg>
-    </el-tab-pane>
-
+      <el-tab-pane v-for="state in states" :label="state" :name="state">
+        <svg :id="paneId(model, state)" :width="width" :height="height"> </svg>
+        <div class="arc_config">
+          <el-col :span="4">
+            <span>Cluster No.</span>
+          </el-col>
+          <el-col :span="6">
+            <el-slider v-model="clusterNum" :min="1" :max="20"></el-slider>
+          </el-col>
+        </div>
+      </el-tab-pane>
     </el-tabs>
   </div>
 </template>
+
 <script>
   import * as d3 from 'd3';
   import dataService from '../services/dataService.js';
   import {bus, SELECT_MODEL} from 'event-bus.js';
+  import { kmeans } from '../algorithm/cluster';
 
-  const defaultParams = {
-    rScale: 0.5,
-    radius: 3.0,
-    opacity: 0.4,
-    opacityHigh: 1.0,
-    defaultAlpha: 0.05,
-    repel: -5,
-    strength_thred: 0.5,
-    color: d3.scaleOrdinal(d3.schemeCategory10)
-  };
 
   const cell2states = {
     'GRU': ['state'],
     'BasicLSTM': ['state_c', 'state_h'],
     'BasicRNN': ['state'],
   };
-
+  
   export default {
     name: 'ArcView',
-    data() {
-      return {
-        fdGraph: null,
-        params: defaultParams,
-        model: '',
-        selectedState: '',
-        states: '',
-        // statesData: null,
-        // strengthData: null
+    data(){
+      return{
+         states: '',
+         fdGraph: null,
+         selectedState: '',
+         model: '',
+         clusterNum: 1,
       };
     },
     props: {
@@ -50,427 +47,417 @@
       },
       height: {
         type: Number,
-        default: 800,
+        default: 600,
       },
-    },
-    computed: {
-
     },
     watch: {
       width: function (newWidth) {
-        this.fdGraph.updateScale();
+        this.fdGraph.update_scale();
       },
-      height: function (newWidth) {
-        this.fdGraph.updateScale();
+      height: function (newHeight) {
+        this.fdGraph.update_scale();
       },
-      selectedState: function (newState) {
+      selectedState: function(newState) {
         if (newState === 'state' || newState === 'state_c' || newState === 'state_h'){
           this.reset();
         }
+      },
+      clusterNum: function (newClusterNum) {
+        console.log(`cluster number changed to ${newClusterNum}`);
+        this.clusterNum = newClusterNum;
+        let p = null;
+        if (this.clusterNum > 1 && !Object.prototype.hasOwnProperty.call(this, 'signature')) {
+            p = dataService.getStateSignature(this.model, this.selectedState, {}, response => {
+            this.signature = response.data;
+            console.log('signature data loaded');
+          });
+        }
+        Promise.resolve(p).then(() => {
+          this.clusterAssignments = kmeans(this.signature, this.clusterNum, 1000)
+          this.reset();
+        })
+        
       }
     },
     methods: {
       paneId(model, state) {
-        return `${model}-${state}-svg`;
+        return `${model}--${state}--svg`;
       },
-
       reset() {
-        if (this.fdGraph){
+        if (this.fdGraph) {
           this.fdGraph.destroy();
         }
-        // const svg = d3.select(`#${this.paneId}`)//.append('svg')
-        //   .attr('width', this.width)
-        //   .attr('height', this.height);
-          // .attr('id', `${this.paneId}-svg`);
+        let raw_data = []
         const svg = document.getElementById(this.paneId(this.model, this.selectedState));
-        this.fdGraph = new ForceDirectedGraph(svg, this.params);
-        let statesData, strengthData;
         let p1 = dataService.getProjectionData(this.model, this.selectedState, {}, response => {
-          statesData = response.data;
-          // console.log(this.statesData)
-          // console.log(statesData);
-          console.log('states data loaded')
-          // return 'done'
+          let states_data = response.data;
+          if (this.clusterNum > 1) {
+            states_data.forEach((d, i) => {d.label = this.clusterAssignments[i]});
+          }
+          raw_data.push(states_data);
+          console.log('state data loaded');
         });
-        let p2 = dataService.getStrengthData(this.model, this.selectedState, { top_k: 200 }, response => {
-          strengthData = response.data;
-          strengthData = [strengthData[163]].concat(strengthData.slice(15, 50)).concat(strengthData.slice(170, 190));
-          console.log('strength data loaded')
-          // console.log(this.strengthData)
+        let p2 = dataService.getStrengthData(this.model, this.selectedState, {top_k: 50}, response => {
+          raw_data.push(response.data);
+          console.log('word data loaded');
         });
-        return Promise.all([p1, p2]).then(values => {
-          normalize(statesData);
-          let extents = calExtent(statesData);
-          this.fdGraph.updateScale(extents);
-          this.fdGraph.buildGraph(strengthData, statesData);
-          this.fdGraph.insertElements();
-          this.fdGraph.initSimulation();
-          this.fdGraph.startSimulation();
-        }, errResponse => {
-          console.log("Failed to build force graph!");
+        Promise.all([p1, p2]).then( values => {
+          this.fdGraph = new ForceDirectedGraph(svg);
+          this.fdGraph.process_data(raw_data[0], raw_data[1]);
+          this.fdGraph.insert_element();
+          this.fdGraph.start_simulation();
+
         });
-      }
+        
+      }, 
     },
     mounted() {
-      bus.$on(SELECT_MODEL, (modelName) => {
-        console.log(`selected model: ${modelName}`);
-        this.model = modelName;
-        bus.loadModelConfig(modelName).then( (_) => {
-          const config = bus.state.modelConfigs[modelName];
-          const cell_type = config.model.cell_type;
-          if (cell2states.hasOwnProperty(cell_type)){
-            this.states = cell2states[cell_type];
-            console.log(this.states);
-            // this.selectedState = this.states[0];
-            // this.reset();
-          }
-        })
-      });
-      // this.reset();
-    }
-  };
+        bus.$on(SELECT_MODEL, (modelName) => {
+            console.log(`Selected model in ArcView: ${modelName}`);
+            this.model = modelName;
+            bus.loadModelConfig(modelName).then( () => {
+              const config = bus.state.modelConfigs[modelName];
+              const cell_type = config.model.cell_type;
+              if (cell2states.hasOwnProperty(cell_type)){
+                this.states = cell2states[cell_type]
+                console.log(this.states);
+              }
+            });
+        });
+    },
+};
 
-  function normalize(points) {
-    const extents = calExtent(points);
-    const factor_x = 100 / (extents[0][1] - extents[0][0]);
-    const factor_y = 100 / (extents[1][1] - extents[1][0]);
-    const factor = Math.max(factor_x, factor_y)
-    for (let i = 0; i < points.length; i++){
-      points[i].coords[0] *= factor;
-      points[i].coords[1] *= factor;
-    }
+class ForceDirectedGraph{
+  constructor(svg, strengthfn) {
+    let self = this;
+    this.svg = d3.select(`#${svg.id}`);
+    this.width = svg.clientWidth;
+    this.height = svg.clientHeight;
+    this.stateNodes = null;
+    this.wordNodes = null;
+    this.links = null;
+    this.simulation = null;
+    this.strengthfn = strengthfn || (v => {return v; });
+    this.graph = null;
+    this.rScale = 0.1;
+    this.radius = 1.0;
+    this.defaultAlpha = 1;
+    this.scale = {
+      x: null,
+      y: null,
+    };
+    this.color = d3.scaleOrdinal(d3.schemeCategory10);
+    this.strength_threshold = 0.5;
+    this.normal_opacity_line = 0.01;
+    this.high_opacity_line = 0.1;
+    this.low_opacity_line = 0.01;
+    this.normal_opacity_node = 0.5;
+    this.high_opacity_node = 1;
+    this.low_opacity_node = 0.01;
+    this.arc_gap_angle = Math.PI / 8;
   }
 
-  class ForceDirectedGraph {
-    constructor(svg, params, strengthfn) {
-      let self = this;
-      this.svg = d3.select(`#${svg.id}`);
-      this.svgEl = svg;
-      this.graph = null;
-      this.simulation = null;
-      this.stateNodes = null;
-      this.wordNodes = null;
-      this.links = null;
-      this.scale = {x: null, y: null, invert_x: null, invert_y: null};
-      this.extents = null;
-      this.strengthfn = strengthfn || (v => { return (v/2) ** 3; });
-      Object.keys(params).forEach((p) => { self[p] = params[p]; });
-    }
-
-    get width() {
-      return this.svgEl.clientWidth;
-    }
-
-    get height() {
-      return this.svgEl.clientHeight;
-    }
-
-    buildGraph(words, states) {
-      let self = this;
-      // initialize Nodes and Links
-      // console.log("initializing stateNodes")
-      states.forEach(function (e) {
-        e.id = "" + e.layer + "-" + e.state_id;
-        e.fx = e.coords[0];
-        e.fy = e.coords[1];
-        e.links = [];
-        // e.force = -200;
+  process_data(states, words) {
+    let self = this;
+    let label2state = {};
+    let tmp = new Set();
+    let angles = states.map(function(s) {
+        tmp.add(s.layer);
+        if (label2state[s.label] === undefined) {
+          label2state[s.label] = []
+        }
+        label2state[s.label].push(s);
+        s.angle = Math.atan2(s.coords[1], s.coords[0]);
+        return Math.atan2(s.coords[1], s.coords[0]);
       });
-      // console.log("initializing wordNodes")
-      words.forEach(function (e) {
-        e.id = e.word;
-        e.links = [];
-        // e.force = 0;
-      });
-      // console.log("initializing nodeLinks")
+    let layers = Array.from(tmp).sort();
 
-      let layers = Array.from(new Set(states.map(function (d) { return d.layer }))).sort();
-      // console.log(layers)
-      let links = [];
-      let id2states = {};
-      states.forEach(function (d) { id2states[d.id] = d });
-      words.forEach(function (node) {
-        let i = 0;
-        node.strength.forEach(function (strengths) {  // the strength is stored as a list per layer's states
-          let j = 0;  // state_id counter
-          strengths.forEach(function (f) {
-            let intensity = f;
-            if (intensity > self.strength_thred) {  // a threshold strength
-              // create link
-              let link = {
-                source: "" + layers[i] + "-" + j,  // the id of the stateNode
-                target: node.id,
-                strength: self.strengthfn(intensity),
-                type: Math.sign(f)  // negative or positive strength
-              };
-              link._source = id2states[link.source];
-              link._target = node;
-              // add link to links array
-              links.push(link);
-              // add link to source and target nodes for reference
-              id2states[link.source].links.push(link);
-              node.links.push(link);
-            }
-            j++;
-          });
-          i++;
+    let label_num = Object.keys(label2state).length;
+    this.arc_gap_angle = Math.PI / 8 / (label_num / 2 ) ** 3;
+    let available_angle = 2 * Math.PI - (label_num === 1 ? 0 : label_num) * this.arc_gap_angle;
+    
+    let id2state = {};
+    let links = [];
+    let width = this.width, height = this.height;
+    let radius = 0.9 * Math.min(width/2, height/2);
+
+    let offset = 0;
+
+    Object.keys(label2state).forEach(function (d) {
+      let angle_extent = d3.extent(label2state[d].map((a) => {return a.angle}));
+      let scale = d3.scaleLinear()
+        .domain(angle_extent)
+        .range([offset, offset + label2state[d].length / states.length * available_angle]);
+      
+      label2state[d].forEach(function (e) {
+        e.id = '' + e.layer + '--' + e.state_id;
+        e.angle = scale(e.angle);
+        e.fx = width / 2 + radius * Math.cos(e.angle);
+        e.fy = height / 2 + radius * Math.sin(e.angle);
+        e.links = [];
+        id2state[e.id] = e;
+      });
+      offset += self.arc_gap_angle + label2state[d].length / states.length * available_angle;
+    });
+
+    words.forEach(function (word) {
+      word.id = word.word;
+      word.links = [];
+      word.x = width / 2;
+      word.y = height / 2;
+      word.strength.forEach(function(strengths, i) {
+        strengths.forEach(function(s, j) {
+          // console.log(`strength is ${s}`);
+          if (s > self.strength_threshold) {
+            let link = {
+              source: id2state['' + layers[i] + '--' + j],
+              target: word,
+              strength: self.strengthfn(s),
+            };
+            link.source.links.push(link);
+            word.links.push(link);
+            links.push(link);
+          }
         });
       });
-      console.log("done building graph")
-      this.graph = {
-        nodes: words.concat(states),
-        links: links,
-        id2states: id2states,
-        wordNodes: words,
-        stateNodes: states
-      };
-    }
+    });
 
-    initSimulation() {
-      var repelForce = d3.forceManyBody().strength(0); // the force that repel words apart
-      var init = repelForce.initialize;
-      repelForce.initialize = function (nodes) {
-        init(nodes.filter(function (d) { d.hasOwnProperty("word") })); // only apply between word Nodes
-      }
-      var collideForce = d3.forceManyBody().strength(this.repel).distanceMax(5);
-      this.simulation = d3.forceSimulation().alpha(this.defaultAlpha)
-        .force("link", d3.forceLink() //.iterations(4)
-          .id(function (d) { return d.id; })
-          .strength(function (d) { return d.strength }))
-        .force("collide", collideForce)
-        .force("charge", repelForce);
-    }
+    console.log("finished preparing data");
+    this.graph = {
+      links: links,
+      id2state: id2state,
+      words: words,
+      states: states,
+    };
+  }
 
-    insertElements() {
-      let self = this;
-      var g_states = this.svg.append('g')
-        .attr('class', 'states');
-      this.stateNodes = g_states.selectAll('circle')
-        .data(this.graph.stateNodes)
-        .enter().append("circle")
-        // .attr("cx", function(d) { return d.fx; })
-        // .attr("cy", function(d) { return d.fy; })
-        .attr("r", function (d) {
-          if (d.links.length > 0)
-            return d.links.length * self.rScale + self.radius;
+  draw_states() {
+    let self = this;
+    let width = this.width, height = this.height;
+    let radius = 0.9 * Math.min(width/2, height/2);
+    this.svg.append('g')
+        .selectAll('circle')
+        .data(this.graph.states)
+        .enter()
+        .append('circle')
+        .attr('r', 3)
+        .attr('cx', function(d) {return width / 2 + radius * Math.cos(d.angle)})
+        .attr('cy', function(d) {return height / 2 + radius * Math.sin(d.angle)})
+        .style('fill', function(d) {return self.color(d.label);})
+  }
+
+  insert_element() {
+    let self = this;
+    this.stateNodes = self.svg.append('g')
+      .selectAll('circle')
+      .data(self.graph.states)
+      .enter()
+      .append('circle')
+      .attr('r', function(d) {
+        if (d.links.length > 0)
+          return d.links.length * self.rScale + self.radius;
+        else
           return 0;
+      })
+      .classed('active', false)
+      .classed('stateNode', true)
+      .style('fill', function(d) { return self.color(d.label); })
+      .style('fill-opacity', self.low_opacity)
+      .on('mouseover', function(d) {
+          let links = new Set(d['links']);
+          let words = new Set(d['links'].map((l) => {return l.target;}));
+          let hide_links = self.graph.links.filter((x) => {return !links.has(x)})
+          let hide_words = self.graph.words.filter((x) => {return !words.has(x)});
+          hide_links.forEach(function(d){
+            d3.select(d['el']).attr('visibility', 'hidden');
+          })
+          hide_words.forEach(function(d){
+            d3.select(d['el']).attr('visibility', 'hidden');
+          })
+      })
+      .on('mouseout', function(d) {
+          self.graph.links.forEach(function(d){
+            d3.select(d['el']).attr('visibility', 'visible');
+          })
+          self.graph.words.forEach(function (d) {
+            d3.select(d['el']).attr('visibility', 'visible');
+          })
         })
-        .style("fill", function (d, i) { return self.color(d.label); })
-        .classed("active", false)
-        .on("mouseover", d => mouseover(d, self))
-        .on("mouseout", d => mouseout(d, self))
-        .on("click", d => clickState(d, self));
+    
+    this.stateNodes.each( function (d) {
+      d['el'] = this
+    })
 
-      this.stateNodes.append("title")
-        .text(function (d) { return d.id });
-      //.style({opacity:'1.0'});
-
-      // append a group for links
-      this.links = this.svg.append("g")
-        .attr("class", "links")
-        .selectAll("line")
+    this.stateNodes.append('title')
+      .text(function (d) {return d.id});
+    
+    this.links = this.svg.append('g')
+      .attr('class', 'links')
+        .selectAll('line')
         .data(this.graph.links)
-        .enter().append("line")
-        .classed("active", false);
-
-      // append a group for text nodes
-      this.wordNodes = this.svg.append("g")
-        .attr("class", "words")
-        .selectAll("text")
-        .data(this.graph.wordNodes)
-        .enter().append("text")
-        .classed("active", false)
+        .enter()
+        .append('line')
+        .classed('active', false)
+        .style('opacity', (d) => {return Math.abs(d.strength) * self.normal_opacity_line;})
+        .style('stroke', (d) => {return d.strength > 0 ? self.color(1) : self.color(0)});
+    
+    this.links.each(function(d) {
+      d['el'] = this;
+    });
+    
+    this.wordNodes = this.svg.append('g')
+      .attr('class', 'words')
+        .selectAll('text')
+        .data(self.graph.words)
+        .enter()
+        .append('text')
+        .classed('active', false)
+        .text(function(d) {return d.id; })
         .call(d3.drag()
-          .on("start", d => {
+          .on('start', d => {
             if (!d3.event.active) self.simulation.alphaTarget(self.defaultAlpha).restart();
             d.fx = d.x;
             d.fy = d.y;
-            // graph.links.forEach( function(d) {d.active = false; });
-            d.links.forEach(function (d) { d.active = true; });
-            refreshLinkStyle(self);
           })
-          .on("drag", d => {
-            d.fx = self.scale.invert_x(d3.mouse(self.svgEl)[0]);
-            d.fy = self.scale.invert_y(d3.mouse(self.svgEl)[1]);
+          .on('drag', d => {
+            d.fx = d3.event.x;
+            d.fy = d3.event.y;
           })
-          .on("end", d => {
+          .on('end', d => {
             if (!d3.event.active) self.simulation.alphaTarget(0);
             d.fx = null;
             d.fy = null;
-            d.links.forEach(function (d) { d.active = false; });
-            refreshLinkStyle(self);
           }))
-        .text(function (d) { return d.id });
-      // console.log(this.links)
+        .on('mouseover', function(d) {
+          let links = new Set(d['links']);
+          let states = new Set(d['links'].map((l) => {return l.source;}));
+          let hide_links = self.graph.links.filter((x) => {return !links.has(x)})
+          let hide_states = self.graph.states.filter((x) => {return !states.has(x)});
+          hide_links.forEach(function(d){
+            d3.select(d['el']).attr('visibility', 'hidden');
+          })
+          hide_states.forEach(function(d){
+            d3.select(d['el']).attr('visibility', 'hidden');
+          })
+        })
+        .on('mouseout', function(d) {
+          self.graph.links.forEach(function(d){
+            d3.select(d['el']).attr('visibility', 'visible');
+          })
+          self.graph.states.forEach(function (d) {
+            d3.select(d['el']).attr('visibility', 'visible');
+          })
+        })
+    this.wordNodes.each(function(d) {
+      d['el'] = this;
+    }) 
+  }
 
-      refreshLinkStyle(self);
-      refreshWordStyle(self);
-      refreshStateStyle(self);
+  start_simulation() {
+    let self = this;
+    var repelForce = d3.forceManyBody().strength(10);
+    var init = repelForce.initialize;
+    repelForce.initialize = function(nodes) {
+      init(nodes.filter(function(d) {d.hasOwnProperty('word')}));
     }
+    this.simulation = d3.forceSimulation().alpha(this.defaultAlpha)
+        .force('link', d3.forceLink()
+          // .id(function (d) { return d.id; })
+          .distance(function(d) {return d.strength > 0 ? 1 : 100; })
+          .strength(function (d) {return Math.abs(d.strength); }))
+        // .force('charge', repelForce)
+        // .stop();
+    this.simulation
+      .nodes(self.graph.words.concat(self.graph.states))
+      .on('tick', () => self.ticked());
+    
+    this.simulation.force('link')
+      .links(self.graph.links);
+    
+    // for (var i = 0, n = Math.ceil(Math.log(this.simulation.alphaMin()) / Math.log(1 - this.simulation.alphaDecay())); i < n; ++i) {
+    //   console.log(`Step ${i / n}`);
+    //   this.simulation.tick();
+    //   self.ticked();
+    // }
+  }
 
-    startSimulation() {
-      let self = this;
-      self.simulation
-        .nodes(self.graph.nodes)
-        .on("tick", () => self.ticked(self.links, self.wordNodes, self.stateNodes));
+  ticked() {
+    let self = this;
+    self.links
+      .attr('x1', function (d) {return d.source.fx; })
+      .attr('y1', function (d) {return d.source.fy; })
+      .attr('x2', function (d) {return d.target.x; })
+      .attr('y2', function (d) {return d.target.y; })
+    
+    self.wordNodes
+      .attr('x', function (d) {return d.x; })
+      .attr('y', function (d) {return d.y; })
+    
+    self.stateNodes
+      .attr('cx', function (d) {return d.fx; })
+      .attr('cy', function (d) {return d.fy; })
+  }
 
-      self.simulation.force("link")
-        .links(self.graph.links);
+  ticked_2() {
+    let self = this;
+
+    self.links
+      .attr('x1', function (d) {return self.scale.x(d._source.fx); })
+      .attr('y1', function (d) {return self.scale.y(d._source.fy); })
+      .attr('x2', function (d) {return self.scale.x(d._target.x); })
+      .attr('y2', function (d) {return self.scale.y(d._target.y); })
+    
+    self.wordNodes
+      .attr('x', function (d) {return self.scale.x(d.x); })
+      .attr('y', function (d) {return self.scale.y(d.y); })
+    
+    self.stateNodes
+      .attr('cx', function (d) {return self.scale.x(d.fx); })
+      .attr('cy', function (d) {return self.scale.x(d.fy); })
+  }
+
+  update_scale() {
+    let width = this.width;
+    let height = this.height;
+    let x_extent = d3.extent(this.graph.states, function(d) {return d.fx; })
+    let y_extent = d3.extent(this.graph.states, function(d) {return d.fy; })
+    let x_center = (x_extent[0] + x_extent[1]) / 2;
+    let y_center = (y_extent[0] + y_extent[1]) / 2;
+    let scale_factor = 0.9 * Math.min(width / (x_extent[1] - x_extent[0]), height / (y_extent[1] - y_extent[0]));
+    this.scale.x = function(_x) {
+      return (_x - x_center) * scale_factor + width / 2;
     }
-
-    ticked(links, wordNodes, stateNodes) {
-      // console.log(this.scale)
-      let _graph = this;
-      links
-        .attr("x1", function (d) { return _graph.scale.x(d.source.x); })
-        .attr("y1", function (d) { return _graph.scale.y(d.source.y); })
-        .attr("x2", function (d) { return _graph.scale.x(d.target.x); })
-        .attr("y2", function (d) { return _graph.scale.y(d.target.y); });
-
-      wordNodes
-        .attr("x", function (d) { return _graph.scale.x(d.x); })
-        .attr("y", function (d) { return _graph.scale.y(d.y); });
-
-      stateNodes
-        .attr("cx", function (d) { return _graph.scale.x(d.x); })
-        .attr("cy", function (d) { return _graph.scale.y(d.y); });
+    this.scale.y = function(_y) {
+      return (_y - y_center) * scale_factor + height / 2;
     }
+  }
 
-    updateScale(extents) {
-      if (extents) {
-        this.extents = extents;
-      }
-      let width = this.width, height = this.height;
-      let xExtent = this.extents[0],
-        yExtent = this.extents[1];
-      let xCenter = (xExtent[0] + xExtent[1]) / 2,
-        yCenter = (yExtent[0] + yExtent[1]) / 2;
-      let scaleFactor = 0.9 * Math.min(width / (xExtent[1] - xExtent[0]), height / (yExtent[1] - yExtent[0]));
-      this.scale.x = function (_x) {
-        return (_x - xCenter) * scaleFactor + width / 2;
-      };
-      this.scale.y = function (_y) {
-        return (yCenter - _y) * scaleFactor + height / 2;
-      };
-      this.scale.invert_x = function (_x) {
-        return (_x - width / 2) / scaleFactor + xCenter;
-      };
-      this.scale.invert_y = function (_y) {
-        return yCenter - (_y - height / 2) / scaleFactor;
-      };
-    }
-
-    destroy() {
-      console.log(`Destroying Graph ${this.svgEl.id}`)
+  destroy() {
+      console.log(`Destroying Graph`)
       this.simulation.nodes([]);
       this.simulation.force("link").links([]);
       this.links.remove();
       this.stateNodes.remove();
       this.wordNodes.remove();
-      // this.graph;
     }
 
-  }
-
-  function calExtent(points) {
-    var xExtent = d3.extent(points, function (d) { return d.coords[0] }),
-      yExtent = d3.extent(points, function (d) { return d.coords[1] });
-    return [xExtent, yExtent]
-  }
-
-  function mouseover(d, g) {
-    if (d.active) return;
-    d3.select(this).classed("active", true);
-    d.links.forEach(function (l) {
-      l.active = true;
-      l._target.active = true;
-    });
-    refreshLinkStyle(g);
-    refreshWordStyle(g);
-  }
-
-  function mouseout(d, g) {
-    if (d.active) return;
-    d3.select(this).classed("active", false);
-    d.links.forEach(function (l) {
-      l.active = false;
-      l._target.active = false;
-    });
-    refreshLinkStyle(g);
-    refreshWordStyle(g);
-  }
-
-
-  function clickState(d, g) {
-    let isActive = d.active;
-    if (isActive) {
-      d.active = false;
-      mouseout(d, g);
-    }
-    else {
-      mouseover(d, g);
-      d.active = true;
-    }
-    refreshLinkStyle(g);
-    refreshWordStyle(g);
-    d3.select(this).classed("active", d.active);
-  }
-
-  function refreshLinkStyle(g) {
-    g.links.classed("active", function (d) { return d.active; })
-      .style("opacity", function (d) {
-        return d.strength * (d.active ? g.opacityHigh : g.opacity);
-      })
-      .style("stroke", function (d) {
-        if (d.active)
-          return "#6b7"
-        if (d.type < 0)
-          return "#68b";
-        return "#c66";
-      });
-  }
-
-  function refreshStateStyle(g) {
-    g.stateNodes.classed("active", function (d) { return d.active; });
-    // stateNodes.attr('r', function(d){ return d.links.length * rScale + radius})
-  }
-
-  function refreshWordStyle(g) {
-    g.wordNodes.classed("active", function (d) { return d.active; })
-  }
-
+};
 </script>
+
 <style>
+  .links {
+    stroke-width: 1;
+  }
+  
   .links .active {
     stroke-width: 3;
   }
 
-  .links {
-    stroke-width: 1.5;
-    pointer-events: none;
-  }
+  .words {
 
-  .states .active {
-    stroke-width: 2.0;
-    stroke: black;
-    opacity: 1.0;
-  }
-
-  .states {
-    stroke-width: 0.0;
-    opacity: 0.7;
   }
 
   .words .active {
-    stroke-width: 0.5;
-    stroke: black;
-    opacity: 1.0;
-  }
 
-  .words {
-    font-size: 13;
-    opacity: 0.8;
-    stroke: black;
-    stroke-width: 0;
   }
 </style>
