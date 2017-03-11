@@ -83,12 +83,37 @@ let getTextEvaluation = function (model, state, layer, text, callback){
   });
 }
 
+let getCoCluster = function (model, state, n_cluster, params={}, callback){
+  // layer: -1
+  // layer = layer || -1;
+  let url = `${devMainUrl}/co_clusters?model=${model}&state=${state}&n_cluster=${n_cluster}`;
+  Object.keys(parameters).forEach((p) => { url += `&${p}=${parameters[p]}`; });
+  return $http.get(url).then(response => {
+    callback(response);
+  }, errResponse => {
+    console.log(errResponse);
+    throw errResponse;
+  });
+}
+
+let getVocab = function (model, top_k=100, callback){
+  const url = `${devMainUrl}/models/vocab?model=${model}&top_k=${top_k}`;
+  return $http.get(url).then(response => {
+    callback(response);
+  }, errResponse => {
+    console.log(errResponse);
+    throw errResponse;
+  });
+}
+
 export default {
   getProjectionData,
   getStrengthData,
   getStateSignature,
-  getTextData,
+  // getTextData,
   getModels,
   getModelConfig,
   getTextEvaluation,
+  getCoCluster,
+  getVocab,
 }

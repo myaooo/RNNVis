@@ -11,6 +11,9 @@ def hello():
 
 @app.route('/models/available')
 def available_models():
+    """
+    :return: a list of available models
+    """
     return jsonify({'models': _manager.available_models})
 
 
@@ -115,3 +118,31 @@ def state_projection():
     except:
         raise
         # return 'page not found', 404
+
+
+@app.route('/co_clusters')
+def co_cluster():
+    model = request.args.get('model', '')
+    state_name = request.args.get('state', '')
+    n_cluster = int(request.args.get('n_cluster', 2))
+    layer = int(request.args.get('layer', -1))
+    top_k = int(request.args.get('top_k', 100))
+    mode = request.args.get('mode', 'positive')
+    seed = int(request.args.get('seed', 0))
+    try:
+        results = _manager.model_co_cluster(model, state_name, n_cluster, layer, top_k, mode, seed)
+        if results is None:
+            return 'Cannot find model with name {:s}'.format(model), 404
+        return jsonify({'data': results[0], 'row': results[1], 'col': results[2]})
+    except:
+        raise
+
+
+@app.route('/models/vocab')
+def model_vocab():
+    model = request.args.get('model', '')
+    top_k = int(request.args.get('top_k', 100))
+    results = _manager.model_vocab(model, top_k)
+    if results is None:
+        return 'Cannot find model with name {:s}'.format(model), 404
+    return jsonify(results)

@@ -11,7 +11,7 @@ from rnnvis.procedures import build_model, pour_data
 # from rnnvis.db import language_model
 from rnnvis.rnn.eval_recorder import BufferRecorder, StateRecorder
 from rnnvis.state_processor import get_state_signature, get_empirical_strength, strength2json, \
-    get_tsne_projection, solution2json
+    get_tsne_projection, solution2json, get_co_cluster
 from rnnvis.datasets.text_processor import tokenize
 
 _config_dir = 'config'
@@ -24,8 +24,9 @@ class ModelManager(object):
     _available_models = {
         'PTB-LSTM': {'config': 'lstm.yml'},
         # 'Shakespeare': {'config': 'shakespeare.yml'},
-        # 'IMDB': {'config': 'imdb-tiny.yml'},
-        'PTB-GRU': {'config': 'gru.yml'}
+        'IMDB': {'config': 'imdb-tiny.yml'},
+        'PTB-GRU': {'config': 'gru.yml'},
+        'PTB-SMALL': {'config': 'lstm-small-1.yml'}
     }
 
     def __init__(self):
@@ -60,15 +61,6 @@ class ModelManager(object):
         if name in self._available_models:
             config_file = get_path(_config_dir, self._available_models[name]['config'])
             model, train_config = build_model(config_file)
-            # data_name = self._available_models[name]['data']
-            # data = language_model.get_datasets_by_name(data_name)
-            # if data is None:
-            #     if name == 'PTB':
-            #         language_model.store_ptb(get_path('cached_data/simple-examples/data'), data_name)
-            #     elif name == 'Shakespeare':
-            #         language_model.store_plain_text(get_path('cached_data/tinyshakespeare.txt', data_name),
-            #                                         'shakespeare', {'train': 0.9, 'valid': 0.05, 'test': 0.05})
-            #     data = language_model.get_datasets_by_name(self._available_models[name]['data'])
             model.add_generator()
             model.add_evaluator(1, 1, 100, True)
             if not train:
@@ -132,12 +124,11 @@ class ModelManager(object):
             tokens = [model.get_word_from_id(token) for token in tokens]
             print(tokens)
             return tokens, records
-        except ValueError:
-            print("ERROR: Fail to evaluate given sequence! Sequence length too large!")
-            raise
-            return None
+        # except ValueError:
+        #     print("ERROR: Fail to evaluate given sequence! Sequence length too large!")
+        #     return None
         except:
-            print("ERROR: Fail to evaluate given sequence! Unknown Reason.")
+            print("ERROR: Fail to evaluate given sequence!")
             return None
 
     def model_record_default(self, name, dataset):
@@ -203,6 +194,24 @@ class ModelManager(object):
             return solution2json(tsne_solution, states_num, labels)
         else:
             return None
+
+    def model_co_cluster(self, name, state_name, n_cluster=2, layer=-1, top_k=100, mode='positive', seed=0):
+        model = self._get_model(name)
+        if model is None:
+            return None
+        config = self._train_configs[name]
+        layer_num = len(model.cell_list)
+        strength_mat, row_cluster, col_cluster = get_co_cluster(config.dataset, model.name, state_name, n_cluster,
+                                                                layer, top_k, mode, seed)
+        return strength_mat.tolist(), row_cluster.tolist(), col_cluster.tolist()
+
+    def model_vocab(self, name, top_k=None):
+        model = self._get_model(name)
+        if model is None:
+            return None
+        if top_k is None:
+            return model.id_to_word
+        return model.id_to_word[:top_k]
 
 
 def hash_tag_str(text_list):
