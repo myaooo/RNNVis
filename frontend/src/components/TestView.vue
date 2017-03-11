@@ -9,8 +9,9 @@
 <script>
   import * as d3 from 'd3';
   import dataService from '../services/dataService.js';
-  import {bus, SELECT_MODEL} from 'event-bus.js';
-  import {Chart} from '../layout/chart.js'
+  import { bus, SELECT_MODEL } from 'event-bus.js';
+  import { Chart } from '../layout/chart.js'
+  import { wordCloud } from '../layout/cloud.js'
 
   export default {
     name: 'TestView',
@@ -23,7 +24,7 @@
     },
     props: {},
     computed: {
-      svgId: function(){
+      svgId: function () {
         return 'svg-test';
       }
     },
@@ -35,16 +36,37 @@
         this.chart = new Chart(svg, 500, 200)
           .background('lightgray', 0.3);
       },
+      draw2() {
+        var words = ["Hello", "world", "normally", "you", "want", "more", "words", "than", "this"]
+          .map(function (d) {
+            return { text: d, size: 10 + Math.random() * 90 };
+          });
+        //This method tells the word cloud to redraw with a new set of words.
+        //In reality the new words would probably come from a server request,
+        // user input or some other source.
+        function showNewWords(vis, i) {
+          i = i || 0;
+
+          vis.update(words)
+          setTimeout(function () { showNewWords(vis, i + 1) }, 2000)
+        }
+
+        //Create a new instance of the word cloud visualisation.
+        var myWordCloud = wordCloud(`#${this.svgId}`);
+
+        //Start cycling through the demo data
+        showNewWords(myWordCloud);
+      },
       draw() {
         dataService.getWordStatistics(this.model, this.state, -1, 'he', response => {
           const data = response.data;
           const mean = data.sort_idx.map((d, i) => { return data.mean[d]; });
-          const range  = data.sort_idx.map((d, i) => { return [data.low1[d], data.high1[d]]; });
-          const range2  = data.sort_idx.map((d, i) => { return [data.low2[d], data.high2[d]]; });
+          const range = data.sort_idx.map((d, i) => { return [data.low1[d], data.high1[d]]; });
+          const range2 = data.sort_idx.map((d, i) => { return [data.low2[d], data.high2[d]]; });
 
           console.log(data);
           const subchart = this.chart.subChart(250, 200)
-            .margin(5,5,20,30)
+            .margin(5, 5, 20, 30)
             .xAxis()
             .yAxis();
           subchart.line(mean, (d, i) => { return i; }, (d) => { return d; });
@@ -76,7 +98,7 @@
         const p2 = dataService.getVocab(this.model, 200, response => {
           vocab = response.data;
         })
-        Promise.all([p1, p2]).then(() =>{
+        Promise.all([p1, p2]).then(() => {
           console.log(processed);
           console.log(vocab);
           const dim = 10;
@@ -98,7 +120,7 @@
           // const boxData = mean.map((m, i) => {
           //   return {mean: m, range1: range[i], range2: range2[i], idx: data.sort_idx[i]};
           // });
-          const boxes = boxData.slice(0,10).concat(boxData.slice(boxData.length-10));
+          const boxes = boxData.slice(0, 10).concat(boxData.slice(boxData.length - 10));
           const subchart2 = this.chart.subChart(250, 200)
             .translate(250, 0)
             .margin(5, 30, 40, 5)
@@ -123,14 +145,14 @@
             .style("text-anchor", "end");
           // subchart2.axis.x.ticks(10);
 
-            // .line([[0.1, 0.1], [0.3, 0.8], [0.9,0.9]]);
+          // .line([[0.1, 0.1], [0.3, 0.8], [0.9,0.9]]);
 
         });
       }
     },
     mounted() {
       this.init();
-      this.draw();
+      this.draw2();
     }
 
   }
