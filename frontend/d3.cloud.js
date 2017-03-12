@@ -1,11 +1,10 @@
-
 (function(){
     if (typeof define == "function" && define.amd) define(["d3"], cloud);
     else cloud(this.d3);
 
     function cloud(d3) {
 
-        d3.layout.cloud = function cloud() {
+        d3.cloud = function cloud() {
             var size = [256, 256],
                 text = cloudText,
                 font = cloudFont,
@@ -16,7 +15,7 @@
                 words = [],
                 centroid = [0, 0],
                 timeInterval = Infinity,
-                event = d3.dispatch("word", "end"),
+                event = d3.dispatch(cloud, "word", "end"),
                 timer = null,
                 polygon = [],
                 d = 0.3,
@@ -343,7 +342,12 @@
                 return arguments.length ? (padding = d3.functor(_), cloud) : padding;
             };
 
-            return d3.rebind(cloud, event, "on");
+            cloud.on = function() {
+                var value = event.on.apply(event, arguments);
+                return value === event ? cloud : value;
+            }
+
+            return cloud;
         };
 
         function lineFunctor(p, q) {
@@ -409,7 +413,7 @@
             canvas = document.createElement("canvas");
             canvas.width = 1;
             canvas.height = 1;
-            ratio = Math.sqrt(canvas.getContext("2d").getImageData(0, 0, 1, 1).data.length >> 2);
+            var ratio = Math.sqrt(canvas.getContext("2d").getImageData(0, 0, 1, 1).data.length >> 2);
             canvas.width = (cw << 5) / ratio;
             canvas.height = ch / ratio;
         } else {
