@@ -1,5 +1,8 @@
 import * as d3 from 'd3';
-import cloudLayout from 'd3-cloud';
+import cloud from 'd3-cloud';
+// console.log(d3);
+// var cloud = require('./d3.cloud.js');
+// console.log('haha');
 
 export class WordCloud{
   constructor(selector, radiusX = 100, radiusY = radiusX) {
@@ -131,7 +134,7 @@ export class WordCloud{
   update(words) {
     const self = this;
     // console.log(this.width);
-    cloudLayout().size([this.width, this.height])
+    cloud().size([this.width, this.height])
       .words(words)
       .padding(1)
       .rotate(0)

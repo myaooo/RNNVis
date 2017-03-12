@@ -135,8 +135,8 @@ let getWordStatistics = function (model, state, layer, word, callback) {
 export default {
   getProjectionData,
   getStrengthData,
-  getTextData,
-  getCoclusterData,
+  // getTextData,
+  getCoCluster,
   getModels,
   getModelConfig,
   getTextEvaluation,
