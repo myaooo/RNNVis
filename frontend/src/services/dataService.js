@@ -31,18 +31,6 @@ let getStrengthData = function (model, state, parameters = {}, callback) {
   });
 }
 
-let getStateSignature = function (model, state, parameters = {}, callback) {
-  // additional parameters: layer: -1, size: 1000
-  let url = `${devMainUrl}/state_signature?model=${model}&state=${state}`
-  Object.keys(parameters).forEach((p) => { url += `&${p}=${parameters[p]}`; });
-  return $http.get(url).then(response => {
-    callback(response);
-  }, errResponse => {
-    console.log(errResponse);
-    throw errResponse;
-  });
-}
-
 let getTextData = function (model, field) {
   return [
     [['i', 0.2], ['love', 0.4], ['you', 0.5], ['omg', 0.2], ['<eos>', 0.1]],
@@ -70,34 +58,9 @@ let getModelConfig = function (model, callback) {
   });
 }
 
-let getTextEvaluation = function (model, state, layer, text, callback){
-  // layer: -1
-  layer = layer || -1;
-  let url = `${devMainUrl}/models/evaluate`;
-  // Object.keys(parameters).forEach((p) => { url += `&${p}=${parameters[p]}`; });
-  return $http.post(url, {model: model, state: state, layer: layer, text: text}).then(response => {
-    callback(response);
-  }, errResponse => {
-    console.log(errResponse);
-    throw errResponse;
-  });
-}
-
-let getCoCluster = function (model, state, n_cluster, params={}, callback){
-  // layer: -1
-  // layer = layer || -1;
-  let url = `${devMainUrl}/co_clusters?model=${model}&state=${state}&n_cluster=${n_cluster}`;
-  Object.keys(parameters).forEach((p) => { url += `&${p}=${parameters[p]}`; });
-  return $http.get(url).then(response => {
-    callback(response);
-  }, errResponse => {
-    console.log(errResponse);
-    throw errResponse;
-  });
-}
-
-let getVocab = function (model, top_k=100, callback){
-  const url = `${devMainUrl}/models/vocab?model=${model}&top_k=${top_k}`;
+let getCoclusterData = function (model, state, parameters, callback) {
+  let url = `${devMainUrl}/co_clusters?model=${model}&state=${state}`;
+  Object.keys(parameters).forEach( (d) => { url += `&${d}=${parameters[d]}`})
   return $http.get(url).then(response => {
     callback(response);
   }, errResponse => {
@@ -109,11 +72,8 @@ let getVocab = function (model, top_k=100, callback){
 export default {
   getProjectionData,
   getStrengthData,
-  getStateSignature,
-  // getTextData,
+  getTextData,
+  getCoclusterData,
   getModels,
-  getModelConfig,
-  getTextEvaluation,
-  getCoCluster,
-  getVocab,
+  getModelConfig
 }
