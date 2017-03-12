@@ -81,7 +81,7 @@ export class WordCloud{
   color(colorScheme) {
     this.colorScheme = colorScheme;
   }
-  draw(data) {
+  draw(data, bounds) {
     // console.log(this.cloud);
     const self = this;
     this.cloud = this.group.selectAll('g text')
@@ -113,17 +113,31 @@ export class WordCloud{
       .style('fill-opacity', 1e-6)
       .attr('font-size', 1)
       .remove();
+
+    // autoscale
+    setTimeout(() => self.autoscale(bounds), 100);
+    // this.autoscale();
+  }
+  autoscale(bounds) {
+    // console.log(bounds);
+    // console.log(`centerx: ${centerX}, centerY: ${centerY}`);
+    const scaleX = 0.9 * this.width / Math.abs(bounds[0].x - bounds[1].x);
+    const scaleY = 0.9 * this.height / Math.abs(bounds[0].y - bounds[1].y);
+    const scale = Math.min(scaleX, scaleY);
+    const centerX = (bounds[1].x + bounds[0].x - this.width) / 2 * scale;
+    const centerY = (bounds[1].y + bounds[0].y - this.height) / 2 * scale;
+    this.group.attr('transform', `scale(${scale}) translate(${-centerX}, ${-centerY})`);
   }
   update(words) {
     const self = this;
     // console.log(this.width);
     cloudLayout().size([this.width, this.height])
       .words(words)
-      .padding(5)
+      .padding(1)
       .rotate(0)
       .font(this.font)
       .fontSize(function (d) { return d.size; })
-      .on('end', (words) => self.draw(words))
+      .on('end', (words, bounds) => self.draw(words, bounds))
       .start();
     // return this
   }

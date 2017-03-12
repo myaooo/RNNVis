@@ -37,7 +37,9 @@
           .background('lightgray', 0.3);
       },
       draw2() {
-        var words = ['Hello', 'world', 'normally', 'you', 'want', 'more', 'words', 'than', 'this', 'he', 'is', 'she', 'they']
+        var words = ['Hello', 'world', 'normally', 'you', 'want', 'more',
+          'words', 'than', 'this', 'he', 'is', 'she', 'they', 'what', 'million',
+          'it', '$', '<unk>', 'good', 'i', 'by', 'for', 'to', 'year']
           .map(function (d) {
             return { text: d, size: 5 + Math.random() * 30, type: 0 + Math.round(Math.random()) };
           });
@@ -52,7 +54,8 @@
         }
 
         //Create a new instance of the word cloud visualisation.
-        var myWordCloud = new WordCloud(d3.select(`#${this.svgId}`), 200).translate(200,200);
+        var myWordCloud = new WordCloud(d3.select(`#${this.svgId}`), 200, 150).translate(200,200);
+        myWordCloud.update(words);
 
         //Start cycling through the demo data
         showNewWords(myWordCloud);
