@@ -88,30 +88,37 @@ export class WordCloud{
       .data(data, function (d) { return d.text; }); // matching key
     // console.log(data);
     //Entering words
-    this.cloud.enter()
+    const texts = this.cloud.enter()
       .append('text')
       .style('font-family', this.font)
       .style('fill', (d, i) => { return self.colorScheme(d.type); })
       .attr('text-anchor', 'middle')
-      .attr('font-size', 1)
+      // .attr('font-size', 1)
       .text(function (d) { return d.text; });
 
-    //Entering and existing words
-    this.cloud
-      .transition()
-      .duration(600)
+    texts
       .style('font-size', function (d) { return d.size + 'px'; })
       .attr('transform', function (d) {
         return 'translate(' + [d.x, d.y] + ')rotate(' + d.rotate + ')';
       })
-      .style('fill-opacity', 1);
+      .style('fill-opacity', 1);;
+
+    //Entering and existing words
+    // this.cloud
+    //   // .transition()
+    //   // .duration(600)
+    //   .style('font-size', function (d) { return d.size + 'px'; })
+    //   .attr('transform', function (d) {
+    //     return 'translate(' + [d.x, d.y] + ')rotate(' + d.rotate + ')';
+    //   })
+    //   .style('fill-opacity', 1);
 
     //Exiting words
     this.cloud.exit()
-      .transition()
-      .duration(200)
-      .style('fill-opacity', 1e-6)
-      .attr('font-size', 1)
+      // .transition()
+      // .duration(200)
+      // .style('fill-opacity', 1e-6)
+      // .attr('font-size', 1)
       .remove();
 
     // autoscale
@@ -121,8 +128,8 @@ export class WordCloud{
   autoscale(bounds) {
     // console.log(bounds);
     // console.log(`centerx: ${centerX}, centerY: ${centerY}`);
-    const scaleX = 0.9 * this.width / Math.abs(bounds[0].x - bounds[1].x);
-    const scaleY = 0.9 * this.height / Math.abs(bounds[0].y - bounds[1].y);
+    const scaleX = 0.8 * this.width / Math.abs(bounds[0].x - bounds[1].x);
+    const scaleY = 0.8 * this.height / Math.abs(bounds[0].y - bounds[1].y);
     const scale = Math.min(scaleX, scaleY);
     const centerX = (bounds[1].x + bounds[0].x - this.width) / 2 * scale;
     const centerY = (bounds[1].y + bounds[0].y - this.height) / 2 * scale;
