@@ -136,7 +136,6 @@ export default {
   getProjectionData,
   getStrengthData,
   // getTextData,
-  getCoCluster,
   getModels,
   getModelConfig,
   getTextEvaluation,
