@@ -104,9 +104,8 @@
       }, 
 
       loadClusterData() {
-        var p = dataService.getCoclusterData(this.model, this.selectedState, {
+        var p = dataService.getCoCluster(this.model, this.selectedState, this.clusterNum, {
             top_k: this.wordNum, 
-            n_cluster: this.clusterNum,
             mode: this.cluster_mode,
             }, response => {
             this.cluster_data[this.clusterNum] = response.data;

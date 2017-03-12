@@ -3,6 +3,7 @@ from flask import jsonify, send_file, request
 from rnnvis.server import app
 from rnnvis.server import _manager
 
+# TODO: add exception handles
 
 @app.route("/")
 def hello():
@@ -133,12 +134,16 @@ def co_cluster():
         results = _manager.model_co_cluster(model, state_name, n_cluster, layer, top_k, mode, seed)
         if results is None:
             return 'Cannot find model with name {:s}'.format(model), 404
-        return jsonify({'data': results[0], 'row': results[1], 'col': results[2]})
+        return jsonify({'data': results[0],
+                        'row': results[1],
+                        'col': results[2],
+                        'ids': results[3],
+                        'words': results[4]})
     except:
         raise
 
 
-@app.route('/models/vocab')
+@app.route('/vocab')
 def model_vocab():
     model = request.args.get('model', '')
     top_k = int(request.args.get('top_k', 100))
@@ -146,3 +151,33 @@ def model_vocab():
     if results is None:
         return 'Cannot find model with name {:s}'.format(model), 404
     return jsonify(results)
+
+
+@app.route('/state_statistics')
+def state_statistics():
+    model = request.args.get('model', '')
+    state_name = request.args.get('state', '')
+    layer = int(request.args.get('layer', -1))
+    top_k = int(request.args.get('top_k', 200))
+    try:
+        results = _manager.state_statistics(model, state_name, True, layer, top_k)
+        if results is None:
+            return 'Cannot find model with name {:s}'.format(model), 404
+        return jsonify(results)
+    except:
+        raise
+
+
+@app.route('/word_statistics')
+def word_statistics():
+    model = request.args.get('model', '')
+    state_name = request.args.get('state', '')
+    layer = int(request.args.get('layer', -1))
+    word = request.args.get('word')  # required
+    try:
+        results = _manager.state_statistics(model, state_name, True, layer, 100, word)
+        if results is None:
+            return 'Cannot find model with name {:s}'.format(model), 404
+        return jsonify(results)
+    except:
+        raise

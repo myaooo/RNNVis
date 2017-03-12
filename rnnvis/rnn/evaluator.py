@@ -64,9 +64,9 @@ class Evaluator(object):
                 gate_ops = defaultdict(list)
                 for gate in gates:
                     if isinstance(gate, tuple):  # LSTM gates are a tuple of (i, f, o)
-                        gate_ops['gate_i'].append(gate[0])
-                        gate_ops['gate_f'].append(gate[1])
-                        gate_ops['gate_o'].append(gate[2])
+                        gate_ops['gate_i'].append(tf.sigmoid(gate[0]))
+                        gate_ops['gate_f'].append(tf.sigmoid(gate[1]))
+                        gate_ops['gate_o'].append(tf.sigmoid(gate[2]))
                     else: # GRU only got one gate z
                         gate_ops['gate'].append(gate)
                 for name, gate in gate_ops.items():

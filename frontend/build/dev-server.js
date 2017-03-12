@@ -1,12 +1,5 @@
 require('./check-versions')()
 
-// var et = require('element-theme')
-// // watch mode
-// et.watch({
-//   config: './src/style/element-variables.css',
-//   out: './src/theme'
-// })
-
 var config = require('../config')
 if (!process.env.NODE_ENV) {
   process.env.NODE_ENV = JSON.parse(config.dev.env.NODE_ENV)

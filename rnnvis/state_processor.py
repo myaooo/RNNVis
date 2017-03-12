@@ -7,8 +7,6 @@ import pickle
 
 import numpy as np
 from scipy.spatial.distance import pdist, squareform
-import matplotlib.pyplot as plt
-
 
 from rnnvis.db import get_dataset
 from rnnvis.db.db_helper import query_evals, query_evaluation_records
@@ -179,6 +177,63 @@ def load_words_and_state(data_name, model_name, state_name, diff=True):
     return words, states
 
 
+def get_state_statistics(data_name, model_name, state_name, diff=True, layer=-1, top_k=500, k=None):
+    """
+    Get state statistics, i.e. states mean reaction, 25~75 reaction range, 9~91 reaction range regarding top_k words
+    :param data_name:
+    :param model_name:
+    :param state_name:
+    :param diff:
+    :param layer:
+    :param top_k:
+    :return: a dict containing statistics:
+        {
+            'mean': [top_k, n_states],
+            'low1': [top_k, n_states], 25%
+            'high1': [top_k, n_states], 75%
+            'low2': [top_k, n_states], 9%
+            'high2': [top_k, n_states], 91%
+            'sort_idx': [top_k, n_states], each row represents sorted idx of mean reaction of states w.r.t. a word
+            'freqs': [top_k,] frequency of each of the top_k words
+        }
+    """
+    top = 100 if top_k <= 100 else 500 if top_k <= 500 else 1000
+    if k is not None:
+        top_k = top_k if top_k > k else k
+    tmp_file = '-'.join([data_name, model_name, state_name, 'statistics', str(top)]) \
+               + ('-diff' if diff else '') + '.pkl'
+    tmp_file = get_path(_tmp_dir, tmp_file)
+
+    def cal_fn():
+        words, states = load_words_and_state(data_name, model_name, state_name, diff)
+        id_to_states = sort_by_id(words, states)
+        layer_num = states[0].shape[0]
+        stats_list = []
+        for i in range(top):
+            if id_to_states[i] is None:  # some words may be seen in test set
+                states = [np.zeros(states[0].shape, states[0].dtype)]  # use zeros as placeholder
+            else:
+                states = id_to_states[i]
+            stats_list.append(cal_state_statistics(states))
+        stats_layer_wise = []
+        for layer_ in range(layer_num):
+            stats = {}
+            for field in stats_list[0][layer_].keys():
+                value = np.vstack([stats[layer_][field] for stats in stats_list])
+                stats[field] = value
+            stats['freqs'] = np.array([len(id_to_states[i]) if id_to_states[i] is not None else 0 for i in range(top)])
+            stats_layer_wise.append(stats)
+        return stats_layer_wise
+
+    layer_wise_stats = maybe_calculate(tmp_file, cal_fn)
+    stats = layer_wise_stats[layer]
+    if k is None:
+        stats = {key: value[:top_k].tolist() for key, value in stats.items()}
+    else:
+        stats = {key: value[k].tolist() for key, value in stats.items()}
+    return stats
+
+
 ##############
 # Functions that used in backends
 ##############
@@ -287,6 +342,35 @@ def compute_stats(states, sort_by_mean=True, percent=50):
     return means, stds, errors_l, errors_u, indices
 
 
+def cal_state_statistics(states):
+    """
+    Calculate states statistics with regards to a word
+    :param states: a list of state_mat of size [layer_num, layer_size] (state changes of the same word)
+    :return: a list of length layer_num, each element is a dict of statistics
+    """
+    layer_num = states[0].shape[0]
+    percents = [50, 82]
+    stats = []
+    for layer in range(layer_num):
+        state_list = [state[layer] for state in states]
+        states_mat = np.vstack(state_list)
+        mean = np.mean(states_mat, axis=0)
+        idx = np.argsort(mean)
+        lows = []
+        highs = []
+        for percent in percents:
+            lows.append(np.percentile(states_mat, (100-percent)/2, axis=0))
+            highs.append(np.percentile(states_mat, 50 + percent/2, axis=0))
+        stats.append({'mean': mean,
+                      'low1': lows[0],
+                      'high1': highs[0],
+                      'low2': lows[1],
+                      'high2': highs[1],
+                      'sort_idx': idx
+                      })
+    return stats
+
+
 def cal_empirical_strength(id_states, strength_func):
     """
 
@@ -335,7 +419,14 @@ def get_co_cluster(data_name, model_name, state_name, n_clusters, layer=-1, top_
     :return:
     """
     strength_list = get_empirical_strength(data_name, model_name, state_name, layer, top_k)
-    raw_data = [strength_mat.reshape(-1) for strength_mat in strength_list]
+    strength_list = [strength_mat.reshape(-1) for strength_mat in strength_list]
+    word_ids = []
+    raw_data = []
+    for i, strength_vec in enumerate(strength_list):
+        if np.max(np.abs(strength_vec)) > 1e-8:
+            word_ids.append(i)
+            raw_data.append(strength_vec)
+
     raw_data = np.array(raw_data)
     if mode == 'positive':
         data = np.zeros(raw_data.shape, dtype=np.float32)
@@ -351,7 +442,7 @@ def get_co_cluster(data_name, model_name, state_name, n_clusters, layer=-1, top_
     n_jobs = 1  # parallel num
     random_state = seed
     row_labels, col_labels = spectral_co_cluster(data, n_clusters, n_jobs, random_state)
-    return raw_data, row_labels, col_labels
+    return raw_data, row_labels, col_labels, word_ids
 
 
 def spectral_co_cluster(data, n_clusters, para_jobs=1, random_state=None):

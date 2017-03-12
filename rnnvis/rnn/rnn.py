@@ -416,8 +416,8 @@ class RNN(object):
         :param words: a list of words
         :return: a list of corresponding ids
         """
-        if isinstance(words, str) and words in self.word_to_id:
-            return self.word_to_id[words]
+        if isinstance(words, str):
+            words = [words]
         words = [w for w in words]
         ids = [self.word_to_id[w] if w in self.word_to_id else self.word_to_id['<unk>'] for w in words ]
         return ids
