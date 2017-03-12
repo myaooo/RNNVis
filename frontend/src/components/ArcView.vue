@@ -8,7 +8,7 @@
             <span>Cluster No.</span>
           </el-col>
           <el-col :span="6">
-            <el-slider v-model="clusterNum" :min="1" :max="20"></el-slider>
+            <el-slider v-model="clusterNum" :min="2" :max="20"></el-slider>
           </el-col>
         </div>
       </el-tab-pane>
@@ -37,7 +37,12 @@
          fdGraph: null,
          selectedState: '',
          model: '',
-         clusterNum: 1,
+         wordNum: 20,
+         clusterNum: 5,
+         cluster_data: {},
+         state_data: null,
+         word_data: null,
+         cluster_mode: 'positive',
       };
     },
     props: {
@@ -59,56 +64,64 @@
       },
       selectedState: function(newState) {
         if (newState === 'state' || newState === 'state_c' || newState === 'state_h'){
-          this.reset();
-        }
+          if (this.word_data === null || this.state_data === null) {
+            let ps = this.loadStateWordData();
+            var p = this.loadClusterData();
+            ps.push(p);
+            Promise.all(ps).then( values => { 
+              this.reset();
+            });
+          } 
+        } 
       },
+      wordNum: function (newWordNum) {
+        console.log('wordNum has changed');
+      },
+
       clusterNum: function (newClusterNum) {
-        console.log(`cluster number changed to ${newClusterNum}`);
-        this.clusterNum = newClusterNum;
-        let p = null;
-        if (this.clusterNum > 1 && !Object.prototype.hasOwnProperty.call(this, 'signature')) {
-            p = dataService.getStateSignature(this.model, this.selectedState, {}, response => {
-            this.signature = response.data;
-            console.log('signature data loaded');
-          });
-        }
-        Promise.resolve(p).then(() => {
-          this.clusterAssignments = kmeans(this.signature, this.clusterNum, 1000)
+        if (newClusterNum > 1 && !Object.prototype.hasOwnProperty.call(this.cluster_data, this.clusterNum)) {
+          var p = this.loadClusterData();
+          Promise.resolve(p).then( values => { this.reset() });
+        } else {
           this.reset();
-        })
-        
+        }
       }
     },
     methods: {
       paneId(model, state) {
         return `${model}--${state}--svg`;
       },
+      loadStateWordData() {
+        let p1 = dataService.getProjectionData(this.model, this.selectedState, {}, response => {
+          this.state_data = response.data;
+          console.log('state data loaded');
+        });
+        let p2 = dataService.getStrengthData(this.model, this.selectedState, {top_k: this.wordNum}, response => {
+          this.word_data = response.data;
+          console.log('word data loaded');
+        });
+        return [p1, p2];
+      }, 
+
+      loadClusterData() {
+        var p = dataService.getCoCluster(this.model, this.selectedState, this.clusterNum, {
+            top_k: this.wordNum, 
+            mode: this.cluster_mode,
+            }, response => {
+            this.cluster_data[this.clusterNum] = response.data;
+            console.log(`co_cluster_data ${this.clusterNum} loaded`);
+          });
+        return p;
+      },
       reset() {
         if (this.fdGraph) {
           this.fdGraph.destroy();
         }
-        let raw_data = []
         const svg = document.getElementById(this.paneId(this.model, this.selectedState));
-        let p1 = dataService.getProjectionData(this.model, this.selectedState, {}, response => {
-          let states_data = response.data;
-          if (this.clusterNum > 1) {
-            states_data.forEach((d, i) => {d.label = this.clusterAssignments[i]});
-          }
-          raw_data.push(states_data);
-          console.log('state data loaded');
-        });
-        let p2 = dataService.getStrengthData(this.model, this.selectedState, {top_k: 50}, response => {
-          raw_data.push(response.data);
-          console.log('word data loaded');
-        });
-        Promise.all([p1, p2]).then( values => {
-          this.fdGraph = new ForceDirectedGraph(svg);
-          this.fdGraph.process_data(raw_data[0], raw_data[1]);
-          this.fdGraph.insert_element();
-          this.fdGraph.start_simulation();
-
-        });
-        
+        this.fdGraph = new ForceDirectedGraph(svg);
+        this.fdGraph.process_data(this.state_data, this.word_data, this.cluster_data[this.clusterNum], this.cluster_mode);
+        this.fdGraph.insert_element();
+        this.fdGraph.start_simulation();
       }, 
     },
     mounted() {
@@ -128,6 +141,271 @@
 };
 
 class ForceDirectedGraph{
+  constructor(svg, strengthfn) {
+    let self = this;
+    this.svg = d3.select(`#${svg.id}`);
+    this.width = svg.clientWidth;
+    this.height = svg.clientHeight;
+    this.arcNodes = null;
+    this.innerNodes = null;
+    this.links = null;
+    this.simulation = null;
+    this.strengthfn = strengthfn || (v => {return v; });
+    this.graph = null;
+    this.rScale = 0.1;
+    this.radius = 1.5;
+    this.defaultAlpha = 1;
+    this.scale = {
+      x: null,
+      y: null,
+    };
+    this.color = d3.scaleOrdinal(d3.schemeCategory10);
+    this.strength_threshold = 0.5;
+    this.normal_opacity_line = 0.1;
+    this.high_opacity_line = 0.1;
+    this.low_opacity_line = 0.01;
+    this.normal_opacity_node = 0.5;
+    this.high_opacity_node = 1;
+    this.low_opacity_node = 0.01;
+    this.strength_range = [0, 5];
+    // this.arc_gap_angle = Math.PI / 8;
+  }
+
+  process_data(arc_data, inner_data, cluster_data, cluster_mode) {
+    let self = this;
+    let label2arc = [];
+    let label2inner = [];
+    let circle_radius = 0.9 * Math.min(self.width/2, self.height/2)
+
+    arc_data.forEach( (d, i) => {
+      if (label2arc[cluster_data.col[i]] === undefined) {
+        label2arc[cluster_data.col[i]] = {data: [], };
+      }
+
+      d.index = i;
+      d.label = cluster_data.col[i];
+      label2arc[cluster_data.col[i]].data.push(d);
+    });
+
+    inner_data.forEach( (d, i) => {
+      if (label2inner[cluster_data.row[i]] === undefined) {
+        label2inner[cluster_data.row[i]] = {data: [], };
+      }
+      d.index = i;
+      d.label = cluster_data.row[i];
+      label2inner[cluster_data.row[i]].data.push(d);
+    });
+
+    let arc_offset = 0;
+    Object.keys(label2arc).forEach( (k) => {
+
+      let arc_length = 2 * Math.PI * label2arc[k].data.length / arc_data.length;
+      // set angle for this cluster
+      label2arc[k]['angle'] = (2 * arc_offset + arc_length) / 2;
+      label2arc[k]['fx'] = circle_radius * Math.cos(label2arc[k]['angle']) + self.width / 2;
+      label2arc[k]['fy'] = circle_radius * Math.sin(label2arc[k]['angle']) + self.height / 2;
+      label2arc[k]['type'] = 'arc';
+      let scale = d3.scaleLinear()
+        .domain([0, label2arc[k].data.length - 1])
+        .range([arc_offset, arc_offset + arc_length]);
+      // set angle for individual point in the cluster
+      label2arc[k].data.forEach( (d, i) => {
+        d.angle = scale(i);
+        d.fx = circle_radius * Math.cos(d.angle) + self.width / 2;
+        d.fy = circle_radius * Math.sin(d.angle) + self.height / 2;
+      });
+      arc_offset += arc_length;
+    });
+
+    // compute links data and inner data
+    let links = [];
+    Object.keys(label2inner).forEach( (inner_k) => {
+      console.log(inner_k);
+      label2inner[inner_k]['type'] = 'inner';
+      Object.keys(label2arc).forEach( (arc_k) => {
+        // calculate strength between arc_cluster and inner_cluster
+        let cluster_strength = 0;
+        label2inner[inner_k]['data'].forEach((inner_item) => {
+          label2arc[arc_k]['data'].forEach((arc_item) => {
+            let strength_item = cluster_data['data'][inner_item.index][arc_item.index];
+            switch(cluster_mode) {
+              case 'positive':
+                cluster_strength += strength_item > 0 ? strength_item : 0;
+                break;
+              case 'negative':
+                cluster_strength += strength_item < 0 ? Math.abs(strength_item) : 0;
+                break;
+              case 'abs':
+                cluster_strength += Math.abs(strength_item);
+                break;
+            }
+          });
+        });
+        let link = {
+          source: label2arc[arc_k],
+          target: label2inner[inner_k],
+          strength: cluster_strength,
+        }
+        links.push(link);
+      })
+    });
+
+    //normalize_strength
+    links = self.strength_normalize(links, self.strength_range);
+
+    console.log("finished preparing data");
+    this.graph = {
+      links: links,
+      label2arc: label2arc,
+      label2inner: label2inner,
+      arc_data: arc_data,
+      inner_data: inner_data,
+      nodes: label2arc.concat(label2inner),
+    };
+  }
+
+  strength_normalize(links, range) {
+    let strength_extent = d3.extent(links.map( (l) => {return l.strength; }));
+    console.log(strength_extent);
+    console.log(range);
+    let scale = d3.scaleLinear()
+        .domain(strength_extent)
+        .range(range);
+    links.forEach( (l) => {l.strength = scale(l.strength); });
+    return links;
+  }
+
+  draw_states() {
+    let self = this;
+    let width = this.width, height = this.height;
+    let radius = 0.9 * Math.min(width/2, height/2);
+    this.svg.append('g')
+        .selectAll('circle')
+        .data(this.graph.states)
+        .enter()
+        .append('circle')
+        .attr('r', 3)
+        .attr('cx', function(d) {return width / 2 + radius * Math.cos(d.angle)})
+        .attr('cy', function(d) {return height / 2 + radius * Math.sin(d.angle)})
+        .style('fill', function(d) {return self.color(d.label);})
+  }
+
+  insert_element() {
+    let self = this;
+    this.arcNodes = self.svg.append('g')
+      .selectAll('circle')
+      .data(self.graph.arc_data)
+      .enter()
+      .append('circle')
+      .attr('r', function(k) {
+          return 1;
+      })
+      .classed('active', false)
+      .classed('stateNode', true)
+      .style('fill', function(d) { return self.color(d.label); })
+      .style('fill-opacity', self.low_opacity)
+    
+    this.arcNodes.each( function (d) {
+      d['el'] = this
+    })
+
+    this.arcNodes.append('title')
+      .text(function (d) {return d.index});
+    
+    this.links = this.svg.append('g')
+      .attr('class', 'links')
+        .selectAll('line')
+        .data(this.graph.links)
+        .enter()
+        .append('line')
+        .classed('active', false)
+        .style('opacity', (d) => {return this.normal_opacity_line;})
+        .style('stroke', (d) => {return self.color(0)});
+    
+    this.links.each(function(d) {
+      d['el'] = this;
+    });
+    
+    this.innerNodes = this.svg.append('g')
+      .attr('class', 'innerNodes')
+        .selectAll('text')
+        .data(self.graph.label2inner)
+        .enter()
+        .append('text')
+        .classed('active', false)
+        .text(function(d, i) {return i })
+        .attr('x', self.width / 2)
+        .attr('y', self.height / 2)
+        .call(d3.drag()
+          .on('start', d => {
+            if (!d3.event.active) self.simulation.alphaTarget(self.defaultAlpha).restart();
+            d.fx = d.x;
+            d.fy = d.y;
+          })
+          .on('drag', d => {
+            d.fx = d3.event.x;
+            d.fy = d3.event.y;
+          })
+          .on('end', d => {
+            if (!d3.event.active) self.simulation.alphaTarget(0);
+            d.fx = null;
+            d.fy = null;
+        }))
+    
+    this.innerNodes.each(function(d) {
+      d['el'] = this;
+    }) 
+  }
+
+  start_simulation() {
+    let self = this;
+    var repelForce = d3.forceCollide(20);
+    var init = repelForce.initialize;
+    repelForce.initialize = function(nodes) {
+      init(nodes.filter(function(d) {return d.type === 'inner'; }));
+    }
+    this.simulation = d3.forceSimulation().alpha(this.defaultAlpha)
+        .force('link', d3.forceLink()
+          .distance(function(d) {return d.strength > 0 ? 10 : 100; })
+          .strength(function (d) {return Math.abs(d.strength); }))
+        .force('repel', repelForce)
+    this.simulation
+      .nodes(self.graph.nodes)
+      .on('tick', () => self.ticked());
+    
+    this.simulation.force('link')
+      .links(self.graph.links);
+  }
+
+  ticked() {
+    let self = this;
+    self.links
+      .attr('x1', function (d) {return d.source.fx; })
+      .attr('y1', function (d) {return d.source.fy; })
+      .attr('x2', function (d) {return d.target.x; })
+      .attr('y2', function (d) {return d.target.y; })
+    
+    self.innerNodes
+      .attr('x', function (d) {return d.x; })
+      .attr('y', function (d) {return d.y; })
+    
+    self.arcNodes
+      .attr('cx', function (d) {return d.fx; })
+      .attr('cy', function (d) {return d.fy; })
+  }
+
+  destroy() {
+      console.log(`Destroying Graph`)
+      this.simulation.nodes([]);
+      this.simulation.force("link").links([]);
+      this.links.remove();
+      this.innerNodes.remove();
+      this.arcNodes.remove();
+    }
+
+};
+
+class ForceDirectedGraph_2{
   constructor(svg, strengthfn) {
     let self = this;
     this.svg = d3.select(`#${svg.id}`);
@@ -163,10 +441,10 @@ class ForceDirectedGraph{
     let tmp = new Set();
     let angles = states.map(function(s) {
         tmp.add(s.layer);
-        if (label2state[s.label] === undefined) {
-          label2state[s.label] = []
+        if (label2state['' + s.label] === undefined) {
+          label2state['' + s.label] = []
         }
-        label2state[s.label].push(s);
+        label2state['' + s.label].push(s);
         s.angle = Math.atan2(s.coords[1], s.coords[0]);
         return Math.atan2(s.coords[1], s.coords[0]);
       });

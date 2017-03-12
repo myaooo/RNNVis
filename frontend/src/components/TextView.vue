@@ -74,10 +74,10 @@
 </style>
 <script>
   import dataService from '../services/dataService';
-  import { bus, SELECT_MODEL } from '../event-bus'
+  import { bus, SELECT_MODEL } from '../event-bus';
 
   let activeColorScheme = ["88, 126, 182", "201, 90, 95"];
-  export default{
+  export default {
     name: 'TextView',
     data() {
       return {

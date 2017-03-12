@@ -31,6 +31,7 @@ let getStrengthData = function (model, state, parameters = {}, callback) {
   });
 }
 
+
 let getStateSignature = function (model, state, parameters = {}, callback) {
   // additional parameters: layer: -1, size: 1000
   let url = `${devMainUrl}/state_signature?model=${model}&state=${state}`
@@ -134,8 +135,8 @@ let getWordStatistics = function (model, state, layer, word, callback) {
 export default {
   getProjectionData,
   getStrengthData,
-  getStateSignature,
-  // getTextData,
+  getTextData,
+  getCoclusterData,
   getModels,
   getModelConfig,
   getTextEvaluation,
