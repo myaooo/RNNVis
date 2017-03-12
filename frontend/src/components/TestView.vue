@@ -149,6 +149,37 @@
           // .line([[0.1, 0.1], [0.3, 0.8], [0.9,0.9]]);
 
         });
+      },
+      draw_arc() {
+        let color = d3.scaleOrdinal(d3.schemeCategory10);
+        let width = 500, height = 500;
+        const svg = d3.select(`#${this.svgId}`)
+          .attr('width', width)
+          .attr('height', height);
+        
+        let data = [
+          { start: 0, end: 2 * Math.PI / 8},
+          { start: 2 * Math.PI / 8, end: 2 * Math.PI / 2},
+          { start: 2 * Math.PI / 2, end: 2 * Math.PI},
+        ];
+        
+        let g = svg.append('g')
+          .attr('transform', 'translate(' + width / 2 + ',' + height / 2 + ')');
+        var arc = d3.arc()
+          .innerRadius(230)
+          .outerRadius(240)
+          // .startAngle(0)
+        
+        data.forEach((d, i) => {
+          g.append('path')
+          // .attr('transform', 'rotate(' + 180 + ')')
+            .datum({startAngle: d.start, endAngle: d.end})
+            .style('fill', color(i))
+            .attr('d', arc)
+            // .attr('cent', arc.centroid())
+          console.log(arc.centroid({startAngle: d.start, endAngle: d.end}));
+        })
+        
       }
     },
     mounted() {
@@ -160,6 +191,7 @@
       })
       this.init();
       this.draw2();
+      // this.draw_arc();
     }
 
   }
