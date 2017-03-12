@@ -1,6 +1,6 @@
 <template>
   <div>
-    <svg :id="svgId"> </svg>
+    <svg :id='svgId'> </svg>
   </div>
 </template>
 <style>
@@ -11,7 +11,7 @@
   import dataService from '../services/dataService.js';
   import { bus, SELECT_MODEL } from 'event-bus.js';
   import { Chart } from '../layout/chart.js'
-  import { wordCloud } from '../layout/cloud.js'
+  import { WordCloud } from '../layout/cloud.js'
 
   export default {
     name: 'TestView',
@@ -32,14 +32,14 @@
       init() {
         const svg = d3.select(`#${this.svgId}`)
           .attr('width', 500)
-          .attr('height', 200);
-        this.chart = new Chart(svg, 500, 200)
+          .attr('height', 500);
+        this.chart = new Chart(svg, 500, 500)
           .background('lightgray', 0.3);
       },
       draw2() {
-        var words = ["Hello", "world", "normally", "you", "want", "more", "words", "than", "this"]
+        var words = ['Hello', 'world', 'normally', 'you', 'want', 'more', 'words', 'than', 'this', 'he', 'is', 'she', 'they']
           .map(function (d) {
-            return { text: d, size: 10 + Math.random() * 90 };
+            return { text: d, size: 5 + Math.random() * 30, type: 0 + Math.round(Math.random()) };
           });
         //This method tells the word cloud to redraw with a new set of words.
         //In reality the new words would probably come from a server request,
@@ -52,10 +52,11 @@
         }
 
         //Create a new instance of the word cloud visualisation.
-        var myWordCloud = wordCloud(`#${this.svgId}`);
+        var myWordCloud = new WordCloud(d3.select(`#${this.svgId}`), 200).translate(200,200);
 
         //Start cycling through the demo data
         showNewWords(myWordCloud);
+        // myWordCloud.update(words);
       },
       draw() {
         dataService.getWordStatistics(this.model, this.state, -1, 'he', response => {
@@ -126,7 +127,7 @@
             .margin(5, 30, 40, 5)
             .xAxis()
             .yAxis('right');
-          subchart2.axisHandles.x.tickFormat((d, i) => {
+          subchart2.axis.x.tickFormat((d, i) => {
             return boxes[d].word;
           }).ticks(20);
           //   .group.attr('transform', 'rotate(90)');
@@ -137,12 +138,12 @@
           this.chart.draw();
 
           // formatting x axis labels
-          subchart2.axis.x.selectAll("text")
-            .attr("y", 0)
-            .attr("x", -9)
-            .attr("dy", ".35em")
-            .attr("transform", "rotate(-90)")
-            .style("text-anchor", "end");
+          subchart2.axisHandles.x.selectAll('text')
+            .attr('y', 0)
+            .attr('x', -9)
+            .attr('dy', '.35em')
+            .attr('transform', 'rotate(-90)')
+            .style('text-anchor', 'end');
           // subchart2.axis.x.ticks(10);
 
           // .line([[0.1, 0.1], [0.3, 0.8], [0.9,0.9]]);
@@ -154,11 +155,11 @@
       let coClusterData;
       const p = dataService.getCoCluster(this.model, this.state, 10, {}, response => {
         coClusterData = response.data;
-        console.log('co-cluster data:');
-        console.log(coClusterData);
+        // console.log('co-cluster data:');
+        // console.log(coClusterData);
       })
       this.init();
-      this.draw();
+      this.draw2();
     }
 
   }
