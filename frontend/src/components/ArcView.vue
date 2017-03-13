@@ -134,7 +134,7 @@
               const cell_type = config.model.cell_type;
               if (cell2states.hasOwnProperty(cell_type)){
                 this.states = cell2states[cell_type]
-                console.log(this.states);
+                // console.log(this.states);
               }
             });
         });
@@ -150,6 +150,7 @@ class ForceDirectedGraph{
     this.arcNodes = null;
     this.innerNodes = null;
     this.links = null;
+    this.word_clouds = [];
     this.simulation = null;
     this.strengthfn = strengthfn || (v => {return v; });
     this.graph = null;
@@ -250,8 +251,8 @@ class ForceDirectedGraph{
 
   strength_normalize(links, range) {
     let strength_extent = d3.extent(links.map( (l) => {return l.strength; }));
-    console.log(strength_extent);
-    console.log(range);
+    // console.log(strength_extent);
+    // console.log(range);
     let scale = d3.scaleLinear()
         .domain(strength_extent)
         .range(range);
@@ -306,6 +307,46 @@ class ForceDirectedGraph{
         .classed('active', false)
         .style('opacity', (d) => {return this.normal_opacity_line;})
         .style('stroke', (d) => {return self.color(0)});
+
+    let line = d3.line()
+      .curve(d3.curveBundle.beta(0.5))
+      .x((d) => {return d.x})
+      .y((d) => {return d.y})
+
+    let lines_data = [];
+    self.graph.links.forEach((l) => {
+      lines_data.push([l.source, l.target]);
+    });
+
+    console.log(line(lines_data[0]));
+
+    // console.log(line(self.graph.links));
+    // console.log("hi");
+
+
+    // this.graph.links.forEach( (l) => {
+    //   console.log(`bundle line : ${line(l)}`)
+    // })
+    // let g_path = this.svg.append('g');
+    // this.graph.links.forEach( (l) => {
+    //   g_path.append('path')
+    //     .datum(l)
+    //     .each(()
+    //     .attr('d', line)
+    //     .attr('stroke', 'green')
+    //     .attr('stroke-width', 3)
+    //     .attr('fill', 'orange')
+    // })
+    let path = this.svg.append('g')
+      .selectAll('path')
+      .data(lines_data)
+      .enter()
+      .append('path')
+      .attr('d', line)
+      .attr('stroke', 'green')
+      .attr('stroke-width', 3)
+      .attr('fill', 'orange')
+
 
     this.links.each(function(d) {
       d['el'] = this;
@@ -386,6 +427,10 @@ class ForceDirectedGraph{
     self.graph.label2inner.forEach((d) => {
       d['el_wc'].attr('transform', 'translate(' + d.x + ',' + d.y + ')');
     });
+
+
+
+
     // self.innerNodes
     //   .attr('x', function (d) {return d.x; })
     //   .attr('y', function (d) {return d.y; })
@@ -397,6 +442,7 @@ class ForceDirectedGraph{
       this.simulation.nodes([]);
       this.simulation.force("link").links([]);
       this.links.remove();
+      this.word_clouds.forEach((d) => {d.remove()});
       // this.innerNodes.remove();
       // this.arcNodes.remove();
     }
