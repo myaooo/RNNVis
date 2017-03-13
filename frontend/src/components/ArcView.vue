@@ -29,7 +29,7 @@
     'BasicLSTM': ['state_c', 'state_h'],
     'BasicRNN': ['state'],
   };
-  
+
   export default {
     name: 'ArcView',
     data(){
@@ -38,8 +38,8 @@
          fdGraph: null,
          selectedState: '',
          model: '',
-         wordNum: 20,
-         clusterNum: 5,
+         wordNum: 200,
+         clusterNum: 15,
          cluster_data: {},
          state_data: null,
          word_data: null,
@@ -69,11 +69,11 @@
             let ps = this.loadStateWordData();
             var p = this.loadClusterData();
             ps.push(p);
-            Promise.all(ps).then( values => { 
+            Promise.all(ps).then( values => {
               this.reset();
             });
-          } 
-        } 
+          }
+        }
       },
       wordNum: function (newWordNum) {
         console.log('wordNum has changed');
@@ -102,11 +102,11 @@
           console.log('word data loaded');
         });
         return [p1, p2];
-      }, 
+      },
 
       loadClusterData() {
         var p = dataService.getCoCluster(this.model, this.selectedState, this.clusterNum, {
-            top_k: this.wordNum, 
+            top_k: this.wordNum,
             mode: this.cluster_mode,
             }, response => {
             this.cluster_data[this.clusterNum] = response.data;
@@ -123,7 +123,7 @@
         this.fdGraph.process_data(this.state_data, this.word_data, this.cluster_data[this.clusterNum], this.cluster_mode);
         this.fdGraph.insert_element();
         this.fdGraph.start_simulation();
-      }, 
+      },
     },
     mounted() {
         bus.$on(SELECT_MODEL, (modelName) => {
@@ -156,7 +156,7 @@ class ForceDirectedGraph{
     this.graph = null;
     this.rScale = 0.1;
     this.radius = 1.5;
-    this.defaultAlpha = 1;
+    this.defaultAlpha = 0.3;
     this.scale = {
       x: null,
       y: null,
@@ -169,8 +169,9 @@ class ForceDirectedGraph{
     this.normal_opacity_node = 0.5;
     this.high_opacity_node = 1;
     this.low_opacity_node = 0.01;
-    this.strength_range = [0, 5];
-    this.arc_radius = 0.9 * Math.min(self.width/2, self.height/2)
+    this.strength_range = [0.1, 5];
+    this.arc_radius = 0.9 * Math.min(self.width/2, self.height/2);
+    this.cluster_data = [];
 
     // this.arc_gap_angle = Math.PI / 8;
   }
@@ -179,7 +180,8 @@ class ForceDirectedGraph{
     let self = this;
     let label2arc = [];
     let label2inner = [];
-    let circle_radius = 0.9 * Math.min(self.width/2, self.height/2)
+    let circle_radius = 0.9 * Math.min(self.width/2, self.height/2);
+    this.cluster_data = cluster_data;
 
     arc_data.forEach( (d, i) => {
       if (label2arc[cluster_data.col[i]] === undefined) {
@@ -275,15 +277,15 @@ class ForceDirectedGraph{
 
   insert_element() {
     let self = this;
-    
+
     // draw arc path
     let g_arc = self.svg.append('g')
         .attr('transform', 'translate(' + self.width / 2 + ',' + self.height / 2 + ')');
-    
+
     let arc = d3.arc()
         .innerRadius(self.arc_radius - 10)
         .outerRadius(self.arc_radius)
-    
+
     let arc_datum = d3.pie()(self.graph.label2arc.map((d) => {return d.data.length}));
 
     self.graph.label2arc.forEach((d, i) => {
@@ -295,7 +297,7 @@ class ForceDirectedGraph{
       d.fx = arc_centroid[0] + self.width / 2;
       d.fy = arc_centroid[1] + self.height / 2;
     });
-    
+
     this.links = this.svg.append('g')
       .attr('class', 'links')
         .selectAll('line')
@@ -305,22 +307,22 @@ class ForceDirectedGraph{
         .classed('active', false)
         .style('opacity', (d) => {return this.normal_opacity_line;})
         .style('stroke', (d) => {return self.color(0)});
-    
+
     // let line = d3.line()
     //   .curve(d3.curveBundle.beta(0.5))
     //   .x((d) => {return d.x})
     //   .y((d) => {return d.y})
-    
+
     // let lines_data = [];
     // self.graph.links.forEach((l) => {
     //   lines_data.push([l.source, l.target]);
     // });
 
     // console.log(line(lines_data[0]));
-    
+
     // console.log(line(self.graph.links));
     // console.log("hi");
-    
+
 
     // this.graph.links.forEach( (l) => {
     //   console.log(`bundle line : ${line(l)}`)
@@ -345,21 +347,20 @@ class ForceDirectedGraph{
     //   .attr('stroke', 'green')
     //   .attr('stroke-width', 3)
     //   .attr('fill', 'orange')
-    
-    
+
     this.links.each(function(d) {
       d['el'] = this;
     });
-    
+
     let words_list = [];
     self.graph.label2inner.forEach((d) => {
       let words = d.data.map((w) => {
-        return { text: w.word, size: 20 - w.index}
+        return { text: w.word, size: (300 - w.index) / 20}
       });
-      // console.log(words);
+      const radius = Math.sqrt(words.length) * 10 + 1;
+      console.log(words);
       d['el_wc'] = this.svg.append('g');
-      self.word_clouds.push(d['el_wc']);
-      let myWordCloud = new WordCloud(d['el_wc'], 50);
+      let myWordCloud = new WordCloud(d['el_wc'], radius);
       myWordCloud.update(words);
     });
 
@@ -388,28 +389,29 @@ class ForceDirectedGraph{
     //         d.fx = null;
     //         d.fy = null;
     //     }))
-    
+
     // this.innerNodes.each(function(d) {
     //   d['el'] = this;
-    // }) 
+    // })
   }
 
   start_simulation() {
     let self = this;
-    var repelForce = d3.forceCollide(20);
+    var repelForce = d3.forceCollide(20)
+      .radius(d => Math.sqrt(d.data.length) * 10 + 10);
     var init = repelForce.initialize;
     repelForce.initialize = function(nodes) {
       init(nodes.filter(function(d) {return d.type === 'inner'; }));
     }
     this.simulation = d3.forceSimulation().alpha(this.defaultAlpha)
         .force('link', d3.forceLink()
-          .distance(function(d) {return d.strength > 0 ? 10 : 100; })
+          .distance(function(d) {return d.strength > 0 ? 50 : 300; })
           .strength(function (d) {return Math.abs(d.strength); }))
         .force('repel', repelForce)
     this.simulation
       .nodes(self.graph.nodes)
       .on('tick', () => self.ticked());
-    
+
     this.simulation.force('link')
       .links(self.graph.links);
   }
@@ -421,18 +423,18 @@ class ForceDirectedGraph{
       .attr('y1', function (d) {return d.source.fy; })
       .attr('x2', function (d) {return d.target.x; })
       .attr('y2', function (d) {return d.target.y; })
-    
+
     self.graph.label2inner.forEach((d) => {
       d['el_wc'].attr('transform', 'translate(' + d.x + ',' + d.y + ')');
     });
 
-    
 
-    
+
+
     // self.innerNodes
     //   .attr('x', function (d) {return d.x; })
     //   .attr('y', function (d) {return d.y; })
-    
+
   }
 
   destroy() {
@@ -453,7 +455,7 @@ class ForceDirectedGraph{
   .links {
     stroke-width: 1;
   }
-  
+
   .links .active {
     stroke-width: 3;
   }
