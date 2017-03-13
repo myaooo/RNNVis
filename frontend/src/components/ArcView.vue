@@ -306,17 +306,17 @@ class ForceDirectedGraph{
         .style('opacity', (d) => {return this.normal_opacity_line;})
         .style('stroke', (d) => {return self.color(0)});
     
-    let line = d3.line()
-      .curve(d3.curveBundle.beta(0.5))
-      .x((d) => {return d.x})
-      .y((d) => {return d.y})
+    // let line = d3.line()
+    //   .curve(d3.curveBundle.beta(0.5))
+    //   .x((d) => {return d.x})
+    //   .y((d) => {return d.y})
     
-    let lines_data = [];
-    self.graph.links.forEach((l) => {
-      lines_data.push([l.source, l.target]);
-    });
+    // let lines_data = [];
+    // self.graph.links.forEach((l) => {
+    //   lines_data.push([l.source, l.target]);
+    // });
 
-    console.log(line(lines_data[0]));
+    // console.log(line(lines_data[0]));
     
     // console.log(line(self.graph.links));
     // console.log("hi");
@@ -335,15 +335,16 @@ class ForceDirectedGraph{
     //     .attr('stroke-width', 3)
     //     .attr('fill', 'orange')
     // })
-    let path = this.svg.append('g')
-      .selectAll('path')
-      .data(lines_data)
-      .enter()
-      .append('path')
-      .attr('d', line)
-      .attr('stroke', 'green')
-      .attr('stroke-width', 3)
-      .attr('fill', 'orange')
+    // let path = this.svg.append('g')
+    //   .selectAll('path')
+    //   .data(lines_data)
+    //   .enter()
+    //   .append('path')
+    //   .each((d) => {d.source = d[0], d.target = d[d.length - 1]})
+    //   .attr('d', line)
+    //   .attr('stroke', 'green')
+    //   .attr('stroke-width', 3)
+    //   .attr('fill', 'orange')
     
     
     this.links.each(function(d) {
