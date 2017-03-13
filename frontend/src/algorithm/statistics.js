@@ -1,6 +1,6 @@
 // pre-process helpers
 
-export const distances = {
+export const distance = {
   euclidean: function(v1, v2) {
     var total = 0;
     for (var i = 0; i < v1.length; i++) {
@@ -24,14 +24,19 @@ export const distances = {
   }
 };
 
-export function mean(points){
-  var meanPoint = new Float32Array(points[0].length);
+export function mean(arrays){
+  var meanPoint = new Float32Array(arrays[0].length);
   for(let i = 0; i < meanPoint.length; i++){
     let sum = 0;
-    for (let j = 0; j < points.length; j++) {
-      sum += points[j][i];
+    for (let j = 0; j < arrays.length; j++) {
+      sum += arrays[j][i];
     }
-    meanPoint[i] = sum / points.length;
+    meanPoint[i] = sum / arrays.length;
   }
   return meanPoint;
+}
+
+export default {
+  mean,
+  distance
 }

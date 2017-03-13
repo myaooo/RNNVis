@@ -40,8 +40,8 @@
         var words = ['Hello', 'world', 'normally', 'you', 'want', 'more',
           'words', 'than', 'this', 'he', 'is', 'she', 'they', 'what', 'million',
           'it', '$', '<unk>', 'good', 'i', 'by', 'for', 'to', 'year']
-          .map(function (d) {
-            return { text: d, size: 5 + Math.random() * 30, type: 0 + Math.round(Math.random()) };
+          .map(function (d, i) {
+            return { text: d, size: 7 + Math.random()*16, type: 0 + Math.round(Math.random()) };
           });
         //This method tells the word cloud to redraw with a new set of words.
         //In reality the new words would probably come from a server request,
@@ -54,11 +54,11 @@
         }
 
         //Create a new instance of the word cloud visualisation.
-        var myWordCloud = new WordCloud(d3.select(`#${this.svgId}`), 200, 150).translate(200,200);
+        var myWordCloud = new WordCloud(d3.select(`#${this.svgId}`), 120, 200).translate(200,200);
         myWordCloud.update(words);
 
         //Start cycling through the demo data
-        showNewWords(myWordCloud);
+        // showNewWords(myWordCloud);
         // myWordCloud.update(words);
       },
       draw() {
@@ -159,20 +159,20 @@
         const svg = d3.select(`#${this.svgId}`)
           .attr('width', width)
           .attr('height', height);
-        
+
         let data = [
           { start: 0, end: 2 * Math.PI / 8},
           { start: 2 * Math.PI / 8, end: 2 * Math.PI / 2},
           { start: 2 * Math.PI / 2, end: 2 * Math.PI},
         ];
-        
+
         let g = svg.append('g')
           .attr('transform', 'translate(' + width / 2 + ',' + height / 2 + ')');
         var arc = d3.arc()
           .innerRadius(230)
           .outerRadius(240)
           // .startAngle(0)
-        
+
         data.forEach((d, i) => {
           g.append('path')
           // .attr('transform', 'rotate(' + 180 + ')')
@@ -182,7 +182,7 @@
             // .attr('cent', arc.centroid())
           console.log(arc.centroid({startAngle: d.start, endAngle: d.end}));
         })
-        
+
       }
     },
     mounted() {

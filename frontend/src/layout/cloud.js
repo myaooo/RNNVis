@@ -19,7 +19,7 @@ export class WordCloud{
     this.radiusY = radiusY;
     this._data = [];
     this.cloud = null;  // the handle to all the texts
-    this.font = 'Impact';
+    this.font = 'Arial';
     this.offset = null;
     this.rotateDegree = 0;
     this.margin_ = 0;
@@ -32,6 +32,14 @@ export class WordCloud{
   }
   get height() {
     return (this.radiusX - this.margin_) * 2;
+  }
+  get polygon() {
+    let polygon = [];
+    const len = 4;
+    for (let i = 0; i < len; i++){
+      polygon.push([Math.round(this.radiusX * Math.cos(2 * Math.PI * i / len)), Math.round(this.radiusY * Math.sin(2 * Math.PI * i / len*1.0))]);
+    }
+    return polygon;
   }
   // set the relative translation regarding its mother element
   translate(x, y) {
@@ -89,21 +97,23 @@ export class WordCloud{
     const self = this;
     this.cloud = this.group.selectAll('g text')
       .data(data, function (d) { return d.text; }); // matching key
-    console.log(data);
+    // console.log(data);
     //Entering words
     const texts = this.cloud.enter()
       .append('text')
       .style('font-family', this.font)
       .style('fill', (d, i) => { return self.colorScheme(d.type); })
       .attr('text-anchor', 'middle')
-      // .attr('font-size', 1)
+      .attr('font-size', 1)
       .text(function (d) { return d.text; });
 
 
     texts
+      .transition()
+      .duration(600)
       .style('font-size', function (d) { return d.size + 'px'; })
       .attr('transform', function (d) {
-        return 'translate(' + [d.x, d.y] + ')rotate(' + d.rotate + ')';
+        return 'translate(' + [d.x, d.y] + ')';
       })
       .style('fill-opacity', 1);;
 
@@ -119,21 +129,21 @@ export class WordCloud{
 
     //Exiting words
     this.cloud.exit()
-      // .transition()
-      // .duration(200)
-      // .style('fill-opacity', 1e-6)
-      // .attr('font-size', 1)
+      .transition()
+      .duration(200)
+      .style('fill-opacity', 1e-6)
+      .attr('font-size', 1)
       .remove();
 
     // autoscale
-    setTimeout(() => self.autoscale(bounds), 100);
+    // setTimeout(() => self.autoscale(bounds), 100);
     // this.autoscale();
   }
   autoscale(bounds) {
     // console.log(bounds);
     // console.log(`centerx: ${centerX}, centerY: ${centerY}`);
-    const scaleX = 0.8 * this.width / Math.abs(bounds[0].x - bounds[1].x);
-    const scaleY = 0.8 * this.height / Math.abs(bounds[0].y - bounds[1].y);
+    const scaleX = 0.75 * this.width / Math.abs(bounds[0].x - bounds[1].x);
+    const scaleY = 0.75 * this.height / Math.abs(bounds[0].y - bounds[1].y);
     const scale = Math.min(scaleX, scaleY);
     const centerX = (bounds[1].x + bounds[0].x - this.width) / 2 * scale;
     const centerY = (bounds[1].y + bounds[0].y - this.height) / 2 * scale;
@@ -142,10 +152,15 @@ export class WordCloud{
   update(words) {
     const self = this;
     // console.log(this.width);
-    cloud().size([this.width, this.height])
+    // console.log(this.polygon);
+    // d3.cloud()
+    cloud()
+      .size([this.width, this.height])
+      .canvas(() => { return document.createElement("canvas"); })
       .words(words)
-      .padding(1)
+      .padding(2)
       .rotate(0)
+      // .polygon(this.polygon).d(0.3)
       .font(this.font)
       .fontSize(function (d) { return d.size; })
       .on('end', (words, bounds) => self.draw(words, bounds))
