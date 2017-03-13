@@ -125,13 +125,23 @@ def state_projection():
 def co_cluster():
     model = request.args.get('model', '')
     state_name = request.args.get('state', '')
-    n_cluster = int(request.args.get('n_cluster', 2))
     layer = int(request.args.get('layer', -1))
     top_k = int(request.args.get('top_k', 100))
     mode = request.args.get('mode', 'positive')
     seed = int(request.args.get('seed', 0))
+    method = request.args.get('method', 'cocluster')
+    n_cluster = request.args.get('n_cluster', '2').split(',')
+    n_cluster = [int(e) for e in n_cluster]
+    if method == 'cocluster':
+        if len(n_cluster) > 1:
+            return 'When using cocluster, you can only set n_clsuter to ONE integer', 500
+        n_cluster = n_cluster[0]
+    elif method == 'bicluster':
+        if len(n_cluster) == 1:  # set cluster num of column of the same as the rows
+            n_cluster.append(n_cluster[0])
     try:
-        results = _manager.model_co_cluster(model, state_name, n_cluster, layer, top_k, mode, seed)
+        results = _manager.model_co_cluster(model, state_name, n_cluster, layer, top_k,
+                                            mode=mode, seed=seed, method=method)
         if results is None:
             return 'Cannot find model with name {:s}'.format(model), 404
         return jsonify({'data': results[0],

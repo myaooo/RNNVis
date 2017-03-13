@@ -195,13 +195,15 @@ class ModelManager(object):
         else:
             return None
 
-    def model_co_cluster(self, name, state_name, n_cluster=2, layer=-1, top_k=100, mode='positive', seed=0):
+    def model_co_cluster(self, name, state_name, n_cluster=2, layer=-1, top_k=100,
+                         mode='positive', seed=0, method='cocluster'):
         model = self._get_model(name)
         if model is None:
             return None
         config = self._train_configs[name]
         # layer_num = len(model.cell_list)
-        results = get_co_cluster(config.dataset, model.name, state_name, n_cluster, layer, top_k, mode, seed)
+        results = get_co_cluster(config.dataset, model.name, state_name, n_cluster, layer, top_k,
+                                 mode=mode, seed=seed, method=method)
         strength_mat, row_cluster, col_cluster, word_ids = results
         words = model.get_word_from_id(word_ids)
         return strength_mat.tolist(), row_cluster.tolist(), col_cluster.tolist(), word_ids, words

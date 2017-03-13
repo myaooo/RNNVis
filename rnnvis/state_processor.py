@@ -406,7 +406,8 @@ def tsne_project(data, perplexity, init_dim=50, lr=50, max_iter=1000):
     return _tsne_solver.get_best_solution()
 
 
-def get_co_cluster(data_name, model_name, state_name, n_clusters, layer=-1, top_k=100, mode='positive', seed=0):
+def get_co_cluster(data_name, model_name, state_name, n_clusters, layer=-1, top_k=100,
+                   mode='positive', seed=0, method='cocluster'):
     """
 
     :param data_name:
@@ -416,6 +417,8 @@ def get_co_cluster(data_name, model_name, state_name, n_clusters, layer=-1, top_
     :param layer:
     :param top_k:
     :param mode: 'positive' or 'negative' or 'abs'
+    :param seed: random seed
+    :param method: 'cocluster' or 'bicluster'
     :return:
     """
     strength_list = get_empirical_strength(data_name, model_name, state_name, layer, top_k)
@@ -436,12 +439,19 @@ def get_co_cluster(data_name, model_name, state_name, n_clusters, layer=-1, top_
         data[raw_data <= 0] = np.abs(raw_data[raw_data <= 0])
     elif mode == 'abs':
         data = np.abs(raw_data)
+    elif mode == 'raw':
+        data = raw_data
     else:
         raise ValueError("Unkown mode '{:s}'".format(mode))
     # print(data)
     n_jobs = 1  # parallel num
     random_state = seed
-    row_labels, col_labels = spectral_co_cluster(data, n_clusters, n_jobs, random_state)
+    if method == 'cocluster':
+        row_labels, col_labels = spectral_co_cluster(data, n_clusters, n_jobs, random_state)
+    elif method == 'bicluster':
+        row_labels, col_labels = spectral_bi_cluster(data, n_clusters, n_jobs, random_state)
+    else:
+        raise ValueError('Unknown method type {:s}, should be cocluster or bicluster!'.format(method))
     return raw_data, row_labels, col_labels, word_ids
 
 
@@ -451,9 +461,17 @@ def spectral_co_cluster(data, n_clusters, para_jobs=1, random_state=None):
     model.fit(data)
     row_labels = model.row_labels_
     col_labels = model.column_labels_
-    # sort the mat acoording to the labels
-    # fit_data = data[np.argsort(model.row_labels_)]
-    # fit_data = fit_data[:, np.argsort(model.column_labels_)]
+    return row_labels, col_labels
+
+
+def spectral_bi_cluster(data, n_clusters, para_jobs=1, random_state=None):
+    from sklearn.cluster.bicluster import SpectralBiclustering
+    assert len(n_clusters) == 2, "n_cluster should be a tuple or list that contains 2 integer!"
+    model = SpectralBiclustering(n_clusters, random_state=random_state, n_jobs=para_jobs,
+                                 method='bistochastic', n_best=20, n_components=40)
+    model.fit(data)
+    row_labels = model.row_labels_
+    col_labels = model.column_labels_
     return row_labels, col_labels
 
 ##############
