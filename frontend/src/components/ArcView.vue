@@ -306,6 +306,46 @@ class ForceDirectedGraph{
         .style('opacity', (d) => {return this.normal_opacity_line;})
         .style('stroke', (d) => {return self.color(0)});
     
+    let line = d3.line()
+      .curve(d3.curveBundle.beta(0.5))
+      .x((d) => {return d.x})
+      .y((d) => {return d.y})
+    
+    let lines_data = [];
+    self.graph.links.forEach((l) => {
+      lines_data.push([l.source, l.target]);
+    });
+
+    console.log(line(lines_data[0]));
+    
+    // console.log(line(self.graph.links));
+    // console.log("hi");
+    
+
+    // this.graph.links.forEach( (l) => {
+    //   console.log(`bundle line : ${line(l)}`)
+    // })
+    // let g_path = this.svg.append('g');
+    // this.graph.links.forEach( (l) => {
+    //   g_path.append('path')
+    //     .datum(l)
+    //     .each(()
+    //     .attr('d', line)
+    //     .attr('stroke', 'green')
+    //     .attr('stroke-width', 3)
+    //     .attr('fill', 'orange')
+    // })
+    let path = this.svg.append('g')
+      .selectAll('path')
+      .data(lines_data)
+      .enter()
+      .append('path')
+      .attr('d', line)
+      .attr('stroke', 'green')
+      .attr('stroke-width', 3)
+      .attr('fill', 'orange')
+    
+    
     this.links.each(function(d) {
       d['el'] = this;
     });
@@ -384,6 +424,10 @@ class ForceDirectedGraph{
     self.graph.label2inner.forEach((d) => {
       d['el_wc'].attr('transform', 'translate(' + d.x + ',' + d.y + ')');
     });
+
+    
+
+    
     // self.innerNodes
     //   .attr('x', function (d) {return d.x; })
     //   .attr('y', function (d) {return d.y; })
