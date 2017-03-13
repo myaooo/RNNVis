@@ -1,0 +1,87 @@
+<!doctype html>
+<html>
+<head>
+    <title>cloud</title>
+</head>
+<body>
+</body>
+<script src="https://d3js.org/d3.v4.js"></script>
+<script src="cloud.js"></script>
+<script>
+    const height = 400;
+    const width = 300;
+    var words = "The layout algorithm for positioning words without overlap is available on GitHub under an open source license".split(' ')
+        .map(d => ({
+            word: d,
+            weight: ~~(Math.random() * 100),
+        }));
+    
+    var svg = d3.select('body').append('svg')
+        .attr('height', height)
+        .attr('width', width);
+    var cloud = svg.append('g').attr('class', 'cloud');
+
+    var fontSize = d3.scaleLinear()
+        .range([30, 13])
+        .domain([
+            d3.max(words, function(d){ return d.weight; }),
+            d3.min(words, function(d){ return d.weight; })
+        ]
+    );
+
+    words = words.slice(0, 20);
+
+    var polygon = [[0, 0], [0, height], [width, height], [width, 0]];
+    
+    var layout = d3.cloud()
+        .size([width, height])
+        .words(words.map(function(d) {
+            return {text: d.word, size: fontSize(d.weight)};
+        }));
+
+    layout
+        .polygon(polygon)
+        .font("Arial")
+        .d(0.3)
+        .fontSize(function(d) { return d.size; })
+        .fontWeight(100)
+        .on("end", draw);
+
+    layout.start();
+
+    function draw(words) {
+        console.log(words);
+        words = words.filter(function(d){
+            return d.x > 10 && d.y > 10;
+        });
+
+        cloud.selectAll(".cloud")
+            .data(words)
+            .enter().append("text")
+            .attr("class", "cloud")
+            .style("font-size", function(d) { return d.size + "px"; })
+            .style("font-weight", function(d){ return d.weight; })
+            .style("font-family", function(d){ return d.font; })
+            .style("fill", 'steelblue')
+            .text(function(d) { return d.text; });
+
+        cloud.selectAll(".cloud")
+            .data(words)
+            .transition().duration(400)
+            .attr("class", "cloud")
+            .style("font-size", function(d) { return d.size + "px"; })
+            .style("font-family", function(d){ return d.font; })
+            .style("fill", 'steelblue')
+            .attr("transform", function(d) {
+                return "translate(" + [d.x, d.y + d.size] + ")";
+            })
+            .text(function(d) { return d.text; });
+
+        cloud.selectAll(".cloud")
+            .data(words)
+            .exit().transition().duration(400)
+            .style("font-size", "0px")
+            .text(function(d) { return d.text; });
+    }
+</script>
+</html>

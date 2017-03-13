@@ -2,6 +2,16 @@
     if (typeof define == "function" && define.amd) define(["d3"], cloud);
     else cloud(this.d3);
 
+    var dispatch = d3.dispatch;
+
+    function functor(_) {
+        if (typeof _ === "function") {
+            return _;
+        } else {
+            return () => _;
+        }
+    }
+
     function cloud(d3) {
 
         d3.cloud = function cloud() {
@@ -15,7 +25,7 @@
                 words = [],
                 centroid = [0, 0],
                 timeInterval = Infinity,
-                event = d3.dispatch(cloud, "word", "end"),
+                event = dispatch("end"),
                 timer = null,
                 polygon = [],
                 d = 0.3,
@@ -34,7 +44,7 @@
                         return d;
                     }).sort(function(a, b) { return b.size - a.size; });
 
-                centroid = polygon.centroid();
+                centroid = d3.polygonCentroid(polygon);
                 var n = polygon.length;
 
                 var edge = [];
@@ -279,13 +289,13 @@
                         x = data[i].x; y = data[i].y; w = data[i].w; h = data[i].size;
                         //if (data[i].text == "internet") console.log([x, y], [x + w, y + h], rect);
                         addRect([x, y], [x + w, y + h]);
-                        console.log(data[i].text, [x, y], [x + w, y + h], w, h);
                     }
                     if (i >= n) {
                         cloud.stop();
 //                        console.log("END");
 //                        console.log(data);
-                        event.end(data);
+                        console.log(data);
+                        event.call("end", cloud, data);
                     }
                 }
             };
@@ -311,7 +321,7 @@
             };
 
             cloud.font = function(_) {
-                return arguments.length ? (font = d3.functor(_), cloud) : font;
+                return arguments.length ? (font = functor(_), cloud) : font;
             };
 
             cloud.d = function(_) {
@@ -319,27 +329,27 @@
             };
 
             cloud.fontStyle = function(_) {
-                return arguments.length ? (fontStyle = d3.functor(_), cloud) : fontStyle;
+                return arguments.length ? (fontStyle = functor(_), cloud) : fontStyle;
             };
 
             cloud.fontWeight = function(_) {
-                return arguments.length ? (fontWeight = d3.functor(_), cloud) : fontWeight;
+                return arguments.length ? (fontWeight = functor(_), cloud) : fontWeight;
             };
 
             cloud.polygon = function(_) {
-                return arguments.length ? (polygon = d3.geom.polygon(_), cloud) : polygon;
+                return arguments.length ? (polygon = _, cloud) : polygon;
             };
 
             cloud.text = function(_) {
-                return arguments.length ? (text = d3.functor(_), cloud) : text;
+                return arguments.length ? (text = functor(_), cloud) : text;
             };
 
             cloud.fontSize = function(_) {
-                return arguments.length ? (fontSize = d3.functor(_), cloud) : fontSize;
+                return arguments.length ? (fontSize = functor(_), cloud) : fontSize;
             };
 
             cloud.padding = function(_) {
-                return arguments.length ? (padding = d3.functor(_), cloud) : padding;
+                return arguments.length ? (padding = functor(_), cloud) : padding;
             };
 
             cloud.on = function() {
