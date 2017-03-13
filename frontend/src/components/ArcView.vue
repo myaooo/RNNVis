@@ -134,7 +134,7 @@
               const cell_type = config.model.cell_type;
               if (cell2states.hasOwnProperty(cell_type)){
                 this.states = cell2states[cell_type]
-                console.log(this.states);
+                // console.log(this.states);
               }
             });
         });
@@ -150,6 +150,7 @@ class ForceDirectedGraph{
     this.arcNodes = null;
     this.innerNodes = null;
     this.links = null;
+    this.word_clouds = [];
     this.simulation = null;
     this.strengthfn = strengthfn || (v => {return v; });
     this.graph = null;
@@ -248,8 +249,8 @@ class ForceDirectedGraph{
 
   strength_normalize(links, range) {
     let strength_extent = d3.extent(links.map( (l) => {return l.strength; }));
-    console.log(strength_extent);
-    console.log(range);
+    // console.log(strength_extent);
+    // console.log(range);
     let scale = d3.scaleLinear()
         .domain(strength_extent)
         .range(range);
@@ -314,8 +315,9 @@ class ForceDirectedGraph{
       let words = d.data.map((w) => {
         return { text: w.word, size: 20 - w.index}
       });
-      console.log(words);
+      // console.log(words);
       d['el_wc'] = this.svg.append('g');
+      self.word_clouds.push(d['el_wc']);
       let myWordCloud = new WordCloud(d['el_wc'], 50);
       myWordCloud.update(words);
     });
@@ -393,6 +395,7 @@ class ForceDirectedGraph{
       this.simulation.nodes([]);
       this.simulation.force("link").links([]);
       this.links.remove();
+      this.word_clouds.forEach((d) => {d.remove()});
       // this.innerNodes.remove();
       // this.arcNodes.remove();
     }

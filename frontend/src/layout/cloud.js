@@ -86,20 +86,20 @@ export class WordCloud{
     const self = this;
     this.cloud = this.group.selectAll('g text')
       .data(data, function (d) { return d.text; }); // matching key
-    // console.log(data);
+    console.log(data);
     //Entering words
     this.cloud.enter()
       .append('text')
       .style('font-family', this.font)
       .style('fill', (d, i) => { return self.colorScheme(d.type); })
       .attr('text-anchor', 'middle')
-      .attr('font-size', 1)
+      // .attr('font-size', 1)
       .text(function (d) { return d.text; });
 
     //Entering and existing words
     this.cloud
-      .transition()
-      .duration(600)
+      // .transition()
+      // .duration(600)
       .style('font-size', function (d) { return d.size + 'px'; })
       .attr('transform', function (d) {
         return 'translate(' + [d.x, d.y] + ')rotate(' + d.rotate + ')';
