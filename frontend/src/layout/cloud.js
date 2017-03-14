@@ -1,7 +1,7 @@
 import * as d3 from 'd3';
-import cloud from 'd3-cloud';
+// import cloud from 'd3-cloud';
 // console.log(d3);
-// var cloud = require('./d3.cloud.js');
+var cloud = require('./d3.cloud.js');
 // console.log('haha');
 
 export class WordCloud{
@@ -19,7 +19,7 @@ export class WordCloud{
     this.radiusY = radiusY;
     this._data = [];
     this.cloud = null;  // the handle to all the texts
-    this.font = 'Arial';
+    this.font = 'Impact';
     this.offset = null;
     this.rotateDegree = 0;
     this.margin_ = 0;
@@ -31,13 +31,15 @@ export class WordCloud{
     return (this.radiusX - this.margin_) * 2;
   }
   get height() {
-    return (this.radiusX - this.margin_) * 2;
+    return (this.radiusY - this.margin_) * 2;
   }
   get polygon() {
     let polygon = [];
     const len = 4;
     for (let i = 0; i < len; i++){
-      polygon.push([Math.round(this.radiusX * Math.cos(2 * Math.PI * i / len)), Math.round(this.radiusY * Math.sin(2 * Math.PI * i / len*1.0))]);
+      polygon.push([
+        Math.round(this.radiusX * Math.cos(2 * Math.PI * i / len)),
+        Math.round(this.radiusY * Math.sin(2 * Math.PI * i / len))]);
     }
     return polygon;
   }
@@ -113,19 +115,9 @@ export class WordCloud{
       .duration(600)
       .style('font-size', function (d) { return d.size + 'px'; })
       .attr('transform', function (d) {
-        return 'translate(' + [d.x, d.y] + ')';
+        return 'translate(' + [d.x, d.y+d.size] + ')';
       })
       .style('fill-opacity', 1);;
-
-    //Entering and existing words
-    // this.cloud
-    //   // .transition()
-    //   // .duration(600)
-    //   .style('font-size', function (d) { return d.size + 'px'; })
-    //   .attr('transform', function (d) {
-    //     return 'translate(' + [d.x, d.y] + ')rotate(' + d.rotate + ')';
-    //   })
-    //   .style('fill-opacity', 1);
 
     //Exiting words
     this.cloud.exit()
@@ -139,6 +131,29 @@ export class WordCloud{
     // setTimeout(() => self.autoscale(bounds), 100);
     // this.autoscale();
   }
+  update(words) {
+    const self = this;
+
+    words.sort((a, b) => {return a.size - b.size; });
+    const scale = d3.scalePow()
+      .range([this.width / 30, this.width / 10])
+      .domain(d3.extent(words, (d) => d.size));
+    d3.cloud()
+    // cloud()
+      .size([this.width, this.height])
+      // .canvas(() => { return document.createElement("canvas"); })
+      .words(words)
+      .padding(2)
+      // .rotate(0)
+      .polygon(this.polygon)
+      .d(0.3)
+      .font(this.font)
+      .text(d => d.text)
+      .fontSize(d => scale(d.size))
+      .on('end', (words, bounds) => self.draw(words, bounds))
+      .start();
+    // return this
+  }
   autoscale(bounds) {
     // console.log(bounds);
     // console.log(`centerx: ${centerX}, centerY: ${centerY}`);
@@ -148,24 +163,6 @@ export class WordCloud{
     const centerX = (bounds[1].x + bounds[0].x - this.width) / 2 * scale;
     const centerY = (bounds[1].y + bounds[0].y - this.height) / 2 * scale;
     this.group.attr('transform', `scale(${scale}) translate(${-centerX}, ${-centerY})`);
-  }
-  update(words) {
-    const self = this;
-    // console.log(this.width);
-    // console.log(this.polygon);
-    // d3.cloud()
-    cloud()
-      .size([this.width, this.height])
-      .canvas(() => { return document.createElement("canvas"); })
-      .words(words)
-      .padding(2)
-      .rotate(0)
-      // .polygon(this.polygon).d(0.3)
-      .font(this.font)
-      .fontSize(function (d) { return d.size; })
-      .on('end', (words, bounds) => self.draw(words, bounds))
-      .start();
-    // return this
   }
 }
 

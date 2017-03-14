@@ -41,7 +41,7 @@
           'words', 'than', 'this', 'he', 'is', 'she', 'they', 'what', 'million',
           'it', '$', '<unk>', 'good', 'i', 'by', 'for', 'to', 'year']
           .map(function (d, i) {
-            return { text: d, size: 7 + Math.random()*16, type: 0 + Math.round(Math.random()) };
+            return { text: d, size: 10 + Math.random()*25, type: 0 + Math.round(Math.random()) };
           });
         //This method tells the word cloud to redraw with a new set of words.
         //In reality the new words would probably come from a server request,
@@ -54,7 +54,7 @@
         }
 
         //Create a new instance of the word cloud visualisation.
-        var myWordCloud = new WordCloud(d3.select(`#${this.svgId}`), 120, 200).translate(200,200);
+        var myWordCloud = new WordCloud(d3.select(`#${this.svgId}`), 150, 200).translate(200,200);
         myWordCloud.update(words);
 
         //Start cycling through the demo data

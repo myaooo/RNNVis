@@ -207,8 +207,8 @@
       this.simulation = d3.forceSimulation().alpha(this.params.defaultAlpha)
         .force("link", d3.forceLink() //.iterations(4)
           .id((d) => { return d.id; })
-          .distance((l) => { return l.type < 0 ? this.params.farDistance : 5; })
-          .strength((d) => { return d.strength }))
+          .distance((l) => { return l.strength*200; })
+          .strength(1)) //(d) => { return d.strength }))
         .force("collide", collideForce)
         .force("charge", repelForce);
     }
