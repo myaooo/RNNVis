@@ -93,29 +93,39 @@
     }
     draw(coCluster) {
 
+      this.hg.attr('transform', 'translate(' + [200, 0] + ')');
       const clusterHeight = this.params.clusterHeight;
       const packNum = this.params.packNum;
       const unitHeight = this.params.unitHeight;
       const unitWidth = this.params.unitWidth;
       const unitMargin = this.params.unitMargin;
       const clusterInterval = this.params.clusterInterval;
+      console.log(coCluster.colClusters);
+
       const hiddenClusters = this.hg.selectAll('g rect')
-        .data(coCluster.colClusters)
+        .data(coCluster.colClusters, (clst, i) => Array.isArray(clst) ? (String(clst.length) + String(i)) : this.id); // matching function
+
+      // hiddenClusters.exit().remove();
 
       const hGroups = hiddenClusters.enter()
         .append('g')
+        .attr('id', (clst, i) => (String(clst.length) + String(i)));
+      hGroups.transition()
+        .duration(400)
         .attr('transform', (clst, i) => {
           const width = Math.ceil(clst.length / packNum) * (unitWidth + unitMargin) + unitMargin;
           return 'translate(' + [-width / 2, i * (clusterHeight + clusterInterval)] +')';
         });
 
       hGroups.append('rect')
+        .classed('hidden-cluster', true)
+        .transition()
+        .duration(400)
         .attr('width', (clst) => {
           return Math.ceil(clst.length / packNum) * (unitWidth + unitMargin) + unitMargin;
         })
-        .attr('height', clusterHeight)
+        .attr('height', clusterHeight);
         // .attr('x')
-        .classed('hidden-cluster', true);
 
       const units = hGroups.append('g')
         .selectAll('rect')
@@ -124,6 +134,8 @@
       // const unitWidth = clusterWidth - 1
       units.enter()
         .append('rect')
+        .transition()
+        .duration(400)
         .attr('width', unitWidth)
         .attr('height', unitHeight)
         .attr('transform', (u, j) => {
@@ -131,6 +143,14 @@
         })
         .attr('fill', 'steelblue')
         .attr('fill-opacity', 0.5);
+
+      units.exit()
+        .transition()
+        .duration(400)
+        .style('fill-opacity', 1e-6)
+        .attr('width', 1)
+        .attr('height', 1)
+        .remove();
 
       hiddenClusters.exit()
         .transition()
@@ -140,7 +160,7 @@
         .attr('height', 1)
         .remove();
 
-      this.hg.attr('transform', 'translate(' + [200, 0] + ')')
+
     }
   }
 
