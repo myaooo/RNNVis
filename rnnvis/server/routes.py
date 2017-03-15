@@ -43,22 +43,22 @@ def model_evaluate():
         # print('entering post')
         data = request.json
         model = data['model']
-        state_name = data['state']
+        # state_name = data['state']
         text = data['text']
         print(text)
-        try:
-            layer = int(request.form['layer'])  # default to -1
-        except:
-            layer = -1
+
         result = _manager.model_evaluate_sequence(model, text)
         if result is None:
             return 'Cannot find model with name {:s}'.format(model), 404
         tokens, records = result
-        try:
-            records = [[record[state_name][layer].tolist() for record in sublist] for sublist in records]
-            return jsonify({'tokens': tokens, 'records': records})
-        except:
-            return 'Model with name {:s} contains no state: {:s}'.format(model, state_name), 404
+        # records = [[record[state_name][layer].tolist() for record in sublist] for sublist in records]
+        records = [[{state_name: state_record.tolist()
+                     for state_name, state_record in record.items()
+                     if state_name == 'state' or state_name == 'state_c' or state_name == 'state_h'}
+                    for record in sublist] for sublist in records]
+        return jsonify({'tokens': tokens, 'records': records})
+        # except:
+        #     return 'Model with name {:s} contains no state: {:s}'.format(model), 404
     return "Not Found", 404
 
 

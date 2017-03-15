@@ -71,12 +71,11 @@ let getModelConfig = function (model, callback) {
   });
 }
 
-let getTextEvaluation = function (model, state, layer, text, callback) {
-  // layer: -1
-  layer = layer || -1;
+let getTextEvaluation = function (model, text, callback) {
+
   let url = `${devMainUrl}/models/evaluate`;
   // Object.keys(parameters).forEach((p) => { url += `&${p}=${parameters[p]}`; });
-  return $http.post(url, { model: model, state: state, layer: layer, text: text }).then(response => {
+  return $http.post(url, { model: model, text: text }).then(response => {
     callback(response);
   }, errResponse => {
     console.log(errResponse);

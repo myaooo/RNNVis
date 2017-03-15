@@ -1,18 +1,25 @@
 <template>
   <div class="arc">
-    <el-tabs v-model="selectedState">
+    <div class="header">
+      <el-radio-group v-model="selectedState" size="small">
+        <el-radio-button v-for="state in states" :label="state"></el-radio-button>
+      </el-radio-group>
+    </div>
+    <svg :id="svgId" :width="width" :height="height"> </svg>
+    <div class="arc_config">
+      <el-col :span="4">
+        <span>Cluster No.</span>
+      </el-col>
+      <el-col :span="6">
+        <el-slider v-model="clusterNum" :min="2" :max="20"></el-slider>
+      </el-col>
+    </div>
+    <!--<el-tabs v-model="selectedState">
       <el-tab-pane v-for="state in states" :label="state" :name="state">
-        <svg :id="paneId(model, state)" :width="width" :height="height"> </svg>
-        <div class="arc_config">
-          <el-col :span="4">
-            <span>Cluster No.</span>
-          </el-col>
-          <el-col :span="6">
-            <el-slider v-model="clusterNum" :min="2" :max="20"></el-slider>
-          </el-col>
-        </div>
+
+
       </el-tab-pane>
-    </el-tabs>
+    </el-tabs>-->
   </div>
 </template>
 
@@ -80,17 +87,19 @@
       },
 
       clusterNum: function (newClusterNum) {
-        if (newClusterNum > 1 && !Object.prototype.hasOwnProperty.call(this.cluster_data, this.clusterNum)) {
-          var p = this.loadClusterData();
-          Promise.resolve(p).then( values => { this.reset() });
-        } else {
-          this.reset();
+        if (newClusterNum > 1) {
+          this.loadClusterData().then( values => { this.reset() });
         }
+      }
+    },
+    computed: {
+      svgId: function() {
+        return this.paneId(this.model, this.selectedState);
       }
     },
     methods: {
       paneId(model, state) {
-        return `${model}--${state}--svg`;
+        return `arc-${model}-${state}-svg`;
       },
       loadStateWordData() {
         let p1 = dataService.getProjectionData(this.model, this.selectedState, {}, response => {
@@ -105,14 +114,13 @@
       },
 
       loadClusterData() {
-        var p = dataService.getCoCluster(this.model, this.selectedState, this.clusterNum, {
-            top_k: this.wordNum,
-            mode: this.cluster_mode,
-            }, response => {
-            this.cluster_data[this.clusterNum] = response.data;
+        return bus.loadCoCluster(this.model, this.selectedState, this.clusterNum,
+          { top_k: this.wordNum, mode: this.cluster_mode, })
+          .then(() => {
+            this.cluster_data = bus.getCoCluster(this.model, this.selectedState, this.clusterNum,
+              { top_k: this.wordNum, mode: this.cluster_mode, });
             console.log(`co_cluster_data ${this.clusterNum} loaded`);
           });
-        return p;
       },
       reset() {
         if (this.fdGraph) {
@@ -120,24 +128,19 @@
         }
         const svg = document.getElementById(this.paneId(this.model, this.selectedState));
         this.fdGraph = new ForceDirectedGraph(svg);
-        this.fdGraph.process_data(this.state_data, this.word_data, this.cluster_data[this.clusterNum], this.cluster_mode);
+        this.fdGraph.process_data(this.state_data, this.word_data, this.cluster_data, this.cluster_mode);
         this.fdGraph.insert_element();
         this.fdGraph.start_simulation();
       },
     },
     mounted() {
-        bus.$on(SELECT_MODEL, (modelName) => {
-            console.log(`Selected model in ArcView: ${modelName}`);
-            this.model = modelName;
-            bus.loadModelConfig(modelName).then( () => {
-              const config = bus.state.modelConfigs[modelName];
-              const cell_type = config.model.cell_type;
-              if (cell2states.hasOwnProperty(cell_type)){
-                this.states = cell2states[cell_type]
-                // console.log(this.states);
-              }
-            });
+      bus.$on(SELECT_MODEL, (modelName) => {
+        console.log(`Selected model in ArcView: ${modelName}`);
+        this.model = modelName;
+        bus.loadModelConfig(modelName).then( () => {
+          this.states = bus.availableStates(modelName);
         });
+      });
     },
 };
 
@@ -184,27 +187,19 @@ class ForceDirectedGraph{
     let circle_radius = 0.9 * Math.min(self.width/2, self.height/2);
     this.cluster_data = cluster_data;
 
-    arc_data.forEach( (d, i) => {
-      if (label2arc[cluster_data.col[i]] === undefined) {
-        label2arc[cluster_data.col[i]] = {data: [], };
-      }
-
-      d.index = i;
-      d.label = cluster_data.col[i];
-      label2arc[cluster_data.col[i]].data.push(d);
-    });
-
-    inner_data.forEach( (d, i) => {
-      if (label2inner[cluster_data.row[i]] === undefined) {
-        label2inner[cluster_data.row[i]] = {data: [], };
-      }
-      d.index = i;
-      d.label = cluster_data.row[i];
-      label2inner[cluster_data.row[i]].data.push(d);
-    });
-
+    label2arc = cluster_data.colClusters.map((cluster, i) => {
+      return { data: cluster.map((col) => {
+        return { index: col, label: i };
+      }) };
+    })
+    label2inner = cluster_data.rowClusters.map((cluster, i) => {
+      return {data: cluster.map((row) => {
+        return { index: row, label: i, word: cluster_data.words[row] };
+      })};
+    })
     // compute links data and inner data
     let links = [];
+    console.log(cluster_data);
     Object.keys(label2inner).forEach( (inner_k) => {
       label2inner[inner_k]['type'] = 'inner';
       Object.keys(label2arc).forEach( (arc_k) => {
@@ -213,7 +208,7 @@ class ForceDirectedGraph{
         let cluster_strength = 0;
         label2inner[inner_k]['data'].forEach((inner_item) => {
           label2arc[arc_k]['data'].forEach((arc_item) => {
-            let strength_item = cluster_data['data'][inner_item.index][arc_item.index];
+            let strength_item = cluster_data.correlation[inner_item.index][arc_item.index];
             switch(cluster_mode) {
               case 'positive':
                 cluster_strength += strength_item > 0 ? strength_item : 0;
@@ -223,6 +218,9 @@ class ForceDirectedGraph{
                 break;
               case 'abs':
                 cluster_strength += Math.abs(strength_item);
+                break;
+              case 'raw':
+                cluster_strength += strength_item;
                 break;
             }
           });
@@ -256,6 +254,8 @@ class ForceDirectedGraph{
 
   strength_normalize(links, range) {
     let strength_extent = d3.extent(links.map( (l) => {return l.strength; }));
+    console.log(strength_extent);
+    // console.log(range);
     let scale = d3.scaleLinear()
         .domain(strength_extent)
         .range(range);
@@ -350,7 +350,7 @@ class ForceDirectedGraph{
     let words_list = [];
     self.graph.label2inner.forEach((d) => {
       let words = d.data.map((w) => {
-        return { text: w.word, size: (300 - w.index) / 20}
+        return { text: w.word, size: (300 - w.index) / 15}
       });
       const radius = Math.sqrt(words.length) * 10 + 1;
       // console.log(words);
@@ -401,8 +401,8 @@ class ForceDirectedGraph{
     }
     this.simulation = d3.forceSimulation().alpha(this.defaultAlpha)
         .force('link', d3.forceLink()
-          .distance(function(d) {return d.strength > 0 ? 50 : 300; })
-          .strength(function (d) {return Math.abs(d.strength); }))
+          .distance(function(d) {return d.strength > 0 ? 50 / d.strength : 300; })
+          .strength(function (d) {return 1; }))
         .force('repel', repelForce)
     this.simulation
       .nodes(self.graph.nodes)

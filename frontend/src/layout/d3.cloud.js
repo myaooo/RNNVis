@@ -1,9 +1,19 @@
 (function () {
-  console.log('requiring d3.cloud.js');
   if (typeof define == "function" && define.amd) define(["d3"], cloud);
   else cloud(this.d3);
 
+
+
+  function functor(_) {
+    if (typeof _ === "function") {
+      return _;
+    } else {
+      return () => _;
+    }
+  }
+
   function cloud(d3) {
+    var dispatch = d3.dispatch;
 
     d3.cloud = function cloud() {
       var size = [256, 256],
@@ -16,7 +26,7 @@
         words = [],
         centroid = [0, 0],
         timeInterval = Infinity,
-        event = d3.dispatch("word", "end"),
+        event = dispatch("end"),
         timer = null,
         polygon = [],
         d = 0.3,
@@ -35,7 +45,7 @@
             return d;
           }).sort(function (a, b) { return b.size - a.size; });
 
-        centroid = polygon.centroid();
+        centroid = d3.polygonCentroid(polygon);
         var n = polygon.length;
 
         var edge = [];
@@ -253,7 +263,7 @@
                                                           mid += d0;*/
 
 
-                  console.log(l);
+                  // console.log(l);
                   if (flag == 1 && Math.abs(centroid[0] - data[i].x) > Math.abs(centroid[0] - mid)) {
                     data[i].x = mid - w / 2;
                     data[i].y = l - h / 2;
@@ -279,14 +289,17 @@
             x = data[i].x; y = data[i].y; w = data[i].w; h = data[i].size;
             //if (data[i].text == "internet") console.log([x, y], [x + w, y + h], rect);
             addRect([x, y], [x + w, y + h]);
+<<<<<<< HEAD
             // console.log(data[i].text, [x, y], [x + w, y + h], w, h);
+=======
+>>>>>>> dev
           }
           if (i >= n) {
             cloud.stop();
-            // console.log("END");
+            //                        console.log("END");
+            //                        console.log(data);
             // console.log(data);
-            // event.end(data);
-            event.call("end");
+            event.call("end", cloud, data);
           }
         }
       };
@@ -312,7 +325,7 @@
       };
 
       cloud.font = function (_) {
-        return arguments.length ? (font = d3.functor(_), cloud) : font;
+        return arguments.length ? (font = functor(_), cloud) : font;
       };
 
       cloud.d = function (_) {
@@ -320,31 +333,35 @@
       };
 
       cloud.fontStyle = function (_) {
-        return arguments.length ? (fontStyle = d3.functor(_), cloud) : fontStyle;
+        return arguments.length ? (fontStyle = functor(_), cloud) : fontStyle;
       };
 
       cloud.fontWeight = function (_) {
-        return arguments.length ? (fontWeight = d3.functor(_), cloud) : fontWeight;
+        return arguments.length ? (fontWeight = functor(_), cloud) : fontWeight;
       };
 
       cloud.polygon = function (_) {
-        return arguments.length ? (polygon = d3.geom.polygon(_), cloud) : polygon;
+        return arguments.length ? (polygon = _, cloud) : polygon;
       };
 
       cloud.text = function (_) {
-        return arguments.length ? (text = d3.functor(_), cloud) : text;
+        return arguments.length ? (text = functor(_), cloud) : text;
       };
 
       cloud.fontSize = function (_) {
-        return arguments.length ? (fontSize = d3.functor(_), cloud) : fontSize;
+        return arguments.length ? (fontSize = functor(_), cloud) : fontSize;
       };
 
       cloud.padding = function (_) {
-        return arguments.length ? (padding = d3.functor(_), cloud) : padding;
+        return arguments.length ? (padding = functor(_), cloud) : padding;
       };
 
+      cloud.on = function () {
+        var value = event.on.apply(event, arguments);
+        return value === event ? cloud : value;
+      }
+
       return cloud;
-      // return d3.rebind(cloud, event, "on");
     };
 
     function lineFunctor(p, q) {

@@ -31,7 +31,17 @@ export class WordCloud{
     return (this.radiusX - this.margin_) * 2;
   }
   get height() {
-    return (this.radiusX - this.margin_) * 2;
+    return (this.radiusY - this.margin_) * 2;
+  }
+  get polygon() {
+    let polygon = [];
+    const len = 4;
+    for (let i = 0; i < len; i++){
+      polygon.push([
+        Math.round(this.radiusX * Math.cos(2 * Math.PI * i / len)),
+        Math.round(this.radiusY * Math.sin(2 * Math.PI * i / len))]);
+    }
+    return polygon;
   }
   // set the relative translation regarding its mother element
   translate(x, y) {
@@ -96,61 +106,62 @@ export class WordCloud{
       .style('font-family', this.font)
       .style('fill', (d, i) => { return self.colorScheme(d.type); })
       .attr('text-anchor', 'middle')
-      // .attr('font-size', 1)
+      .attr('font-size', 1)
       .text(function (d) { return d.text; });
 
 
     texts
+      .transition()
+      .duration(600)
       .style('font-size', function (d) { return d.size + 'px'; })
       .attr('transform', function (d) {
-        return 'translate(' + [d.x, d.y] + ')rotate(' + d.rotate + ')';
+        return 'translate(' + [d.x, d.y+d.size] + ')';
       })
       .style('fill-opacity', 1);;
 
-    //Entering and existing words
-    // this.cloud
-    //   // .transition()
-    //   // .duration(600)
-    //   .style('font-size', function (d) { return d.size + 'px'; })
-    //   .attr('transform', function (d) {
-    //     return 'translate(' + [d.x, d.y] + ')rotate(' + d.rotate + ')';
-    //   })
-    //   .style('fill-opacity', 1);
-
     //Exiting words
     this.cloud.exit()
-      // .transition()
-      // .duration(200)
-      // .style('fill-opacity', 1e-6)
-      // .attr('font-size', 1)
+      .transition()
+      .duration(200)
+      .style('fill-opacity', 1e-6)
+      .attr('font-size', 1)
       .remove();
 
     // autoscale
     setTimeout(() => self.autoscale(bounds), 100);
-    // this.autoscale();
+  }
+  update(words) {
+    const self = this;
+
+    words.sort((a, b) => {return a.size - b.size; });
+    const scale = d3.scalePow()
+      .range([this.width / 30, this.width / 10])
+      .domain(d3.extent(words, (d) => d.size));
+    // d3.cloud()
+    cloud()
+      .size([this.width, this.height])
+      // .canvas(() => { return document.createElement("canvas"); })
+      .words(words)
+      .padding(1)
+      .rotate(0)
+      // .polygon(this.polygon)
+      // .d(0.3)
+      .font(this.font)
+      .text(d => d.text)
+      .fontSize(d => scale(d.size))
+      .on('end', (words, bounds) => self.draw(words, bounds))
+      .start();
+    // return this
   }
   autoscale(bounds) {
     // console.log(bounds);
     // console.log(`centerx: ${centerX}, centerY: ${centerY}`);
-    const scaleX = 0.8 * this.width / Math.abs(bounds[0].x - bounds[1].x);
-    const scaleY = 0.8 * this.height / Math.abs(bounds[0].y - bounds[1].y);
+    const scaleX = 0.9 * this.width / Math.abs(bounds[0].x - bounds[1].x);
+    const scaleY = 0.9 * this.height / Math.abs(bounds[0].y - bounds[1].y);
     const scale = Math.min(scaleX, scaleY);
     const centerX = (bounds[1].x + bounds[0].x - this.width) / 2 * scale;
     const centerY = (bounds[1].y + bounds[0].y - this.height) / 2 * scale;
     this.group.attr('transform', `scale(${scale}) translate(${-centerX}, ${-centerY})`);
-  }
-  update(words) {
-    const self = this;
-    // console.log(this.width);
-    cloud().size([this.width, this.height])
-      .words(words)
-      .padding(1)
-      .rotate(0)
-      .font(this.font)
-      .fontSize(function (d) { return d.size; })
-      .on('end', (words, bounds) => self.draw(words, bounds))
-      .start();
-    // return this
   }
 }
 
