@@ -7,7 +7,7 @@
       <arc-view> </arc-view>
     </el-tab-pane>
     <el-tab-pane label="Test" name="test">
-      <test-view> </test-view>
+      <cluster-view> </cluster-view>
     </el-tab-pane>
     <!--<el-tab-pane label="Role" name="third">Role</el-tab-pane>
     <el-tab-pane label="Task" name="fourth">Task</el-tab-pane>-->
@@ -18,6 +18,7 @@
   import ProjectView from 'components/ProjectView';
   import TestView from 'components/TestView';
   import ArcView from 'components/ArcView';
+  import ClusterView from 'components/ClusterView';
 
   export default {
     name: "MainView",
@@ -36,6 +37,7 @@
       ProjectView,
       TestView,
       ArcView,
+      ClusterView,
     }
   };
 </script>

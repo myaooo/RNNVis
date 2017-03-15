@@ -353,7 +353,7 @@ class ForceDirectedGraph{
     let words_list = [];
     self.graph.label2inner.forEach((d) => {
       let words = d.data.map((w) => {
-        return { text: w.word, size: (300 - w.index) / 20}
+        return { text: w.word, size: (300 - w.index) / 15}
       });
       const radius = Math.sqrt(words.length) * 10 + 1;
       console.log(words);

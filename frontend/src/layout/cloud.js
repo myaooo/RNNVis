@@ -1,7 +1,7 @@
 import * as d3 from 'd3';
-// import cloud from 'd3-cloud';
+import cloud from 'd3-cloud';
 // console.log(d3);
-var cloud = require('./d3.cloud.js');
+// var cloud = require('./d3.cloud.js');
 // console.log('haha');
 
 export class WordCloud{
@@ -128,8 +128,7 @@ export class WordCloud{
       .remove();
 
     // autoscale
-    // setTimeout(() => self.autoscale(bounds), 100);
-    // this.autoscale();
+    setTimeout(() => self.autoscale(bounds), 100);
   }
   update(words) {
     const self = this;
@@ -138,15 +137,15 @@ export class WordCloud{
     const scale = d3.scalePow()
       .range([this.width / 30, this.width / 10])
       .domain(d3.extent(words, (d) => d.size));
-    d3.cloud()
-    // cloud()
+    // d3.cloud()
+    cloud()
       .size([this.width, this.height])
       // .canvas(() => { return document.createElement("canvas"); })
       .words(words)
-      .padding(2)
-      // .rotate(0)
-      .polygon(this.polygon)
-      .d(0.3)
+      .padding(1)
+      .rotate(0)
+      // .polygon(this.polygon)
+      // .d(0.3)
       .font(this.font)
       .text(d => d.text)
       .fontSize(d => scale(d.size))
@@ -157,8 +156,8 @@ export class WordCloud{
   autoscale(bounds) {
     // console.log(bounds);
     // console.log(`centerx: ${centerX}, centerY: ${centerY}`);
-    const scaleX = 0.75 * this.width / Math.abs(bounds[0].x - bounds[1].x);
-    const scaleY = 0.75 * this.height / Math.abs(bounds[0].y - bounds[1].y);
+    const scaleX = 0.9 * this.width / Math.abs(bounds[0].x - bounds[1].x);
+    const scaleY = 0.9 * this.height / Math.abs(bounds[0].y - bounds[1].y);
     const scale = Math.min(scaleX, scaleY);
     const centerX = (bounds[1].x + bounds[0].x - this.width) / 2 * scale;
     const centerY = (bounds[1].y + bounds[0].y - this.height) / 2 * scale;

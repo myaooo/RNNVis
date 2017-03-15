@@ -23,7 +23,7 @@ const bus = new Vue({
   },
   methods: {
 
-    loadModelConfig(modelName) { // return a Promise
+    loadModelConfig(modelName = this.state.selectedModel) { // return a Promise
       if (!Object.prototype.hasOwnProperty.call(state.modelConfigs, modelName)) {
         return dataService.getModelConfig(modelName, response => {
           if (response.status === 200) {
@@ -64,7 +64,7 @@ const bus = new Vue({
           return 'Succeed';
         });
     },
-    getCoCluster(modelName = this.state.selectedModel, stateName = this.state.selectedState, nCluster = 10, params) {
+    getCoCluster(modelName = this.state.selectedModel, stateName = this.state.selectedState, nCluster = 10, params = { top_k: 300, mode: 'raw' }) {
       const coCluster = new CoClusterProcessor(modelName, stateName, nCluster, params);
       const coClusterName = CoClusterProcessor.identifier(coCluster);
       if (this.state.coClusters.hasOwnProperty(coClusterName))
