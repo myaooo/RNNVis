@@ -20,12 +20,16 @@
   import { bus, SELECT_MODEL } from '../event-bus'
 
   const layoutParams = {
-    lineInterval: 12,
-    clusterHeight: 18,
+    clusterInterval: 12,
     packNum: 3,
+    unitWidth: 4,
+    unitHeight: 4,
+    unitMargin: 1,
+    // clusterHeight: 16,
     // clusterWidth: 2,
   };
-  layoutParams.clusterWidth = layoutParams.clusterHeight / (layoutParams.packNum);
+  layoutParams.clusterHeight = layoutParams.unitHeight*layoutParams.packNum + layoutParams.unitMargin * (layoutParams.packNum + 1);
+  // layoutParams.clusterWidth = layoutParams.clusterHeight / (layoutParams.packNum);
 
   export default {
     name: 'ClustaerView',
@@ -91,20 +95,24 @@
 
       const clusterHeight = this.params.clusterHeight;
       const packNum = this.params.packNum;
-      const unitHeight = ~~(clusterHeight / packNum);
-      const clusterWidth = this.params.clusterWidth;
-      const lineInterval = this.params.lineInterval;
+      const unitHeight = this.params.unitHeight;
+      const unitWidth = this.params.unitWidth;
+      const unitMargin = this.params.unitMargin;
+      const clusterInterval = this.params.clusterInterval;
       const hiddenClusters = this.hg.selectAll('g rect')
         .data(coCluster.colClusters)
 
       const hGroups = hiddenClusters.enter()
         .append('g')
         .attr('transform', (clst, i) => {
-          return 'translate(' + [-clst.length * clusterWidth / 2, i * (clusterHeight + lineInterval)] +')';
+          const width = Math.ceil(clst.length / packNum) * (unitWidth + unitMargin) + unitMargin;
+          return 'translate(' + [-width / 2, i * (clusterHeight + clusterInterval)] +')';
         });
 
       hGroups.append('rect')
-        .attr('width', (clst) => clst.length * clusterWidth)
+        .attr('width', (clst) => {
+          return Math.ceil(clst.length / packNum) * (unitWidth + unitMargin) + unitMargin;
+        })
         .attr('height', clusterHeight)
         // .attr('x')
         .classed('hidden-cluster', true);
@@ -116,11 +124,13 @@
       // const unitWidth = clusterWidth - 1
       units.enter()
         .append('rect')
-        .attr('width', clusterWidth-1)
-        .attr('height', clusterHeight-1)
-        .attr('transform', (u, j, d) => {
-          return 'translate(' + [(d.length - ~~(j/packNum)) * clusterWidth, -j%packNum * unitHeight] + ')';
+        .attr('width', unitWidth)
+        .attr('height', unitHeight)
+        .attr('transform', (u, j) => {
+          return 'translate(' + [(~~(j/packNum)) * (unitMargin + unitWidth) + 1, j%packNum * (unitHeight + unitMargin) + 1] + ')';
         })
+        .attr('fill', 'steelblue')
+        .attr('fill-opacity', 0.5);
 
       hiddenClusters.exit()
         .transition()
