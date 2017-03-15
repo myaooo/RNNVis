@@ -112,7 +112,7 @@
         if(this.records){
           return this.tokens.map((sentence, i) => {
             return sentence.map((token, j) => {
-              return {text: token, value: this.records[i][j][this.selectedDim]};
+              return {text: token, value: this.records[i][j][this.selectedState][this.selectedLayer][this.selectedDim]};
             })
           });
         }
@@ -135,7 +135,7 @@
         const selectedModel = this.shared.selectedModel;
         if(this.inputs === this.oldInputs) return true;
         // const splitted = this.inputs.split('.')
-        dataService.getTextEvaluation(selectedModel, this.selectedState, this.selectedLayer, this.inputs,
+        dataService.getTextEvaluation(selectedModel, this.inputs,
           (response) => {
             const data = response.data;
             this.tokens = data.tokens;

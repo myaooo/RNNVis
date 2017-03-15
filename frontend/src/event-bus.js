@@ -1,14 +1,13 @@
 import Vue from 'vue';
 import dataService from './services/dataService';
 
-const SELECT_MODEL = 'SELECT_MODEL';
-
 const state = {
   selectedModel: null,
   selectedState: null,
   modelConfigs: {},
   coClusters: {},
   availableModels: null,
+  // sentenceRecords: [],
 };
 
 const bus = new Vue({
@@ -108,6 +107,10 @@ const bus = new Vue({
   },
 });
 
+// event definitions goes here
+const SELECT_MODEL = 'SELECT_MODEL';
+
+// register event listener
 bus.$on(SELECT_MODEL, (modelName) => {
   bus.state.selectedModel = modelName;
 });
@@ -185,10 +188,36 @@ class CoClusterProcessor {
 class SentenceRecord{
   constructor(inputs) {
     this.inputs = inputs;
-    this.tokens = null;
+    this.tokens;
+    this.records;
   }
   evaluate(modelName) {
-
+    return dataService.getTextEvaluation(modelName, this.inputs, (response => {
+      if(response.status === 200){
+        const data = response.data;
+        this.tokens = data.tokens;
+        this.records = data.records;
+      }
+    }));
+  }
+  get states() {
+    if (this.records) {
+      this._states = Object.keys(this.records[0][0]);
+    }
+  }
+  get layerNum() {
+    return this.records[0][0][this.states[0]].length;
+  }
+  getRecords(stateName, layer = -1){
+    if (this.records) {
+      layer = layer === -1 ? this.layerNum - 1 : layer;
+      return this.records.forEach((u) => {
+        return u.forEach((v) => {
+          return v[stateName][layer];
+        });
+      });
+    }
+    return undefined;
   }
 }
 
@@ -208,4 +237,5 @@ export {
   bus,
   SELECT_MODEL,
   CoClusterProcessor,
+  SentenceRecord,
 }
