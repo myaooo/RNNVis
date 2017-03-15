@@ -39,7 +39,7 @@
          selectedState: '',
          model: '',
          wordNum: 200,
-         clusterNum: 15,
+         clusterNum: 5,
          cluster_data: {},
          state_data: null,
          word_data: null,
@@ -172,6 +172,7 @@ class ForceDirectedGraph{
     this.strength_range = [0.1, 5];
     this.arc_radius = 0.9 * Math.min(self.width/2, self.height/2);
     this.cluster_data = [];
+    this.g_links = null;
 
     // this.arc_gap_angle = Math.PI / 8;
   }
@@ -232,6 +233,10 @@ class ForceDirectedGraph{
           strength: cluster_strength,
         }
         links.push(link);
+      //   if (label2arc[inner_k].links === undefined) {
+      //     label2arc[inner_k].links = [];
+      //   }
+      //   label2arc[inner_k].links.push(link);
       })
     });
 
@@ -251,8 +256,6 @@ class ForceDirectedGraph{
 
   strength_normalize(links, range) {
     let strength_extent = d3.extent(links.map( (l) => {return l.strength; }));
-    // console.log(strength_extent);
-    // console.log(range);
     let scale = d3.scaleLinear()
         .domain(strength_extent)
         .range(range);
@@ -286,42 +289,34 @@ class ForceDirectedGraph{
         .innerRadius(self.arc_radius - 10)
         .outerRadius(self.arc_radius)
 
-    let arc_datum = d3.pie()(self.graph.label2arc.map((d) => {return d.data.length}));
+    let arc_data = d3.pie()(self.graph.label2arc.map((d) => {return d.data.length}));
 
     self.graph.label2arc.forEach((d, i) => {
       g_arc.append('path')
-        .datum(arc_datum[i])
+        .datum(arc_data[i])
         .style('fill', self.color(i))
         .attr('d', arc)
-      let arc_centroid = arc.centroid(arc_datum[i]);
+      let arc_centroid = arc.centroid(arc_data[i]);
       d.fx = arc_centroid[0] + self.width / 2;
       d.fy = arc_centroid[1] + self.height / 2;
     });
 
-    this.links = this.svg.append('g')
-      .attr('class', 'links')
-        .selectAll('line')
-        .data(this.graph.links)
-        .enter()
-        .append('line')
-        .classed('active', false)
-        .style('opacity', (d) => {return this.normal_opacity_line;})
-        .style('stroke', (d) => {return self.color(0)});
+    // this.links = this.svg.append('g')
+    //   .attr('class', 'links')
+    //     .selectAll('line')
+    //     .data(this.graph.links)
+    //     .enter()
+    //     .append('line')
+    //     .classed('active', false)
+    //     .style('opacity', (d) => {return this.normal_opacity_line;})
+    //     .style('stroke', (d) => {return self.color(0)});
 
-    // let line = d3.line()
-    //   .curve(d3.curveBundle.beta(0.5))
-    //   .x((d) => {return d.x})
-    //   .y((d) => {return d.y})
-
+    
+    
     // let lines_data = [];
     // self.graph.links.forEach((l) => {
     //   lines_data.push([l.source, l.target]);
     // });
-
-    // console.log(line(lines_data[0]));
-
-    // console.log(line(self.graph.links));
-    // console.log("hi");
 
 
     // this.graph.links.forEach( (l) => {
@@ -348,9 +343,9 @@ class ForceDirectedGraph{
     //   .attr('stroke-width', 3)
     //   .attr('fill', 'orange')
 
-    this.links.each(function(d) {
-      d['el'] = this;
-    });
+    // this.links.each(function(d) {
+    //   d['el'] = this;
+    // });
 
     let words_list = [];
     self.graph.label2inner.forEach((d) => {
@@ -358,10 +353,11 @@ class ForceDirectedGraph{
         return { text: w.word, size: (300 - w.index) / 20}
       });
       const radius = Math.sqrt(words.length) * 10 + 1;
-      console.log(words);
+      // console.log(words);
       d['el_wc'] = this.svg.append('g');
       let myWordCloud = new WordCloud(d['el_wc'], radius);
       myWordCloud.update(words);
+      self.word_clouds.push(d['el_wc']);
     });
 
     // this.innerNodes = this.svg.append('g')
@@ -418,30 +414,60 @@ class ForceDirectedGraph{
 
   ticked() {
     let self = this;
-    self.links
-      .attr('x1', function (d) {return d.source.fx; })
-      .attr('y1', function (d) {return d.source.fy; })
-      .attr('x2', function (d) {return d.target.x; })
-      .attr('y2', function (d) {return d.target.y; })
+    // self.links
+    //   .attr('x1', function (d) {return d.source.fx; })
+    //   .attr('y1', function (d) {return d.source.fy; })
+    //   .attr('x2', function (d) {return d.target.x; })
+    //   .attr('y2', function (d) {return d.target.y; })
 
     self.graph.label2inner.forEach((d) => {
       d['el_wc'].attr('transform', 'translate(' + d.x + ',' + d.y + ')');
     });
 
+    let line = d3.line()
+      .curve(d3.curveBundle.beta(1))
+      .x((d) => {return d.x})
+      .y((d) => {return d.y})
+    
+    let line_data = [];
+    let data_center = [];
+    self.graph.label2arc.forEach((d, i) => {
+      self.graph.label2inner.forEach((w) => {
+        if (data_center[i] === undefined) {
+          data_center[i] = {x: 0, y: 0};
+        }
+        data_center[i].x = data_center[i].x + w.x / self.graph.label2inner.length;
+        data_center[i].y = data_center[i].y + w.y / self.graph.label2inner.length;
+      });
+    });
+    // console.log(data_center);
+    self.graph.label2arc.forEach((d, i) => {
+      self.graph.label2inner.forEach((w) => {
+        line_data.push([d, data_center[i], w]);
+      });
+    });
 
-
-
-    // self.innerNodes
-    //   .attr('x', function (d) {return d.x; })
-    //   .attr('y', function (d) {return d.y; })
+    if (self.g_links) {
+      self.g_links.remove();
+    }
+    self.g_links = this.svg.append('g');
+    self.g_links
+      .selectAll('path')
+      .data(line_data).enter()
+      .append('path')
+      .attr('class', 'links')
+      .attr('d', line)
+      .attr('stroke', self.color(0))
 
   }
 
   destroy() {
-      console.log(`Destroying Graph`)
+      console.log(`Destroying Graph`);
       this.simulation.nodes([]);
       this.simulation.force("link").links([]);
-      this.links.remove();
+      // this.links.remove();
+      this.g_links.remove();
+      // this.word_clouds.remove();
       this.word_clouds.forEach((d) => {d.remove()});
       // this.innerNodes.remove();
       // this.arcNodes.remove();
@@ -453,7 +479,9 @@ class ForceDirectedGraph{
 
 <style>
   .links {
-    stroke-width: 1;
+    fill: none;
+    stroke-width: 2;
+    opacity: 0.3;
   }
 
   .links .active {

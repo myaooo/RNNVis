@@ -89,7 +89,7 @@ export class WordCloud{
     const self = this;
     this.cloud = this.group.selectAll('g text')
       .data(data, function (d) { return d.text; }); // matching key
-    console.log(data);
+    // console.log(data);
     //Entering words
     const texts = this.cloud.enter()
       .append('text')

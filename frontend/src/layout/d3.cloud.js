@@ -196,7 +196,7 @@
               for (var k = 0, l = centroid[1] - delta; k < 2; ++k, l += delta * 2) {
                 if (l < range[1][0] || l > range[1][1] || (delta == 0 && k == 0)) continue;
                 var val = intersects(0, l);
-                console.log(data[i].text, l, val);
+                // console.log(data[i].text, l, val);
                 for (var j = 0; j < val.length; j += 2) if (val[j + 1] != null) {
                   var mid;
                   if (val[j] < centroid[0] && centroid[0] < val[j + 1]) {
@@ -279,7 +279,7 @@
             x = data[i].x; y = data[i].y; w = data[i].w; h = data[i].size;
             //if (data[i].text == "internet") console.log([x, y], [x + w, y + h], rect);
             addRect([x, y], [x + w, y + h]);
-            console.log(data[i].text, [x, y], [x + w, y + h], w, h);
+            // console.log(data[i].text, [x, y], [x + w, y + h], w, h);
           }
           if (i >= n) {
             cloud.stop();
