@@ -105,11 +105,13 @@
       const hiddenClusters = this.hg.selectAll('g rect')
         .data(coCluster.colClusters, (clst, i) => Array.isArray(clst) ? (String(clst.length) + String(i)) : this.id); // matching function
 
-      // hiddenClusters.exit().remove();
-
+      // enter() the given data
+      // add a group for holding all units in a cluster
       const hGroups = hiddenClusters.enter()
         .append('g')
         .attr('id', (clst, i) => (String(clst.length) + String(i)));
+
+      // entering animation
       hGroups.transition()
         .duration(400)
         .attr('transform', (clst, i) => {
@@ -117,6 +119,7 @@
           return 'translate(' + [-width / 2, i * (clusterHeight + clusterInterval)] +')';
         });
 
+      // add a background rect for this cluster
       hGroups.append('rect')
         .classed('hidden-cluster', true)
         .transition()
@@ -127,11 +130,15 @@
         .attr('height', clusterHeight);
         // .attr('x')
 
+      // add another group and specify data for units
+      // see https://github.com/d3/d3-selection/blob/master/README.md#joining-data
       const units = hGroups.append('g')
         .selectAll('rect')
         .data(d => d);
 
-      // const unitWidth = clusterWidth - 1
+      // enter units data
+      // add a rect for each unit
+      // add entering animations
       units.enter()
         .append('rect')
         .transition()
@@ -144,6 +151,7 @@
         .attr('fill', 'steelblue')
         .attr('fill-opacity', 0.5);
 
+      // add exiting animation for units
       units.exit()
         .transition()
         .duration(400)
@@ -152,6 +160,7 @@
         .attr('height', 1)
         .remove();
 
+      // add
       hiddenClusters.exit()
         .transition()
         .duration(400)

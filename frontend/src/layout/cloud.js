@@ -1,5 +1,6 @@
 import * as d3 from 'd3';
 import cloud from 'd3-cloud';
+// import cloud from './forcecloud.js';
 // console.log(d3);
 // var cloud = require('./d3.cloud.js');
 // console.log('haha');
@@ -101,21 +102,23 @@ export class WordCloud{
       .data(data, function (d) { return d.text; }); // matching key
     // console.log(data);
     //Entering words
-    const texts = this.cloud.enter()
+    const text = this.cloud.enter()
       .append('text')
       .style('font-family', this.font)
       .style('fill', (d, i) => { return self.colorScheme(d.type); })
       .attr('text-anchor', 'middle')
-      .attr('font-size', 1)
+      // .attr('font-size', 1);
+    text
       .text(function (d) { return d.text; });
 
 
-    texts
+    text
+      .attr('font-size', 1)
       .transition()
       .duration(600)
       .style('font-size', function (d) { return d.size + 'px'; })
       .attr('transform', function (d) {
-        return 'translate(' + [d.x, d.y+d.size] + ')';
+        return 'translate(' + [d.x, d.y] + ')';
       })
       .style('fill-opacity', 1);;
 
@@ -127,8 +130,33 @@ export class WordCloud{
       .attr('font-size', 1)
       .remove();
 
+    this._txt = null;
     // autoscale
-    setTimeout(() => self.autoscale(bounds), 100);
+    // setTimeout(() => self.autoscale(bounds), 100);
+  }
+  ticked(data) {
+    // console.log('ticked');
+    if (this._txt) {
+      this._txt
+        .attr('transform', function (d) {
+          return 'translate(' + [d.x, d.y] + ')';
+        })
+    } else {
+      const self = this;
+      this.group.selectAll('g, text').remove();
+      this._txt = this.group.selectAll('g text')
+        .data(data, function (d) { return d.text; }) // matching key
+        .enter()
+        .append('text')
+        .text(function (d) { return d.text; })
+        .style('font-family', this.font)
+        .style('fill', (d, i) => { return self.colorScheme(d.type); })
+        .style('font-size', function (d) { return ~~(d.size) + 'px'; })
+        .attr('transform', function (d) {
+          return 'translate(' + [d.x, d.y] + ')';
+        })
+        .style('fill-opacity', 1);
+    }
   }
   update(words) {
     const self = this;
