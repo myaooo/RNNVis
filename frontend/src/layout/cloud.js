@@ -61,7 +61,7 @@ export class WordCloud{
       .attr('fill-opacity', alpha);
     return this;
   }
-  bounding(parameters = [['stroke', this.colorScheme(0)], ['stroke-dasharray', '5,5'], ['stroke-width', '2px']]) {
+  bounding(parameters = [['stroke', this.colorScheme(0)], ['stroke-dasharray', '3,3'], ['stroke-width', '1px']]) {
     parameters.forEach((parameter) => {
       this.bg.attr(parameter[0], parameter[1]);
     });
