@@ -96,6 +96,7 @@ export class WordCloud{
   }
   draw(data, bounds) {
     // console.log(this.cloud);
+    
     const self = this;
     this.cloud = this.group.selectAll('g text')
       .data(data, function (d) { return d.text; }); // matching key
@@ -128,7 +129,7 @@ export class WordCloud{
       .remove();
 
     // autoscale
-    setTimeout(() => self.autoscale(bounds), 100);
+    // setTimeout(() => self.autoscale(bounds), 100);
   }
   update(words) {
     const self = this;
@@ -154,7 +155,7 @@ export class WordCloud{
     // return this
   }
   autoscale(bounds) {
-    // console.log(bounds);
+    
     // console.log(`centerx: ${centerX}, centerY: ${centerY}`);
     const scaleX = 0.9 * this.width / Math.abs(bounds[0].x - bounds[1].x);
     const scaleY = 0.9 * this.height / Math.abs(bounds[0].y - bounds[1].y);
