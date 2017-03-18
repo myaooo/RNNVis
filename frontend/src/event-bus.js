@@ -48,7 +48,7 @@ const bus = new Vue({
       }
       return Promise.resolve('Already Loaded');
     },
-    loadCoCluster(modelName = this.state.selectedModel, stateName = this.state.selectedState, nCluster = 10, params = { top_k: 300, mode: 'raw' }) {
+    loadCoCluster(modelName = this.state.selectedModel, stateName = this.state.selectedState, nCluster = 10, params = { top_k: 30, mode: 'positive' }) {
       const coCluster = new CoClusterProcessor(modelName, stateName, nCluster, params);
       const coClusterName = CoClusterProcessor.identifier(coCluster);
       if (this.state.coClusters.hasOwnProperty(coClusterName))
@@ -65,7 +65,7 @@ const bus = new Vue({
           return 'Succeed';
         });
     },
-    getCoCluster(modelName = this.state.selectedModel, stateName = this.state.selectedState, nCluster = 10, params = { top_k: 300, mode: 'raw' }) {
+    getCoCluster(modelName = this.state.selectedModel, stateName = this.state.selectedState, nCluster = 10, params = { top_k: 30, mode: 'positive' }) {
       const coCluster = new CoClusterProcessor(modelName, stateName, nCluster, params);
       const coClusterName = CoClusterProcessor.identifier(coCluster);
       if (this.state.coClusters.hasOwnProperty(coClusterName))
@@ -115,6 +115,7 @@ const SELECT_MODEL = 'SELECT_MODEL';
 bus.$on(SELECT_MODEL, (modelName) => {
   bus.state.selectedModel = modelName;
 });
+
 
 // bus.$on('test', (message) => {
 //   console.log('1:' + message);

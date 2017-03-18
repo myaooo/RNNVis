@@ -353,7 +353,7 @@ class ForceDirectedGraph{
         return { text: w.word, size: (300 - w.index) / 15}
       });
       const radius = Math.sqrt(words.length) * 10 + 1;
-      // console.log(words);
+      console.log(words);
       d['el_wc'] = this.svg.append('g');
       let myWordCloud = new WordCloud(d['el_wc'], radius);
       myWordCloud.update(words);

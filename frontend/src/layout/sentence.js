@@ -26,7 +26,7 @@ class SentenceLayout{
   layout(sentence, coCluster) {
     this.sentence = sentence;
     const len = sentence.length;
-
+    // const info
   }
 };
 
