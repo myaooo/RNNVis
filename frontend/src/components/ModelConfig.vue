@@ -8,15 +8,31 @@
         <el-button v-if="compare" @click="toggle" icon="delete" size="small"></el-button>
       </el-form-item>
       <div v-if="config">
-        <!--<el-tag>cell: {{config.Cell}}</el-tag>
-        <el-tag>layer: {{config.LayerNum}}</el-tag>-->
-        <el-tag v-for="key in Object.keys(config)" :type="compare ? 'gray' : ''">{{key}}: {{config[key]}}</el-tag>
+        <el-tag v-for="key in Object.keys(config)" :type="colorType">{{key}}: {{config[key]}}</el-tag>
       </div>
       <el-form-item label="Hidden State" v-if="states.length">
         <el-radio-group v-model="selectedState" size="small">
           <el-radio-button v-for="state in states" :label="state">{{stateName(state)}}</el-radio-button>
         </el-radio-group>
       </el-form-item>
+      <el-form-item label="Sentences">
+        <el-input
+          class="input-new-tag"
+          v-if="inputVisible"
+          v-model="inputValue"
+          ref="saveTagInput"
+          size="small"
+          @keyup.enter.native="handleInputConfirm"
+          @blur="handleInputConfirm"
+        >
+        </el-input>
+        <el-button v-else class="button-new-tag" size="small" @click="showInput">+ New Sentence</el-button>
+        <br>
+        <el-tag v-for="sentence in sentences" :closable="true" @close="closeSentence(sentence)" :type="colorType">
+          {{sentence}}
+        </el-tag>
+      </el-form-item>
+      <hr v-if="selectedState" class="local-hr">
       <el-form-item label="Cluster Num" v-if="selectedState">
         <el-slider v-model="layout.clusterNum" :min="2" :max="20" @change="layoutChange"></el-slider>
       </el-form-item>
@@ -31,6 +47,16 @@
   .el-tag {
     margin-right: 5px;
   }
+
+  .local-hr {
+    width: 95%;
+    font-size: 1px;
+    color: gray;
+    opacity: 0.5;
+    line-height: 1px;
+    margin-top: 8px;
+    margin-bottom: 4px;
+  }
 </style>
 <script>
   import { bus, SELECT_MODEL, SELECT_STATE, CHANGE_LAYOUT } from '../event-bus';
@@ -44,7 +70,10 @@
         selectedState: null,
         selectedModel: null,
         config: null,
-        layout: {clusterNum: 10},
+        layout: { clusterNum: 10 },
+        sentences: [],
+        inputVisible: false,
+        inputValue: '',
       };
     },
     props: {
@@ -58,19 +87,22 @@
       },
     },
     computed: {
-      availableModels: function() { // model list
+      availableModels: function () { // model list
         return this.shared.availableModels;
+      },
+      colorType: function() {
+        return this.compare ? 'gray' : '';
       },
     },
     watch: {
-      selectedModel: function(selectedModel){
+      selectedModel: function (selectedModel) {
         if (!selectedModel) return;
         bus.loadModelConfig(selectedModel) // make sure the bus has got the config data
           .then(() => {
             const states = bus.availableStates(selectedModel);
-            if (states){
+            if (states) {
               this.states = states;
-              this.selectedState = null; // reset
+              this.selectedState = this.states[0]; // reset
               const config = bus.state.modelConfigs[selectedModel];
               this.config = {
                 Cell: config.model.cell_type,
@@ -86,10 +118,13 @@
           bus.$emit(SELECT_STATE, this.selectedState, this.compare);
         }
       },
+      sentences: function (sentences) {
+
+      }
     },
     methods: {
       stateName(state) {
-        switch(state) {
+        switch (state) {
           case 'state_c': return 'c_state';
           case 'state_h': return 'h_state';
           case 'state': return 'h_state';
@@ -99,7 +134,31 @@
       layoutChange() {
         console.log("Layout changed")
         bus.$emit(CHANGE_LAYOUT, this.layout, this.compare);
-      }
+      },
+      closeSentence(sentence) {
+        this.sentences.splice(this.sentences.indexOf(sentence), 1);
+      },
+      showInput() {
+        this.inputVisible = true;
+        this.$nextTick(_ => {
+          this.$refs.saveTagInput.$refs.input.focus();
+        });
+      },
+
+      handleInputConfirm() {
+        let inputValue = this.inputValue;
+        if (inputValue) {
+          this.sentences.push(inputValue);
+        }
+        this.inputVisible = false;
+        this.inputValue = '';
+      },
+    },
+    mounted() {
+      // this.activeSentences = this.sentences.map((d, i) => {
+      //   return true;
+      // });
     }
   };
+
 </script>

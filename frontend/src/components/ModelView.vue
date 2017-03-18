@@ -37,26 +37,8 @@
     components: { ModelConfig },
     data() {
       return {
-        // params: {
-        //   selected: null,
-        // },
         compare: false,
-        // selectedModel: null,
-        // selectedState: null,
-        // states: [],
-        // config: null,
-        // selectedModels: null,
-        // selectedStates: null,
-        // modelStates: [],
-        // configs: null,
         shared: bus.state,
-
-        // configTree: null,
-        // configProps: {
-        //   children: 'children',
-        //   label: 'label'
-        // },
-        // configs: {}
       };
     },
     mounted() {

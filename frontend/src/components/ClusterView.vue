@@ -79,8 +79,9 @@
       }
     },
     watch: {
-      selectedState: function (newState, oldState) {
-        this.reload(this.selectedModel, newState, this.clusterNum);
+      selectedState: function (state) {
+        if (state === 'state' || state === 'state_c' || state === 'state_h')
+          this.reload(this.selectedModel, state, this.clusterNum);
       },
     },
     methods: {
