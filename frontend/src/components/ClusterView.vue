@@ -37,7 +37,7 @@
     unitWidth: 4,
     unitHeight: 4,
     unitMargin: 1,
-    wordCloudArcDegree: 130,
+    wordCloudArcDegree: 110,
     wordCloudNormalRadius: 20,
     littleTriangleWidth: 5,
     littleTriangleHeight: 5,
@@ -54,7 +54,7 @@
         params: layoutParams,
         svgId: 'cluster-svg',
         clusterData: null,
-        clusterNum: 15,
+        clusterNum: 5,
         painter: null,
         selectedModel: null,
         selectedState: null,
@@ -177,7 +177,7 @@
       });
 
       let padding_degree = self.ArcLength2Angle(wordCloudArcLength - 2 * self.sum(wd_radius), wordCloudArcRadius) / nCluster;
-      console.log(padding_degree);
+      // console.log(padding_degree);
       let offset = -wordCloudArcDegree / 2;
       wordClusters.forEach((wdst, i) => {
         let tmp_radius_angle = self.ArcLength2Angle(wd_radius[i], wordCloudArcRadius);
@@ -188,7 +188,12 @@
         });
         let pos_x = wordCloudArcRadius * Math.cos(angle_loc / 180 * Math.PI);
         let pos_y = wordCloudArcRadius * Math.sin(angle_loc / 180 * Math.PI);
-        word_cluster_info[i] = {position: [pos_x, pos_y], word_cloud_radius: wd_radius[i], words_data: words_data};
+        // let link_pos_x = (wordCloudArcRadius - wd_radius[i]) * Math.cos(angle_loc / 180 * Math.PI);
+        // let link_pos_y = (wordCloudArcRadius - wd_radius[i]) * Math.sin(angle_loc / 180 * Math.PI);
+        let link_pos_x = pos_x - wd_radius[i];
+        let link_pos_y = pos_y;
+        word_cluster_info[i] = {position: [pos_x, pos_y], link_point_position: [link_pos_x, link_pos_y], 
+          word_cloud_radius: wd_radius[i], words_data: words_data};
         // word_cluster_info[i] = {arc_radius: wordCloudArcRadius, arc_angle_loc: angle_loc, word_cloud_radius: wd_radius[i], words_data: words_data};
       });
       return word_cluster_info;
@@ -199,16 +204,21 @@
       const clusterInterval = this.params.clusterInterval;
       const clusterHeight = this.params.clusterHeight;
       const nCluster = coCluster.labels.length;
+      const agg_info = coCluster.aggregation_info();
 
       let chordLength = nCluster * (clusterHeight + clusterInterval);
       const wordCloudArcRadius = chordLength / 2 / Math.sin(wordCloudArcDegree / 2 * Math.PI / 180);
       let links = [];
+
       state_info.forEach((s, i) => {
         word_info.forEach((w, j) => {
-          console.log(`s.x is ${s.top_left[0]}, source.x is ${s.top_left[0] + s.width}`);
-          links.push({source: {x: s.top_left[0] + s.width,
-            y: s.top_left[1] + s.height / 2},
-            target: {x: w.position[0] + dx, y: w.position[1] + dy}});
+          if (links[i] === undefined) {
+            links[i] = [];
+          }
+          links[i][j] = {source: {x: s.top_left[0] + s.width, 
+            y: s.top_left[1] + s.height / 2}, 
+            target: {x: w.link_point_position[0] + dx, y: w.link_point_position[1] + dy},
+          };
         });
       });
       return links;
@@ -473,14 +483,13 @@
             + " " + (d.source.x + d.target.x) / 2 + "," + d.target.y
             + " " + d.target.x + "," + d.target.y;
       }
-
       link_info.forEach((l) => {
         g.append('path')
           .attr('d', link(l))
           .attr('fill', 'none')
-          .attr('stroke-width', '3')
+          .attr('stroke-width', '1')
           .attr('stroke', 'blue')
-          .attr('opacity', 0.3)
+          .attr('opacity', 0.1)
       });
     }
 
@@ -490,14 +499,16 @@
       const clusterHeight = this.params.clusterHeight;
       const nCluster = coCluster.labels.length;
       let chordLength = nCluster * (clusterHeight + clusterInterval);
+      let dx = 200, dy = chordLength / 2;
 
       this.hg.attr('transform', 'translate(' + [this.middle_line_x, 100] + ')');
-      this.wg.attr('transform', 'translate(' + [this.middle_line_x + 100, 100 + chordLength / 2 - 50] + ')');
+      this.wg.attr('transform', 'translate(' + [this.middle_line_x + dx, 100 + dy] + ')');
+      // this.wg.attr('transform', 'translate(' + [this.middle_line_x + 100, 100 + chordLength / 2 - 50] + ')');
       const coClusterAggregation = coCluster.aggregation_info();
       let state_info = this.calculate_state_info(coCluster);
-      console.log(state_info.state_cluster_info)
+      // console.log(state_info.state_cluster_info)
       let word_info = this.calculate_word_info(coCluster);
-      let link_info = this.calculate_link_info(state_info.state_cluster_info, word_info, coCluster, 100, chordLength / 2 - 50);
+      let link_info = this.calculate_link_info(state_info.state_cluster_info, word_info, coCluster, dx, dy);
 
       this.draw_state(this.hg, coCluster, state_info);
       this.draw_word(this.wg, coCluster, word_info);

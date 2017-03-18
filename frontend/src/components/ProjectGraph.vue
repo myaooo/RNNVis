@@ -17,8 +17,6 @@
     color: d3.scaleOrdinal(d3.schemeCategory10),
     color2: d3.scaleOrdinal(d3.schemeCategory20),
     clusterNum: 0,
-    strengthFn: (v => { return (v / 2) ** 3; }),
-    farDistance: 50,
   };
 
   export default {
@@ -99,19 +97,19 @@
     }
   };
 
-  function normalize(points) { // normalize all points to 0~100
+  function normalize(points) {
     const extents = calExtent(points);
     const factor_x = 100 / (extents[0][1] - extents[0][0]);
     const factor_y = 100 / (extents[1][1] - extents[1][0]);
     const factor = Math.max(factor_x, factor_y)
     for (let i = 0; i < points.length; i++) {
-      points[i].coords[0] = (points[i].coords[0] - extents[0][0]) * factor;
-      points[i].coords[1] = (points[i].coords[1] - extents[1][0]) * factor;
+      points[i].coords[0] *= factor;
+      points[i].coords[1] *= factor;
     }
   }
 
   class ForceDirectedGraph {
-    constructor(svg, params) {
+    constructor(svg, params, strengthfn) {
       let self = this;
       this.svg = d3.select(`#${svg.id}`);
       this.svgEl = svg;
@@ -122,7 +120,7 @@
       this.links = null;
       this.scale = { x: null, y: null, invert_x: null, invert_y: null };
       this.extents = null;
-      // this.strengthfn = strengthfn || (v => { return (v / 2) ** 3; });
+      this.strengthfn = strengthfn || (v => { return (v / 2) ** 3; });
       this.params = params;
       // Object.keys(params).forEach((p) => { self[p] = params[p]; });
     }
@@ -165,12 +163,12 @@
           let j = 0;  // state_id counter
           strengths.forEach(function (f) {
             let intensity = f;
-            if (intensity > self.params.strength_thred) {  // a threshold strength
+            if (Math.abs(intensity) > self.params.strength_thred) {  // a threshold strength
               // create link
               let link = {
                 source: "" + layers[i] + "-" + j,  // the id of the stateNode
                 target: node.id,
-                strength: self.params.strengthFn(Math.abs(intensity)),
+                strength: self.strengthfn(Math.abs(intensity)),
                 type: Math.sign(f)  // negative or positive strength
               };
               link._source = id2states[link.source];
@@ -197,7 +195,7 @@
     }
 
     initSimulation() {
-      var repelForce = d3.forceManyBody().strength(-40).distanceMax(5); // the force that repel words apart
+      var repelForce = d3.forceManyBody().strength(-30).distanceMax(4); // the force that repel words apart
       var init = repelForce.initialize;
       repelForce.initialize = function (nodes) {
         init(nodes.filter(function (d) { d.hasOwnProperty("word") })); // only apply between word Nodes
@@ -207,8 +205,8 @@
       this.simulation = d3.forceSimulation().alpha(this.params.defaultAlpha)
         .force("link", d3.forceLink() //.iterations(4)
           .id((d) => { return d.id; })
-          .distance((l) => { return l.strength*200; })
-          .strength(1)) //(d) => { return d.strength }))
+          .distance((l) => { return l.type < 0 ? 50 : 5; })
+          .strength((d) => { return d.strength }))
         .force("collide", collideForce)
         .force("charge", repelForce);
     }
