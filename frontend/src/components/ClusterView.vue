@@ -337,7 +337,7 @@
         .append('g')
         .attr('id', (clst, i) => (String(clst.length) + String(i)));
       
-      hGroups.append('rect')
+      hGroups.appesnd('rect')
         .classed('hidden-cluster', true)
         .transition()
         .duration(400)
