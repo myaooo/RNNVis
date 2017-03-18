@@ -9,9 +9,9 @@
     <el-tab-pane label="Cluster" name="cluster">
       <cluster-view> </cluster-view>
     </el-tab-pane>
-    <el-tab-pane label="Test" name="test">
+    <!--<el-tab-pane label="Test" name="test">
       <test-view> </test-view>
-    </el-tab-pane>
+    </el-tab-pane>-->
     <!--<el-tab-pane label="Role" name="third">Role</el-tab-pane>
     <el-tab-pane label="Task" name="fourth">Task</el-tab-pane>-->
   </el-tabs>

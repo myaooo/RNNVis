@@ -24,7 +24,9 @@ const bus = new Vue({
   },
   methods: {
 
-    loadModelConfig(modelName = this.state.selectedModel) { // return a Promise
+    loadModelConfig(modelName) { // return a Promise
+      if (!modelName)
+        return Promise.reject(modelName);
       if (!Object.prototype.hasOwnProperty.call(state.modelConfigs, modelName)) {
         return dataService.getModelConfig(modelName, response => {
           if (response.status === 200) {
@@ -33,7 +35,7 @@ const bus = new Vue({
           }
         });
       }
-      return Promise.resolve(this.state.modelConfigs[modelName]);
+      return Promise.resolve(modelName);
     },
 
     loadAvailableModels() {
@@ -73,9 +75,16 @@ const bus = new Vue({
       console.log('First call loadCoCluster(...) to load remote Data!');
       return undefined;
     },
-    getModelConfig(modelName = this.selectedModel) {
+    getModelConfig(modelName = state.selectedModel) {
       if (this.state.availableModels)
         return this.state.availableModels[modelName];
+      return undefined;
+    },
+    modelCellType(modelName = state.selectedModel) {
+      if (Object.prototype.hasOwnProperty.call(this.state.modelConfigs, modelName)) {
+        const config = this.state.modelConfigs[modelName];
+        return config.model.cell_type;
+      }
       return undefined;
     },
     availableStates(modelName = this.state.selectedModel) { // helper function that returns available states of the current selected Model`
@@ -110,10 +119,21 @@ const bus = new Vue({
 
 // event definitions goes here
 const SELECT_MODEL = 'SELECT_MODEL';
+const SELECT_STATE = 'SELECT_STATE';
 
 // register event listener
-bus.$on(SELECT_MODEL, (modelName) => {
-  bus.state.selectedModel = modelName;
+bus.$on(SELECT_MODEL, (modelName, compare) => {
+  if (compare)
+    bus.state.selectedModel2 = modelName;
+  else
+    bus.state.selectedModel = modelName;
+});
+
+bus.$on(SELECT_STATE, (stateName, compare) => {
+  if (compare)
+    bus.state.selectedState2 = stateName;
+  else
+    bus.state.selectedState = stateName;
 });
 
 

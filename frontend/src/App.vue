@@ -1,20 +1,18 @@
 <template>
   <div id="app">
     <el-row :gutter="15">
-      <el-col :span="4" class="col-bg" :gutter="15">
+      <el-col :span="6" class="col-bg" :gutter="15">
         <model-view></model-view>
       </el-col>
-      <el-col :span="14" class="col-bg" :gutter="15">
+      <el-col :span="18" class="col-bg" :gutter="15">
         <!--<router-view></router-view>-->
         <main-view> </main-view>
       </el-col>
-      <el-col :span='6' class="col-bg border" :gutter="15">
-        <!--<el-col :span='2' class="col-bg"> </el-col>-->
-        <!--<el-col :span='20' class="col-bg border">-->
-          <text-view> </text-view>
-        <!--</el-col>-->
-        <!--<el-col :span='2' class="col-bg"> </el-col>-->
-      </el-col>
+      <!--<el-col :span='6' class="col-bg border" :gutter="15">-->
+
+          <!--<text-view> </text-view>-->
+
+      <!--</el-col>-->
     </el-row>
   </div>
 </template>

@@ -91,7 +91,9 @@
     mounted() {
       this.init();
       // register events
-      bus.$on(SELECT_MODEL, (model) => {
+      bus.$on(SELECT_MODEL, (model, compare) => {
+        if (compare)
+          return;
         this.selectedModel = model;
         bus.loadModelConfig(model).then(() => {
           this.states = bus.availableStates(model);
