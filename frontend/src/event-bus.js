@@ -2,6 +2,11 @@ import Vue from 'vue';
 import dataService from './services/dataService';
 import { CoClusterProcessor, SentenceRecord } from './preprocess'
 
+// event definitions goes here
+const SELECT_MODEL = 'SELECT_MODEL';
+const SELECT_STATE = 'SELECT_STATE';
+const CHANGE_LAYOUT = 'CHANGE_LAYOUT';
+
 const state = {
   selectedModel: null,
   selectedState: null,
@@ -115,43 +120,37 @@ const bus = new Vue({
       return undefined;
     }
   },
+  created() {
+    // register event listener
+    this.$on(SELECT_MODEL, (modelName, compare) => {
+      if (compare)
+        bus.state.selectedModel2 = modelName;
+      else
+        bus.state.selectedModel = modelName;
+    });
+
+    this.$on(SELECT_STATE, (stateName, compare) => {
+      if (compare)
+        bus.state.selectedState2 = stateName;
+      else
+        bus.state.selectedState = stateName;
+    });
+
+    this.$on(CHANGE_LAYOUT, (newLayout, compare) => {
+      // if(compare)
+      //   return;
+      console.log(`bus > clusterNum: ${newLayout.clusterNum}`);
+    });
+  }
 });
-
-// event definitions goes here
-const SELECT_MODEL = 'SELECT_MODEL';
-const SELECT_STATE = 'SELECT_STATE';
-
-// register event listener
-bus.$on(SELECT_MODEL, (modelName, compare) => {
-  if (compare)
-    bus.state.selectedModel2 = modelName;
-  else
-    bus.state.selectedModel = modelName;
-});
-
-bus.$on(SELECT_STATE, (stateName, compare) => {
-  if (compare)
-    bus.state.selectedState2 = stateName;
-  else
-    bus.state.selectedState = stateName;
-});
-
-
-// bus.$on('test', (message) => {
-//   console.log('1:' + message);
-// });
-
-// bus.$on('test', (message) => {
-//   console.log('2:' + message);
-// });
-
-// bus.$emit('test', 'haha');
 
 export default bus;
 
 export {
   bus,
   SELECT_MODEL,
+  SELECT_STATE,
+  CHANGE_LAYOUT,
   CoClusterProcessor,
   SentenceRecord,
 }

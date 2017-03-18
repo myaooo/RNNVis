@@ -16,18 +16,18 @@
 </style>
 <template>
   <div>
-    <div class="header">
+    <!--<div class="header">
       <el-radio-group v-model="selectedState" size="small">
         <el-radio-button v-for="state in states" :label="state"></el-radio-button>
       </el-radio-group>
-    </div>
+    </div>-->
     <svg :id='svgId' :width='width' :height='height'> </svg>
   </div>
 </template>
 
 <script>
   import * as d3 from 'd3'
-  import { bus, SELECT_MODEL } from '../event-bus'
+  import { bus, SELECT_MODEL, SELECT_STATE, CHANGE_LAYOUT } from '../event-bus'
   import { WordCloud } from '../layout/cloud.js';
 
 
@@ -56,9 +56,7 @@
         clusterData: null,
         clusterNum: 5,
         painter: null,
-        selectedModel: null,
-        selectedState: null,
-        states: [],
+        shared: bus.state,
       }
     },
     props: {
@@ -70,6 +68,15 @@
         type: Number,
         default: 800,
       },
+    },
+    computed: {
+      selectedState: function() {
+        console.log(`cluster > state changed to ${this.shared.selectedState}`);
+        return this.shared.selectedState;
+      },
+      selectedModel: function() {
+        return this.shared.selectedModel;
+      }
     },
     watch: {
       selectedState: function (newState, oldState) {
@@ -90,14 +97,12 @@
     },
     mounted() {
       this.init();
-      // register events
-      bus.$on(SELECT_MODEL, (model, compare) => {
+
+      bus.$on(CHANGE_LAYOUT, (layout, compare) => {
         if (compare)
           return;
-        this.selectedModel = model;
-        bus.loadModelConfig(model).then(() => {
-          this.states = bus.availableStates(model);
-        });
+        console.log("cluster > Changing Layout...");
+        // this.clusterNum = layout.clusterNum;
       });
     }
   }
@@ -192,7 +197,7 @@
         // let link_pos_y = (wordCloudArcRadius - wd_radius[i]) * Math.sin(angle_loc / 180 * Math.PI);
         let link_pos_x = pos_x - wd_radius[i];
         let link_pos_y = pos_y;
-        word_cluster_info[i] = {position: [pos_x, pos_y], link_point_position: [link_pos_x, link_pos_y], 
+        word_cluster_info[i] = {position: [pos_x, pos_y], link_point_position: [link_pos_x, link_pos_y],
           word_cloud_radius: wd_radius[i], words_data: words_data};
         // word_cluster_info[i] = {arc_radius: wordCloudArcRadius, arc_angle_loc: angle_loc, word_cloud_radius: wd_radius[i], words_data: words_data};
       });
@@ -215,8 +220,8 @@
           if (links[i] === undefined) {
             links[i] = [];
           }
-          links[i][j] = {source: {x: s.top_left[0] + s.width, 
-            y: s.top_left[1] + s.height / 2}, 
+          links[i][j] = {source: {x: s.top_left[0] + s.width,
+            y: s.top_left[1] + s.height / 2},
             target: {x: w.link_point_position[0] + dx, y: w.link_point_position[1] + dy},
           };
         });

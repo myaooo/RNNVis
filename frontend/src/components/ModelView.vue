@@ -110,30 +110,30 @@
       //       }
       //     });
       // },
-      selectedModels: function(selectedModels){
-        if (!selectedModel) return;
-        bus.loadModelConfig(selectedModel) // make sure the bus has got the config data
-          .then(() => {
-            const states = bus.availableStates(selectedModel);
-            if (states){
-              this.states2 = states;
-              this.selectedState2 = null; // reset
-            // const config = bus.state.modelConfigs[selectedModel];
-            // this.configTree = json2tree(config).children;
-              bus.$emit(SELECT_MODEL, this.selectedModel, this.selectedModel2);
-            }
-          });
-      },
-      selectedState: function (newState) {
-        if (newState === 'state' || newState === 'state_c' || newState === 'state_h') {
-          bus.$emit(SELECT_STATE, this.selectedState, this.selectedState2);
-        }
-      },
-      selectedState2: function (newState) {
-        if (newState === 'state' || newState === 'state_c' || newState === 'state_h') {
-          bus.$emit(SELECT_STATE, this.selectedState, this.selectedState2);
-        }
-      },
+      // selectedModels: function(selectedModels){
+      //   if (!selectedModel) return;
+      //   bus.loadModelConfig(selectedModel) // make sure the bus has got the config data
+      //     .then(() => {
+      //       const states = bus.availableStates(selectedModel);
+      //       if (states){
+      //         this.states2 = states;
+      //         this.selectedState2 = null; // reset
+      //       // const config = bus.state.modelConfigs[selectedModel];
+      //       // this.configTree = json2tree(config).children;
+      //         bus.$emit(SELECT_MODEL, this.selectedModel, this.selectedModel2);
+      //       }
+      //     });
+      // },
+      // selectedState: function (newState) {
+      //   if (newState === 'state' || newState === 'state_c' || newState === 'state_h') {
+      //     bus.$emit(SELECT_STATE, this.selectedState, this.selectedState2);
+      //   }
+      // },
+      // selectedState2: function (newState) {
+      //   if (newState === 'state' || newState === 'state_c' || newState === 'state_h') {
+      //     bus.$emit(SELECT_STATE, this.selectedState, this.selectedState2);
+      //   }
+      // },
     }
   }
 
