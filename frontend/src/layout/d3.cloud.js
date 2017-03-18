@@ -289,10 +289,7 @@
             x = data[i].x; y = data[i].y; w = data[i].w; h = data[i].size;
             //if (data[i].text == "internet") console.log([x, y], [x + w, y + h], rect);
             addRect([x, y], [x + w, y + h]);
-<<<<<<< HEAD
-            // console.log(data[i].text, [x, y], [x + w, y + h], w, h);
-=======
->>>>>>> dev
+
           }
           if (i >= n) {
             cloud.stop();

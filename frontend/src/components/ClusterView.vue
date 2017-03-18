@@ -128,7 +128,7 @@
       const unitWidth = this.params.unitWidth;
       const unitMargin = this.params.unitMargin;
       const clusterInterval = this.params.clusterInterval;
-      
+
       const stateClusters = coCluster.colClusters;
       const agg_info = coCluster.aggregation_info();
       const nCluster = coCluster.labels.length;
@@ -140,11 +140,11 @@
         let top_left = [-width / 2, i * (clusterHeight + clusterInterval)];
 
         state_cluster_loc[i] = {top_left: top_left, width: width, height: height};
-        
+
         clst.forEach((c, j) => {
           let s_width = unitWidth;
           let s_height = unitHeight;
-          let s_top_left = [(~~(j/packNum)) * (unitMargin + unitWidth) + 1 + top_left[0], 
+          let s_top_left = [(~~(j/packNum)) * (unitMargin + unitWidth) + 1 + top_left[0],
             j%packNum * (unitHeight + unitMargin) + 1 + top_left[1]];
           state_loc[c] = {top_left: s_top_left, width: s_width, height: s_height};
         });
@@ -245,11 +245,12 @@
       const hiddenClusters = g.selectAll('g rect')
         .data(coCluster.colClusters, (clst, i) => Array.isArray(clst) ? (String(clst.length) + String(i)) : this.id); // matching function
 
-      // hiddenClusters.exit().remove();
-
+      // enter() the given data
+      // add a group for holding all units in a cluster
       const hGroups = hiddenClusters.enter()
         .append('g')
         .attr('id', (clst, i) => (String(clst.length) + String(i)));
+
       hGroups
         .transition()
         .duration(400)
@@ -257,7 +258,8 @@
           const width = Math.ceil(clst.length / packNum) * (unitWidth + unitMargin) + unitMargin;
           return 'translate(' + [-width / 2, i * (clusterHeight + clusterInterval)] +')';
         });
-      
+
+      // add a background rect for this cluster
       hGroups.append('rect')
         .classed('hidden-cluster', true)
         .transition()
@@ -277,10 +279,15 @@
           return 'translate(' + [width_rect / 2, clusterHeight] + ')';
         });
 
+      // add another group and specify data for units
+      // see https://github.com/d3/d3-selection/blob/master/README.md#joining-data
       const units = hGroups.append('g')
         .selectAll('rect')
         .data(d => d);
 
+      // enter units data
+      // add a rect for each unit
+      // add entering animations
       units.enter()
         .append('rect')
         .transition()
@@ -293,6 +300,7 @@
         .attr('fill', '#ff7f0e')
         .attr('fill-opacity', 0.5);
 
+      // add exiting animation for units
       // units.exit()
       //   .transition()
       //   .duration(4000)
@@ -336,8 +344,8 @@
       const hGroups = hiddenClusters.enter()
         .append('g')
         .attr('id', (clst, i) => (String(clst.length) + String(i)));
-      
-      hGroups.appesnd('rect')
+
+      hGroups.append('rect')
         .classed('hidden-cluster', true)
         .transition()
         .duration(400)
@@ -348,13 +356,13 @@
 
       hGroups.append('path')
         .classed('little-triangle', true)
-        .attr('d', 'M 0, 0 L ' + -littleTriangleWidth/2 + ', ' + 
-          littleTriangleHeight + ' L ' +  littleTriangleWidth/2 + 
+        .attr('d', 'M 0, 0 L ' + -littleTriangleWidth/2 + ', ' +
+          littleTriangleHeight + ' L ' +  littleTriangleWidth/2 +
           ', ' + littleTriangleHeight + ' L 0, 0')
         .transition()
         .duration(400)
         .attr('transform', (k, i) => {
-          return 'translate(' + [state_info.state_cluster_info[i].top_left[0] + state_info.state_cluster_info[i].width / 2, 
+          return 'translate(' + [state_info.state_cluster_info[i].top_left[0] + state_info.state_cluster_info[i].width / 2,
             state_info.state_cluster_info[i].top_left[1] + state_info.state_cluster_info[i].height] + ')';
         });
 
@@ -384,6 +392,7 @@
       //   .attr('height', 1)
       //   .remove();
 
+      // add
       hiddenClusters.exit()
         .transition()
         .duration(400)
@@ -443,7 +452,7 @@
 
       rowClusters.forEach((clst, i) => {
         let tmp_g = g.append('g')
-          .attr('transform', 'rotate(' + word_info[i].arc_angle_loc + ')translate(' + 
+          .attr('transform', 'rotate(' + word_info[i].arc_angle_loc + ')translate(' +
             [word_info[i].arc_radius, 0] + ')rotate(' + -word_info[i].arc_angle_loc + ')');
 
         let myWordCloud = new WordCloud(tmp_g, word_info[i].word_cloud_radius)
