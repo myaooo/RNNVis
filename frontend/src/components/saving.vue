@@ -362,6 +362,15 @@
         .attr('fill', '#ff7f0e')
         .attr('fill-opacity', 0.5);
 
+      // add exiting animation for units
+      // units.exit()
+      //   .transition()
+      //   .duration(4000)
+      //   .style('fill-opacity', 1e-6)
+      //   .attr('width', 1)
+      //   .attr('height', 1)
+      //   .remove();
+
       hiddenClusters.exit()
         .transition()
         .duration(400)
@@ -490,6 +499,58 @@
       }, 0);
     }
 
+    draw_word_2(g, coCluster) {
+      let self = this;
+      const rowClusters = coCluster.rowClusters;
+      const agg_info = coCluster.aggregation_info();
+      const nCluster = coCluster.labels.length;
+      const words = coCluster.words;
+      let word_clouds = [];
+
+      console.log(agg_info);
+      rowClusters.forEach((row_clst, i) => {
+        console.log('rotate(' + i / nCluster * 90 + ')translate(' + [200, 0] + ')rotate(' + -i / nCluster * 90 + ')');
+        let g_word = g.append('g')
+          // .data(coCluster.colClusters)
+          .attr('transform', 'rotate(' + (i / nCluster * 90 - 45) + ')translate(' + [500, 0] + ')rotate(' + -(i / nCluster * 90 - 45) + ')');
+        console.log(row_clst);
+        let words_data = row_clst.map((d) => {
+          console.log({text: words[d], size: agg_info.row_single_2_col_cluster[d][i]/5});
+          return {text: words[d], size: agg_info.row_single_2_col_cluster[d][i]/5};
+        });
+        console.log(words_data);
+        // console.log(`words data is ${words_data}`);
+        let myWordCloud = new WordCloud(g_word, words_data.length);
+        myWordCloud.update(words_data);
+      });
+
+      // g.selectAll('circle')
+      //   .data(rowClusters)
+      //   .enter().append('circle')
+      //   .attr('cx', 0)
+      //   .attr('cy', (d, i) => {return 50 * i; })
+      //   .attr('r', (d) => {return d.length})
+      //   .attr('fill', 'pink')
+
+    }
+
+    draw_word_1(g, coCluster, word_info) {
+      let self = this;
+      const rowClusters = coCluster.rowClusters;
+      const agg_info = coCluster.aggregation_info();
+      const nCluster = coCluster.labels.length;
+      const words = coCluster.words;
+
+      rowClusters.forEach((clst, i) => {
+        let tmp_g = g.append('g')
+          .attr('transform', 'rotate(' + word_info[i].arc_angle_loc + ')translate(' +
+            [word_info[i].arc_radius, 0] + ')rotate(' + -word_info[i].arc_angle_loc + ')');
+
+        let myWordCloud = new WordCloud(tmp_g, word_info[i].word_cloud_radius)
+        myWordCloud.update(word_info[i].words_data);
+      });
+    }
+
     draw_word(g, coCluster, word_info) {
       let self = this;
       // let coCluster = graph.coCluster;
@@ -530,6 +591,19 @@
           return acc.concat(Array.isArray(val) ? flatten(val) : val);
         }, []);
       }
+
+      // strengthes = [];
+      // self.graph.link_info.forEach((ls, i) => {
+      //   ls.forEach((l, j) => {
+      //     l.strength > 0 : strengthes.push()
+      //   })
+      // })
+      // let strength_extent_per_cluster = self.graph.link_info.map((ls, i) => {
+      //   return d3.extent(ls.map((l) => {return l.strength}))
+      // });
+      // let scale = d3.scaleLinear()
+      //   .domain(strength_extent)
+      //   .range(stroke_width_range);
       link_info.forEach((ls, i) => {
         ls.forEach((l, j) => {
           if (l['el']) {
