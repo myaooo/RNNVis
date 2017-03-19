@@ -50,6 +50,11 @@ export class WordCloud{
     this.transform();
     return this;
   }
+
+  get ellipse() {
+    return this.bg;
+  }
+
   rotate(degree) {
     this.rotateDegree = degree;
     this.transform();
