@@ -57,13 +57,14 @@
         clusterNum: 5,
         painter: null,
         shared: bus.state,
+        width: 0,
       }
     },
     props: {
-      width: {
-        type: Number,
-        default: 800,
-      },
+      // width: {
+      //   type: Number,
+      //   default: 800,
+      // },
       height: {
         type: Number,
         default: 800,
@@ -76,7 +77,7 @@
       },
       selectedModel: function() {
         return this.shared.selectedModel;
-      }
+      },
     },
     watch: {
       selectedState: function (state) {
@@ -97,8 +98,8 @@
       },
     },
     mounted() {
+      this.width = this.$el.clientWidth;
       this.init();
-
       bus.$on(CHANGE_LAYOUT, (layout, compare) => {
         if (compare)
           return;

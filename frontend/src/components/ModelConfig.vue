@@ -1,21 +1,32 @@
 <template>
   <div class="grid-content">
-    <el-form label-position="left" label-width="80px">
+    <el-form label-position="left" label-width="30%">
+      <!--Model Selector-->
       <el-form-item :label="compare ? 'Model 2' : 'Model'">
-        <el-select v-model="selectedModel" placeholder="Select A Model" size="small">
+        <el-select v-model="selectedModel" placeholder="Select A Model" size="small" style="width: 80%;">
           <el-option v-for="(model, idx) in availableModels" :value="model" :label="model"></el-option>
         </el-select>
         <el-button v-if="compare" @click="toggle" icon="delete" size="small"></el-button>
       </el-form-item>
-      <div v-if="config">
+
+      <!--Model Configs as tags-->
+      <div v-if="config" class="el-form-item">
         <el-tag v-for="key in Object.keys(config)" :type="colorType">{{key}}: {{config[key]}}</el-tag>
       </div>
+      <hr v-if="config" class="local-hr">
+
+      <!--Radio control for selecting state type-->
       <el-form-item label="Hidden State" v-if="states.length">
         <el-radio-group v-model="selectedState" size="small">
           <el-radio-button v-for="state in states" :label="state">{{stateName(state)}}</el-radio-button>
         </el-radio-group>
       </el-form-item>
-      <el-form-item label="Sentences">
+      <el-form-item label="Layer" v-if="layerNum">
+        <el-input-number size="small" v-model="selectedLayer" :max="layerNum-1" style="width: 60%; margin-top: 10px"></el-input-number>
+      </el-form-item>
+
+      <!--Sentence Editor-->
+      <el-form-item label="Sentences" v-if="selectedModel">
         <el-input
           class="input-new-tag"
           v-if="inputVisible"
@@ -33,8 +44,10 @@
         </el-tag>
       </el-form-item>
       <hr v-if="selectedState" class="local-hr">
+
+      <!--Controls for the layout-->
       <el-form-item label="Cluster Num" v-if="selectedState">
-        <el-slider v-model="layout.clusterNum" :min="2" :max="20" @change="layoutChange"></el-slider>
+        <el-slider v-model="layout.clusterNum" :min="2" :max="20" @change="layoutChange" style="width: 80%"></el-slider>
       </el-form-item>
     </el-form>
   </div>
@@ -59,7 +72,7 @@
   }
 </style>
 <script>
-  import { bus, SELECT_MODEL, SELECT_STATE, CHANGE_LAYOUT } from '../event-bus';
+  import { bus, SELECT_MODEL, SELECT_STATE, SELECT_LAYER, CHANGE_LAYOUT, EVALUATE_SENTENCE } from '../event-bus';
 
   export default {
     name: 'ModelConfig',
@@ -69,6 +82,7 @@
         states: [],
         selectedState: null,
         selectedModel: null,
+        selectedLayer: null,
         config: null,
         layout: { clusterNum: 10 },
         sentences: [],
@@ -93,6 +107,10 @@
       colorType: function() {
         return this.compare ? 'gray' : '';
       },
+      layerNum: function() {
+        if (this.config) return this.config.LayerNum;
+        return 0;
+      }
     },
     watch: {
       selectedModel: function (selectedModel) {
@@ -109,6 +127,7 @@
                 LayerNum: config.model.cells.length,
                 LayerSize: config.model.cells[0].num_units,
               };
+              this.selectedLayer = this.config.LayerNum - 1;
               bus.$emit(SELECT_MODEL, this.selectedModel, this.compare);
             }
           });
@@ -118,8 +137,8 @@
           bus.$emit(SELECT_STATE, this.selectedState, this.compare);
         }
       },
-      sentences: function (sentences) {
-
+      selectedLayer: function (newLayer) {
+        bus.$emit(SELECT_LAYER, newLayer, this.compare);
       }
     },
     methods: {
@@ -148,6 +167,7 @@
       handleInputConfirm() {
         let inputValue = this.inputValue;
         if (inputValue) {
+          bus.$emit(EVALUATE_SENTENCE, inputValue, this.compare);
           this.sentences.push(inputValue);
         }
         this.inputVisible = false;

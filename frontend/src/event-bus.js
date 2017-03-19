@@ -1,19 +1,26 @@
 import Vue from 'vue';
 import dataService from './services/dataService';
-import { CoClusterProcessor, SentenceRecord } from './preprocess'
+import { CoClusterProcessor, SentenceRecord, StateStatistics } from './preprocess'
 
 // event definitions goes here
 const SELECT_MODEL = 'SELECT_MODEL';
 const SELECT_STATE = 'SELECT_STATE';
 const CHANGE_LAYOUT = 'CHANGE_LAYOUT';
+const EVALUATE_SENTENCE = 'EVALUATE_SENTENCE';
+const SELECT_UNIT = 'SELECT_UNIT';
+const SELECT_WORD = 'SELECT_WORD';
+const SELECT_LAYER = 'SELECT_LAYER';
 
 const state = {
   selectedModel: null,
   selectedState: null,
+  selectedLayer: null,
   modelConfigs: {},
   coClusters: {},
   availableModels: null,
-  // sentenceRecords: [],
+  sentenceRecords: {},
+  statistics: {},
+  modelsSet: null,
 };
 
 const bus = new Vue({
@@ -50,19 +57,21 @@ const bus = new Vue({
           if (response.status === 200) {
             const data = response.data;
             this.state.availableModels = data.models;
+            this.state.modelsSet = new Set(this.state.availableModels);
+            // console.log(this.state.modelsSet);
           } else throw response;
         });
       }
       return Promise.resolve('Already Loaded');
     },
-    loadCoCluster(modelName = this.state.selectedModel, stateName = this.state.selectedState, nCluster = 10, params = { top_k: 30, mode: 'positive' }) {
+    loadCoCluster(modelName = this.state.selectedModel, stateName = this.state.selectedState, nCluster = 10, params = { top_k: 300, mode: 'positive' }) {
       const coCluster = new CoClusterProcessor(modelName, stateName, nCluster, params);
       const coClusterName = CoClusterProcessor.identifier(coCluster);
       if (this.state.coClusters.hasOwnProperty(coClusterName))
         return Promise.resolve('Cocluster data already loaded');
       return this.loadAvailableModels()
         .then(() => {
-          if (Object.prototype.hasOwnProperty.call(this.state.modelConfigs, modelName)) {
+          if (this.state.modelsSet.has(modelName)) {
             return coCluster.load();
           }
           throw `No model named ${modelName}`;
@@ -72,7 +81,7 @@ const bus = new Vue({
           return 'Succeed';
         });
     },
-    getCoCluster(modelName = this.state.selectedModel, stateName = this.state.selectedState, nCluster = 10, params = { top_k: 30, mode: 'positive' }) {
+    getCoCluster(modelName = this.state.selectedModel, stateName = this.state.selectedState, nCluster = 10, params = { top_k: 300, mode: 'positive' }) {
       const coCluster = new CoClusterProcessor(modelName, stateName, nCluster, params);
       const coClusterName = CoClusterProcessor.identifier(coCluster);
       if (this.state.coClusters.hasOwnProperty(coClusterName))
@@ -80,11 +89,11 @@ const bus = new Vue({
       console.log('First call loadCoCluster(...) to load remote Data!');
       return undefined;
     },
-    getModelConfig(modelName = state.selectedModel) {
-      if (this.state.availableModels)
-        return this.state.availableModels[modelName];
-      return undefined;
-    },
+    // getModelConfig(modelName = state.selectedModel) {
+    //   if (this.state.availableModels)
+    //     return this.state.availableModels[modelName];
+    //   return undefined;
+    // },
     modelCellType(modelName = state.selectedModel) {
       if (Object.prototype.hasOwnProperty.call(this.state.modelConfigs, modelName)) {
         const config = this.state.modelConfigs[modelName];
@@ -118,6 +127,41 @@ const bus = new Vue({
         return config.model.cells[layer].num_units;
       }
       return undefined;
+    },
+    evalSentence(sentence, modelName = state.selectedModel) {
+      if (!state.sentenceRecords.hasOwnProperty(modelName)) {
+        state.sentenceRecords[modelName] = [];
+      }
+      const record = new SentenceRecord(sentence, modelName);
+      state.sentenceRecords[modelName].push(record);
+      return record;
+    },
+    loadStatistics(modelName = state.selectedModel, stateName = state.selectedState, layer = -1, top_k = 300) {
+      if (!state.statistics.hasOwnProperty(modelName)) {
+        state.statistics[modelName] = {};
+      }
+      if(!state.statistics[modelName].hasOwnProperty(stateName)) {
+        state.statistics[modelName][stateName] = [];
+      }
+      if (layer === -1) {
+        layer = this.layerNum(modelName) - 1;
+      }
+      if (state.statistics[modelName][stateName][layer]){
+        return Promise.resolve('Already Loaded');
+      }
+      const stat = new StateStatistics(modelName, stateName, layer, top_k);
+      state.statistics[modelName][stateName][layer] = stat;
+      return stat.load();
+    },
+    getStatistics(modelName = state.selectedModel, stateName = state.selectedState, layer = -1, top_k = 300) {
+      if (state.statistics.hasOwnProperty(modelName)) {
+        if(state.statistics[modelName].hasOwnProperty(stateName)){
+          if(state.statistics[modelName][stateName][layer])
+            return state.statistics[modelName][stateName][layer];
+        }
+      }
+      console.log(`bus > unable to get statistics for ${modelName}, ${stateName}, ${layer}`);
+      return undefined;
     }
   },
   created() {
@@ -136,10 +180,29 @@ const bus = new Vue({
         bus.state.selectedState = stateName;
     });
 
+    this.$on(SELECT_LAYER, (layer, compare) => {
+      if (compare)
+        bus.state.selectedLayer2 = layer;
+      else
+        bus.state.selectedLayer = layer;
+    });
+
     this.$on(CHANGE_LAYOUT, (newLayout, compare) => {
       // if(compare)
       //   return;
       console.log(`bus > clusterNum: ${newLayout.clusterNum}`);
+    });
+
+    this.$on(EVALUATE_SENTENCE, (sentence, compare) => {
+      console.log(`bus > evaluating model ${compare ? state.selectedModel2 : state.selectedModel} on sentence "${sentence}"`);
+    });
+
+    this.$on(SELECT_UNIT, (unitDims, compare) => {
+      console.log(`bus > selected ${unitDims.length} units`);
+    });
+
+    this.$on(SELECT_WORD, (words, compare) => {
+      console.log(`bus > selected ${words.length} word(s): ${words}`);
     });
   }
 });
@@ -151,6 +214,10 @@ export {
   SELECT_MODEL,
   SELECT_STATE,
   CHANGE_LAYOUT,
+  EVALUATE_SENTENCE,
   CoClusterProcessor,
   SentenceRecord,
+  SELECT_UNIT,
+  SELECT_WORD,
+  SELECT_LAYER,
 }

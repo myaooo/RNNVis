@@ -1,5 +1,11 @@
 <template>
-  <el-tabs v-model="activeTab" @tab-click="handleClick" type="border-card" height=800>
+  <div>
+    <h4 class="normal">Interpreter</h4>
+    <hr>
+    <cluster-view class="content" :height="height"> </cluster-view>
+  </div>
+
+  <!--<el-tabs v-model="activeTab" @tab-click="handleClick" type="border-card" height=800>
     <el-tab-pane label="Project" name="project">
       <project-view> </project-view>
     </el-tab-pane>
@@ -9,13 +15,18 @@
     <el-tab-pane label="Cluster" name="cluster">
       <cluster-view> </cluster-view>
     </el-tab-pane>
-    <!--<el-tab-pane label="Test" name="test">
+    <el-tab-pane label="Test" name="test">
       <test-view> </test-view>
-    </el-tab-pane>-->
-    <!--<el-tab-pane label="Role" name="third">Role</el-tab-pane>
-    <el-tab-pane label="Task" name="fourth">Task</el-tab-pane>-->
-  </el-tabs>
+    </el-tab-pane>
+  </el-tabs>-->
+
 </template>
+<style>
+  .content {
+    padding-left: 5px;
+    padding-right: 5px;
+  }
+</style>
 <script>
   // import ModelView from 'components/ModelView';
   import ProjectView from 'components/ProjectView';
@@ -29,6 +40,12 @@
       return {
         activeTab: 'project'
       };
+    },
+    props: {
+      height: {
+        type: Number,
+        default: 700,
+      }
     },
     methods: {
       handleClick(tab, event) {
@@ -44,13 +61,3 @@
     }
   };
 </script>
-<style>
-  .model-config {
-    text-align: left;
-    padding: 14px;
-  }
-
-  .config-tree {
-    margin-top: 10px;
-  }
-</style>

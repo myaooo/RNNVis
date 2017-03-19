@@ -102,7 +102,7 @@ export class CoClusterProcessor {
   }
 
   get rowClusters() {
-    if (this.hasData) {
+    if (this.hasData && !this._rowClusters) {
       this._rowClusters = [];
       this.rawData.row.forEach((r, i) => {
         if (this._rowClusters[r] === undefined) {
@@ -110,12 +110,11 @@ export class CoClusterProcessor {
         }
         this._rowClusters[r].push(i);
       });
-      return this._rowClusters;
     }
     return this._rowClusters;
   }
   get colClusters() {
-    if (this.hasData) {
+    if (this.hasData && !this._colClusters) {
       this._colClusters = [];
       this.rawData.col.forEach((c, i) => {
         if (this._colClusters[c] === undefined) {
@@ -123,7 +122,6 @@ export class CoClusterProcessor {
         }
         this._colClusters[c].push(i);
       });
-      return this._colClusters;
     }
     return this._colClusters;
   }
@@ -135,42 +133,115 @@ export class CoClusterProcessor {
 }
 
 export class SentenceRecord{
-  constructor(inputs) {
+  constructor(inputs, modelName) {
     this.inputs = inputs;
     this.tokens;
     this.records;
+    this.modelName = modelName;
   }
-  evaluate(modelName) {
+  evaluate(modelName = this.modelName) {
     return dataService.getTextEvaluation(modelName, this.inputs, (response => {
       if(response.status === 200){
         const data = response.data;
-        this.tokens = data.tokens;
-        this.records = data.records;
+        this.tokens = data.tokens[0]; // assume one sentence
+        this.records = data.records[0];
+      } else {
+        throw response;
       }
     }));
   }
   get states() {
-    if (this.records) {
-      this._states = Object.keys(this.records[0][0]);
+    if (this.records && !this._states) {
+      this._states = Object.keys(this.records[0]);
     }
+    return this._states;
   }
   get layerNum() {
-    return this.records[0][0][this.states[0]].length;
+    if (this.records && !this._layerNum) {
+      this._layerNum = this.records[0][this.states[0]].length;
+    }
+    return this._layerNum;
   }
   getRecords(stateName, layer = -1){
     if (this.records) {
       layer = layer === -1 ? this.layerNum - 1 : layer;
-      return this.records.forEach((u) => {
-        return u.forEach((v) => {
-          return v[stateName][layer];
-        });
+      console.log(layer);
+      return this.records.map((word) => {
+        return word[stateName][layer];
       });
     }
     return undefined;
   }
 }
 
+export class StateStatistics {
+  constructor(modelName, stateName, layer=-1, top_k=600) {
+    this.modelName = modelName;
+    this.stateName = stateName;
+    this.layer = layer;
+    this.top_k = top_k;
+    this.data;
+  }
+  load() {
+    return dataService.getStateStatistics(this.modelName, this.stateName, this.layer, this.top_k, (response) => {
+      this.data = response.data;
+    });
+  }
+  get stateNum() {
+    return this.data ? this.data.mean[0].length : undefined;
+  }
+  get statesData() { // calculate statistics for each state unit
+    if (this.data && !this._statesData) {
+      this._statesData = this.data.mean[0].map((_, j) => {
+        return {
+          words: this.data.words,
+          // freqs: this.data.freqs,
+          mean: this.data.mean.map((m) => m[j]),
+          low1: this.data.low1.map((m) => m[j]),
+          low2: this.data.low2.map((m) => m[j]),
+          high1: this.data.high1.map((m) => m[j]),
+          high2: this.data.high2.map((m) => m[j]),
+          rank: this.data.sort_idx.map((indices) => {
+            return indices.findIndex((idx) => (idx === j));
+          })
+        };
+      });
+    }
+    return this._statesData;
+  }
+  get word2Id() {
+    if(this.data && !this._word2Id) {
+      const word2Id = {}
+      this.data.words.forEach((word, i) => {
+        word2Id[word] = i;
+      })
+      this._word2Id = word2Id;
+    }
+    return this._word2Id;
+  }
+  get wordsData() {
+    if(this.data && !this._wordsData) {
+      this._wordsData = this.data.mean.map((mean, i) => {
+        const data = {
+          mean: mean,
+          range1: this.data.low1[i].map((low, j) => [low, this.data.high1[i][j]]),
+          range2: this.data.low2[i].map((low, j) => [low, this.data.high2[i][j]]),
+          word: this.data.words[i],
+          sort_idx: this.data.sort_idx[i],
+        };
+        return data;
+      });
+    }
+    return this._wordsData;
+  }
+  statOfWord(word) {
+    const id = this.word2Id[word];
+    return this.wordsData[id];
+  }
+}
+
 export default {
   CoClusterProcessor,
   SentenceRecord,
+  StateStatistics,
 };

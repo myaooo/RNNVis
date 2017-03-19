@@ -1,32 +1,26 @@
 <template>
-  <div class="model-view">
+  <div>
     <h4 class="normal">Models</h4>
     <hr>
-    <model-config> </model-config>
-    <hr v-if="compare">
-    <model-config v-if="compare" :compare="true" :toggle="toggleCompare"> </model-config>
-    <hr>
-    <el-button @click="toggleCompare">Compare Model</el-button>
+    <div class="content model-view">
+      <model-config> </model-config>
+      <hr v-if="compare">
+      <model-config v-if="compare" :compare="true" :toggle="toggleCompare"> </model-config>
+      <hr>
+      <el-button @click="toggleCompare">Compare Model</el-button>
+    </div>
   </div>
 </template>
 <style scoped>
   .model-view {
     text-align: left;
-    padding: 5px;
+    /*padding: 5px;*/
   }
 
-  .model-detail {
-    padding: 10px;
+  .content {
+    padding-left: 5px;
+    padding-right: 5px;
   }
-
-
-  /*span {
-    padding-right: 2px;
-  }*/
-
-  /*.config-tree {
-    margin-top: 10px;
-  }*/
 </style>
 <script>
   import { bus, SELECT_MODEL, SELECT_STATE } from '../event-bus.js';

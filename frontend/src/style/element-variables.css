@@ -270,11 +270,11 @@
   --input-disabled-color: var(--disabled-color-base);
   --input-disabled-placeholder-color: var(--color-extra-light-silver);
 
-  --input-large-font-size: 14px;
+  --input-large-font-size: 15px;
   --input-large-height: 32px;
 
   --input-small-font-size: 13px;
-  --input-small-height: 28px;
+  --input-small-height: 26px;
 
   --input-mini-font-size: 10px;
   --input-mini-height: 18px;
