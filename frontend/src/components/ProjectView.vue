@@ -140,7 +140,9 @@
     },
 
     mounted() {
-      bus.$on(SELECT_MODEL, (modelName) => {
+      bus.$on(SELECT_MODEL, (modelName, compare) => {
+        if (compare)
+          return;
         console.log(`selected model: ${modelName}`);
         this.model = modelName;
         bus.loadModelConfig(modelName).then((_) => {

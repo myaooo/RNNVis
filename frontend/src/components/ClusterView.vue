@@ -30,23 +30,23 @@
 
 }
 .state_unit .active {
-  
+
 }
 </style>
 <template>
   <div>
-    <div class="header">
+    <!--<div class="header">
       <el-radio-group v-model="selectedState" size="small">
         <el-radio-button v-for="state in states" :label="state"></el-radio-button>
       </el-radio-group>
-    </div>
+    </div>-->
     <svg :id='svgId' :width='width' :height='height'> </svg>
   </div>
 </template>
 
 <script>
   import * as d3 from 'd3'
-  import { bus, SELECT_MODEL } from '../event-bus'
+  import { bus, SELECT_MODEL, SELECT_STATE, CHANGE_LAYOUT } from '../event-bus'
   import { WordCloud } from '../layout/cloud.js';
 
 
@@ -79,24 +79,33 @@
         clusterData: null,
         clusterNum: 10,
         painter: null,
-        selectedModel: null,
-        selectedState: null,
-        states: [],
+        shared: bus.state,
+        width: 0,
       }
     },
     props: {
-      width: {
-        type: Number,
-        default: 800,
-      },
+      // width: {
+      //   type: Number,
+      //   default: 800,
+      // },
       height: {
         type: Number,
         default: 800,
       },
     },
+    computed: {
+      selectedState: function() {
+        console.log(`cluster > state changed to ${this.shared.selectedState}`);
+        return this.shared.selectedState;
+      },
+      selectedModel: function() {
+        return this.shared.selectedModel;
+      },
+    },
     watch: {
-      selectedState: function (newState, oldState) {
-        this.reload(this.selectedModel, newState, this.clusterNum);
+      selectedState: function (state) {
+        if (state === 'state' || state === 'state_c' || state === 'state_h')
+          this.reload(this.selectedModel, state, this.clusterNum);
       },
     },
     methods: {
@@ -112,13 +121,13 @@
       },
     },
     mounted() {
+      this.width = this.$el.clientWidth;
       this.init();
-      // register events
-      bus.$on(SELECT_MODEL, (model) => {
-        this.selectedModel = model;
-        bus.loadModelConfig(model).then(() => {
-          this.states = bus.availableStates(model);
-        });
+      bus.$on(CHANGE_LAYOUT, (layout, compare) => {
+        if (compare)
+          return;
+        console.log("cluster > Changing Layout...");
+        // this.clusterNum = layout.clusterNum;
       });
     }
   }
@@ -241,8 +250,10 @@
         let pos_y = wordCloudArcRadius * Math.sin(angle_loc / 180 * Math.PI);
         let link_pos_x = pos_x - actual_radius;
         let link_pos_y = pos_y;
-        word_info[i] = {position: [pos_x, pos_y], link_point_position: [link_pos_x, link_pos_y], 
+
+        word_info[i] = {position: [pos_x, pos_y], link_point_position: [link_pos_x, link_pos_y],
           word_cloud_radius: actual_radius, words_data: words_data};
+
       });
       return word_info;
     }
@@ -257,8 +268,8 @@
           if (links[i] === undefined) {
             links[i] = [];
           }
-          links[i][j] = {source: {x: s.top_left[0] + s.width, 
-            y: s.top_left[1] + s.height / 2}, 
+          links[i][j] = {source: {x: s.top_left[0] + s.width,
+            y: s.top_left[1] + s.height / 2},
             target: {x: w.link_point_position[0] + dx, y: w.link_point_position[1] + dy},
             strength: row_cluster_2_col_cluster[i][j] > strength_max * strengthThresholdPercent ? row_cluster_2_col_cluster[i][j] : 0,
           };
@@ -305,10 +316,10 @@
 
       const hGroups = hiddenClusters.enter()
         .append('g')
-        .on('mouseover', (clst, i) => { 
+        .on('mouseover', (clst, i) => {
           graph.link_info[i].forEach((l) => {d3.select(l['el']).classed('active', true);})
         })
-        .on('mouseleave', function(clst, i) { 
+        .on('mouseleave', function(clst, i) {
           if (d3.select(this).property('selected') === 'true') {
             d3.select(this).property('selected', 'false');
             self.redraw_word_link(-1);
@@ -373,7 +384,7 @@
         .attr('y', (i) => state_info.state_info[i].top_left[1])
         .attr('fill', '#ff7f0e')
         .attr('fill-opacity', 0.5)
-        
+
 
       // add
       hiddenClusters.exit()

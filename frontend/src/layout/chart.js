@@ -327,6 +327,10 @@ export class LineArtist extends Artist {
     this.drawHooks.push(drawHook);
     return handle;
   }
+  legend() {
+    const handle = this.group.append('g');
+
+  }
 }
 
 export class AreaArtist extends Artist {

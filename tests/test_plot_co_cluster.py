@@ -16,13 +16,13 @@ if __name__ == '__main__':
     modes = ['abs', 'negative', 'positive', 'raw']
     mode = modes[3]
 
-    method = 'bicluster'
-    n_clusters = (5, 5)
-    n_str = '-'.join([str(n_cluster) for n_cluster in n_clusters])
-    # method = 'cocluster'
-    # n_clusters = 3
-    # n_str = str(n_clusters)
-    top_k = 300
+    # method = 'bicluster'
+    # n_clusters = (20, 20)
+    # n_str = '-'.join([str(n_cluster) for n_cluster in n_clusters])
+    method = 'cocluster'
+    n_clusters = 20
+    n_str = str(n_clusters)
+    top_k = 600
 
     results = get_co_cluster(data_name, model_name, state_name, n_clusters, -1, top_k, mode=mode, method=method)
 

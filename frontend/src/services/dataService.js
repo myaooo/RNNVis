@@ -140,6 +140,7 @@ export default {
   getTextEvaluation,
   getCoCluster,
   getVocab,
+  getStateSignature,
   getStateStatistics,
   getWordStatistics,
 }
