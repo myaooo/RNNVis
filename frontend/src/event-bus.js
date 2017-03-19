@@ -48,7 +48,7 @@ const bus = new Vue({
       }
       return Promise.resolve('Already Loaded');
     },
-    loadCoCluster(modelName = this.state.selectedModel, stateName = this.state.selectedState, nCluster = 10, params = { top_k: 30, mode: 'positive' }) {
+    loadCoCluster(modelName = this.state.selectedModel, stateName = this.state.selectedState, nCluster = 10, params = { top_k: 300, mode: 'positive' }) {
       const coCluster = new CoClusterProcessor(modelName, stateName, nCluster, params);
       const coClusterName = CoClusterProcessor.identifier(coCluster);
       if (this.state.coClusters.hasOwnProperty(coClusterName))
