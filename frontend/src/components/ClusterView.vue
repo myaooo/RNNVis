@@ -58,7 +58,7 @@
     unitMargin: 2,
     wordCloudArcDegree: 130,
     wordCloudNormalRadius: 60,
-    wordCloudShrinkHeight: 20,
+    wordCloudShrinkHeight: 5,
     wordCloudPaddingLength: 10,
     wordCloudChord2stateClusterHeightRatio: 1.2,
     wordCloudWidth2HeightRatio: 1.2,
@@ -259,8 +259,6 @@
 
       let chordLength = nCluster * (clusterHeight + clusterInterval) * wordCloudChord2stateClusterHeightRatio;
       let availableLength = chordLength - nCluster * wordCloudPaddingLength;
-      console.log(availableLength)
-      console.log(chordLength);
 
       const wordCloudArcRadius = chordLength / 2 / Math.sin(wordCloudArcDegree / 2 * Math.PI / 180);
       this.params.wordCloudArcRadius = wordCloudArcRadius;
@@ -280,9 +278,10 @@
         if (highlight_clouds.size === 0) {
           return Math.sqrt(d.length);
         } else if (!highlight_clouds.has(i)) {
-          return wordCloudShrinkHeight;
-        } else {
+          // return wordCloudShrinkHeight;
           return Math.sqrt(d.length);
+        } else {
+          return Math.sqrt(d.length) * 3;
         }
       });
       // console.log('wd_radius');
@@ -305,17 +304,19 @@
         console.log(`height is ${actual_height}`)
         const top_left_x = Math.sqrt(wordCloudArcRadius ** 2 - top_left_y ** 2);
         offset += actual_height + wordCloudPaddingLength;
-        const words_data = wdst.map((d) => {
-          return {text: words[d], size: agg_info.row_single_2_col_cluster[d][i] * wordSize2StrengthRatio};
-        });
-        // let pos_x = wordCloudArcRadius * Math.cos(angle_loc / 180 * Math.PI);
-        // let pos_y = wordCloudArcRadius * Math.sin(angle_loc / 180 * Math.PI);
-        // let link_pos_x = pos_x - actual_radius;
-        // let link_pos_y = pos_y;
-
-        word_info[i] = {top_left: [top_left_x, top_left_y], width: actual_width,
-          height: actual_height, words_data: words_data};
-
+        // if self.graph exist, then only update the location info
+        if (self.graph) {
+          self.graph.word_info[i].top_left = [top_left_x, top_left_y];
+          self.graph.word_info[i].width = actual_width;
+          self.graph.word_info[i].height = actual_height;
+          word_info[i] = self.graph.word_info[i];
+        } else {
+          const words_data = wdst.map((d) => {
+            return {text: words[d], size: agg_info.row_single_2_col_cluster[d][i] * wordSize2StrengthRatio};
+          });
+          word_info[i] = {top_left: [top_left_x, top_left_y], width: actual_width,
+            height: actual_height, words_data: words_data};
+        }
       });
       return word_info;
     }
@@ -325,16 +326,30 @@
       let links = [];
       let row_cluster_2_col_cluster = coCluster.aggregation_info.row_cluster_2_col_cluster;
       state_info.state_cluster_info.forEach((s, i) => {
-        let strength_max = d3.extent(row_cluster_2_col_cluster[i])[1];
+        let strength_max = 0;
+        if (!self.graph) {
+          strength_max = d3.extent(row_cluster_2_col_cluster[i])[1];
+        }
         word_info.forEach((w, j) => {
           if (links[i] === undefined) {
             links[i] = [];
           }
-          links[i][j] = {source: {x: s.top_left[0] + s.width,
-            y: s.top_left[1] + s.height / 2},
-            target: {x: w.top_left[0] + dx, y: w.top_left[1] + w.height/2 + dy},
-            strength: row_cluster_2_col_cluster[i][j] > strength_max * strengthThresholdPercent ? row_cluster_2_col_cluster[i][j] : 0,
-          };
+          // if self.graph exists, then only update the location info, keep
+          if (self.graph) {
+            links[i][j] = {source: {x: s.top_left[0] + s.width,
+              y: s.top_left[1] + s.height / 2},
+              target: {x: w.top_left[0] + dx, y: w.top_left[1] + w.height/2 + dy},
+              strength: self.graph.link_info[i][j].strength,
+              el: self.graph.link_info[i][j].el,
+            };
+          } else {
+            links[i][j] = {source: {x: s.top_left[0] + s.width,
+              y: s.top_left[1] + s.height / 2},
+              target: {x: w.top_left[0] + dx, y: w.top_left[1] + w.height/2 + dy},
+              strength: row_cluster_2_col_cluster[i][j] > strength_max * strengthThresholdPercent ? row_cluster_2_col_cluster[i][j] : 0,
+            };
+          }
+
         });
       });
       return links;
@@ -477,15 +492,23 @@
       let self = this;
       let word_info = graph.word_info;
       word_info.forEach((wclst, i) => {
-        let tmp_g = g.append('g')
-        let myWordCloud = new WordCloud(tmp_g, wclst.width/2, wclst.height/2)
-          .transform( 'translate(' + [wclst.top_left[0] + wclst.width/2, wclst.top_left[1] + wclst.height/2] + ')')
-        myWordCloud.update(word_info[i].words_data);
-        wclst['el'] = tmp_g.node();
+        if (wclst['wordCloud']) {
+          wclst['wordCloud']
+            .draw([wclst.width/2, wclst.height/2])
+            .transform( 'translate(' + [wclst.top_left[0] + wclst.width/2, wclst.top_left[1] + wclst.height/2] + ')')
+        } else {
+          let myWordCloud = new WordCloud(g, wclst.width/2, wclst.height/2)
+            .transform( 'translate(' + [wclst.top_left[0] + wclst.width/2, wclst.top_left[1] + wclst.height/2] + ')')
+          myWordCloud.update(word_info[i].words_data);
+          // wclst['el'] = tmp_g.node();
+          wclst['wordCloud'] = myWordCloud;
+        }
+
       });
     }
 
     erase_link() {
+      return;
       this.graph.link_info.forEach((ls) => {
         ls.forEach((l) => {
           d3.select(l['el'])
@@ -498,6 +521,7 @@
     }
 
     erase_word () {
+      return;
       this.graph.word_info.forEach((w) => {
         d3.select(w['el'])
           .transition()
@@ -528,19 +552,28 @@
             + " " + d.target.x + "," + d.target.y;
       }
 
-      function flatten(arr) {
-        return arr.reduce((acc, val) => {
-          return acc.concat(Array.isArray(val) ? flatten(val) : val);
-        }, []);
-      }
+      // function flatten(arr) {
+      //   return arr.reduce((acc, val) => {
+      //     return acc.concat(Array.isArray(val) ? flatten(val) : val);
+      //   }, []);
+      // }
+
       link_info.forEach((ls, i) => {
         ls.forEach((l, j) => {
+          if (l['el']) {
+            d3.select(l['el'])
+              .transition()
+              .duration(500)
+              .attr('d', link(l))
+          } else {
             let tmp_path = g.append('path')
               .classed('link', true)
               .classed('active', false)
               .attr('d', link(l))
               .attr('stroke-width', Math.min(l.strength * linkWidth2StrengthRatio, this.params.clusterHeight / 3))
             l['el'] = tmp_path.node();
+          }
+
         });
       });
     }

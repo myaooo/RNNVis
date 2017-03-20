@@ -113,26 +113,28 @@ export class WordCloud{
   color(colorScheme) {
     this.colorScheme = colorScheme;
   }
-  draw(size = [this.width, this.height], data = this.data) {
+  draw(size = [this.width/2, this.height/2], data = this.data) {
     // console.log(this.cloud);
     if (size[0] !== this.width || size[1] !== this.height) {
       this.bgHandle.remove();
       this.bgHandle = null;
-      this.size(size);
+      // this.size(size);
+      this.radius = size;
     }
     if (!this.bgHandle) {
       this.drawBackground();
     }
-    this.data = data;
+    if (!this.data)
+      this.data = data;
     // console.log(data);
-    const radiusX = size[0] / 2;
-    const radiusY = size[1] / 2;
+    const radiusX = size[0];
+    const radiusY = size[1];
     // this.group.attr('transform', 'translate(' + [-radiusX, -radiusY] + ')');
     const filterData = data.filter((d) => {
       return -radiusX < d.x - d.width / 4 && -radiusY < d.y - d.size && d.x + d.width/4 < radiusX && d.y < radiusY;
     });
     const self = this;
-    this.cloud = this.group.selectAll('g text')
+    this.cloud = this.group.selectAll('text')
       .data(filterData, function (d) { return d.text; }); // matching key
 
     //Entering words
@@ -143,7 +145,8 @@ export class WordCloud{
       .attr('text-anchor', 'middle')
       // .attr('font-size', 1);
     text
-      .text(function (d) { return d.text; })
+      .text(function (d) { return d.text; });
+    text
       .attr('transform', function (d) {
         return 'translate(' + [d.x, d.y] + ')';
       })
@@ -162,6 +165,8 @@ export class WordCloud{
       .style('fill-opacity', 1e-6)
       .attr('font-size', 1)
       .remove();
+
+    return this;
 
     // this._txt = null;
     // autoscale
