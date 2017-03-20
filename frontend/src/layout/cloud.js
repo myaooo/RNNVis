@@ -47,7 +47,7 @@ export class WordCloud{
   get polygon() {
     let polygon = [];
     const len = 4;
-    for (let i = 0; i < len; i++){
+    for (let i = 0; i < len; i++) {
       polygon.push([
         Math.round(this.radiusX * Math.cos(2 * Math.PI * i / len)),
         Math.round(this.radiusY * Math.sin(2 * Math.PI * i / len))]);
