@@ -12,6 +12,7 @@
   import { bus, SELECT_MODEL } from 'event-bus.js';
   import { Chart } from '../layout/chart.js'
   import { WordCloud } from '../layout/cloud.js'
+  import { sentence } from '../layout/sentence.js'
 
   export default {
     name: 'TestView',
@@ -34,7 +35,7 @@
           .attr('width', 500)
           .attr('height', 500);
         this.chart = new Chart(svg, 500, 500)
-          .background('lightgray', 0.3);
+          .background('lightgray', 0.0);
       },
       draw2() {
         var words = ['you', 'want', 'more',
@@ -183,18 +184,37 @@
           console.log(arc.centroid({startAngle: d.start, endAngle: d.end}));
         })
 
+      },
+      draw3() {
+        const p1 = bus.loadCoCluster('PTB-LSTM', 'state_c', 10, {top_k: 300, mode: 'raw'});
+        const record = bus.evalSentence('What can I do for you?', 'PTB-LSTM');
+        const p2 = record.evaluate();
+        Promise.all([p1, p2]).then((values) => {
+          const coCluster = bus.getCoCluster('PTB-LSTM', 'state_c', 10, {top_k: 300, mode: 'raw'});
+          const sentenceRecord = record.getRecords('state_c', -1);
+          console.log(record);
+          const a = sentence(d3.select(`#${this.svgId}`))
+            .size([50, 600])
+            .sentence(sentenceRecord)
+            .coCluster(coCluster)
+            .words(record.tokens)
+            .layout();
+        })
+
+          // .layout();
       }
     },
     mounted() {
-      let coClusterData;
-      const p = dataService.getCoCluster(this.model, this.state, 10, {}, response => {
-        coClusterData = response.data;
-        // console.log('co-cluster data:');
-        // console.log(coClusterData);
-      })
+      // let coClusterData;
+      // const p = dataService.getCoCluster(this.model, this.state, 10, {}, response => {
+      //   coClusterData = response.data;
+      //   // console.log('co-cluster data:');
+      //   // console.log(coClusterData);
+      // })
       this.init();
-      this.draw2();
+      // this.draw2();
       // this.draw_arc();
+      this.draw3();
     }
 
   }

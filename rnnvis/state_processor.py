@@ -9,7 +9,7 @@ import numpy as np
 from scipy.spatial.distance import pdist, squareform
 
 from rnnvis.db import get_dataset
-from rnnvis.db.db_helper import query_evals, query_evaluation_records
+from rnnvis.db.db_helper import query_evals, query_evaluation_records, get_datasets_by_name
 from rnnvis.utils.io_utils import file_exists, get_path, dict2json, before_save
 from rnnvis.vendor import tsne, mds
 
@@ -194,7 +194,8 @@ def get_state_statistics(data_name, model_name, state_name, diff=True, layer=-1,
             'low2': [top_k, n_states], 9%
             'high2': [top_k, n_states], 91%
             'sort_idx': [top_k, n_states], each row represents sorted idx of mean reaction of states w.r.t. a word
-            'freqs': [top_k,] frequency of each of the top_k words
+            'freqs': [top_k,] frequency of each of the top_k words,
+            'words': [top_k,], a list of words.
         }
     """
     top = 100 if top_k <= 100 else 500 if top_k <= 500 else 1000
@@ -205,15 +206,22 @@ def get_state_statistics(data_name, model_name, state_name, diff=True, layer=-1,
     tmp_file = get_path(_tmp_dir, tmp_file)
 
     def cal_fn():
-        words, states = load_words_and_state(data_name, model_name, state_name, diff)
-        id_to_states = sort_by_id(words, states)
+        _words, states = load_words_and_state(data_name, model_name, state_name, diff)
+        _id_to_states = sort_by_id(_words, states)
+        id_to_states = []
+        words = []
+        _words = get_datasets_by_name(data_name, ['id_to_word'])['id_to_word']
+        for i in range(top):
+            if _id_to_states[i] is not None:  # remove empty ones
+                id_to_states.append(_id_to_states[i])
+                words.append(_words[i])
         layer_num = states[0].shape[0]
         stats_list = []
-        for i in range(top):
-            if id_to_states[i] is None:  # some words may be seen in test set
+        for id_to_state in id_to_states:
+            if id_to_state is None:  # some words may be seen in test set
                 states = [np.zeros(states[0].shape, states[0].dtype)]  # use zeros as placeholder
             else:
-                states = id_to_states[i]
+                states = id_to_state
             stats_list.append(cal_state_statistics(states))
         stats_layer_wise = []
         for layer_ in range(layer_num):
@@ -221,16 +229,17 @@ def get_state_statistics(data_name, model_name, state_name, diff=True, layer=-1,
             for field in stats_list[0][layer_].keys():
                 value = np.vstack([stats[layer_][field] for stats in stats_list])
                 stats[field] = value
-            stats['freqs'] = np.array([len(id_to_states[i]) if id_to_states[i] is not None else 0 for i in range(top)])
+            stats['freqs'] = np.array([len(id_state) if id_state is not None else 0 for id_state in id_to_states])
             stats_layer_wise.append(stats)
-        return stats_layer_wise
+        return stats_layer_wise, words
 
-    layer_wise_stats = maybe_calculate(tmp_file, cal_fn)
+    layer_wise_stats, words = maybe_calculate(tmp_file, cal_fn)
     stats = layer_wise_stats[layer]
     if k is None:
         stats = {key: value[:top_k].tolist() for key, value in stats.items()}
     else:
         stats = {key: value[k].tolist() for key, value in stats.items()}
+    stats['words'] = words
     return stats
 
 

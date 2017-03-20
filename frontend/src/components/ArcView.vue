@@ -134,7 +134,9 @@
       },
     },
     mounted() {
-      bus.$on(SELECT_MODEL, (modelName) => {
+      bus.$on(SELECT_MODEL, (modelName, compare) => {
+        if (compare)
+          return;
         console.log(`Selected model in ArcView: ${modelName}`);
         this.model = modelName;
         bus.loadModelConfig(modelName).then( () => {
@@ -311,8 +313,8 @@ class ForceDirectedGraph{
     //     .style('opacity', (d) => {return this.normal_opacity_line;})
     //     .style('stroke', (d) => {return self.color(0)});
 
-    
-    
+
+
     // let lines_data = [];
     // self.graph.links.forEach((l) => {
     //   lines_data.push([l.source, l.target]);
@@ -428,7 +430,7 @@ class ForceDirectedGraph{
       .curve(d3.curveBundle.beta(1))
       .x((d) => {return d.x})
       .y((d) => {return d.y})
-    
+
     let line_data = [];
     let data_center = [];
     self.graph.label2arc.forEach((d, i) => {
