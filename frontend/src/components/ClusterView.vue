@@ -314,7 +314,7 @@
           const words_data = wdst.map((d) => {
             return {text: words[d], size: agg_info.row_single_2_col_cluster[d][i] * wordSize2StrengthRatio};
           });
-          word_info[i] = {top_left: [top_left_x, top_left_y], width: actual_width, 
+          word_info[i] = {top_left: [top_left_x, top_left_y], width: actual_width,
             height: actual_height, words_data: words_data};
         }
       });
@@ -350,7 +350,7 @@
               strength: row_cluster_2_col_cluster[i][j] > strength_max * strengthThresholdPercent ? row_cluster_2_col_cluster[i][j] : 0,
             };
           }
-          
+
         });
       });
       return links;
@@ -467,7 +467,7 @@
         .attr('y', (i) => state_info.state_info[i].top_left[1])
         .attr('fill', '#ff7f0e')
         .attr('fill-opacity', 0.5)
-      
+
       tmp_units.each(function(d) {
         graph.state_info.state_info[d]['el'] = this;
       })
@@ -504,7 +504,7 @@
           // wclst['el'] = tmp_g.node();
           wclst['wordCloud'] = myWordCloud;
         }
-        
+
       });
     }
 
@@ -574,7 +574,7 @@
               .attr('stroke-width', Math.min(l.strength * linkWidth2StrengthRatio, this.params.clusterHeight / 3))
             l['el'] = tmp_path.node();
           }
-            
+
         });
       });
     }
