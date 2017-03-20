@@ -47,7 +47,7 @@
 
       <!--Controls for the layout-->
       <el-form-item label="Cluster Num" v-if="selectedState">
-        <el-slider v-model="layout.clusterNum" :min="2" :max="20" @change="layoutChange" style="width: 80%"></el-slider>
+        <el-slider v-model="layout.clusterNum" :min="2" :max="20" style="width: 80%" @change="layoutChange"></el-slider>
       </el-form-item>
     </el-form>
   </div>
@@ -84,7 +84,7 @@
         selectedModel: null,
         selectedLayer: null,
         config: null,
-        layout: { clusterNum: 10 },
+        layout: { clusterNum: 3 },
         sentences: [],
         inputVisible: false,
         inputValue: '',
@@ -129,6 +129,7 @@
               };
               this.selectedLayer = this.config.LayerNum - 1;
               bus.$emit(SELECT_MODEL, this.selectedModel, this.compare);
+              bus.$emit(CHANGE_LAYOUT, this.layout, this.compare);
             }
           });
       },
@@ -139,7 +140,11 @@
       },
       selectedLayer: function (newLayer) {
         bus.$emit(SELECT_LAYER, newLayer, this.compare);
-      }
+      },
+      // layout: function (newLayout) {
+      //   console.log('layout changed.')
+      //   bus.$emit(CHANGE_LAYOUT, newLayout, this.compare);
+      // }
     },
     methods: {
       stateName(state) {
@@ -152,7 +157,9 @@
       },
       layoutChange() {
         console.log("Layout changed")
-        bus.$emit(CHANGE_LAYOUT, this.layout, this.compare);
+        // copy to a new one to force change
+        const layout = Object.assign({}, this.layout)
+        bus.$emit(CHANGE_LAYOUT, layout, this.compare);
       },
       closeSentence(sentence) {
         this.sentences.splice(this.sentences.indexOf(sentence), 1);
