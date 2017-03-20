@@ -55,7 +55,7 @@
         }
 
         //Create a new instance of the word cloud visualisation.
-        var myWordCloud = new WordCloud(d3.select(`#${this.svgId}`), 120, 120).translate(200,200);
+        var myWordCloud = new WordCloud(d3.select(`#${this.svgId}`), 120, 120).transform('translate(200,200)');
         // myWordCloud.update(words);
 
         //Start cycling through the demo data
@@ -198,7 +198,7 @@
             .sentence(sentenceRecord)
             .coCluster(coCluster)
             .words(record.tokens)
-            .layout();
+            .draw();
         })
 
           // .layout();
@@ -214,7 +214,7 @@
       this.init();
       // this.draw2();
       // this.draw_arc();
-      this.draw3();
+      this.draw2();
     }
 
   }

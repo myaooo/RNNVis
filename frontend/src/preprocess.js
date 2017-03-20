@@ -1,7 +1,7 @@
 import dataService from './services/dataService';
 
 export class CoClusterProcessor {
-  constructor(modelName, stateName, nCluster = 10, params = { top_k: 300, mode: 'raw' }) {
+  constructor(modelName, stateName, nCluster = 10, params = { top_k: 300, mode: 'raw', layer: -1 }) {
     this.rawData;
     this._rowClusters;
     this._colClusters;
@@ -75,7 +75,7 @@ export class CoClusterProcessor {
   }
   get aggregation_info() {
     if (this.hasData) {
-      if (!this._aggregation_info) {
+      if (this._aggregation_info) {
         return this._aggregation_info;
       }
       let rowClusters = this.rowClusters;
@@ -130,7 +130,7 @@ export class CoClusterProcessor {
   }
 
   static identifier(processor) {
-    return `${processor.modelName}_${processor.stateName}_${processor.nCluster}`;
+    return `${processor.modelName}_${processor.stateName}_${processor.nCluster}_${processor.params.layer}`;
   }
 
 }

@@ -13,7 +13,7 @@
       <el-col :span="18" class="col-bg" :gutter="15">
         <!--<router-view></router-view>-->
         <el-row>
-          <main-view :height="height * 0.55"> </main-view>
+          <main-view :height="height * 0.6"> </main-view>
         </el-row>
         <el-row>
           <el-col :span="12" class="col-bg" :gutter="15">

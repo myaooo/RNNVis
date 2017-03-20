@@ -80,6 +80,7 @@
         return Array.from({length: num}, (v, i) => start + i * interval);
       },
       repaintWord() {
+        this.chart.clean();
         const wordsStatistics = this.selectedWords.map((word, i) => {
           return this.statistics.statOfWord(word);
         });

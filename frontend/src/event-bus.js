@@ -15,12 +15,20 @@ const state = {
   selectedModel: null,
   selectedState: null,
   selectedLayer: null,
+  selectedModel2: null,
+  selectedState2: null,
+  selectedLayer2: null,
+  layout: null,
+  layout2: null,
   modelConfigs: {},
   coClusters: {},
   availableModels: null,
   sentenceRecords: {},
   statistics: {},
   modelsSet: null,
+  selectedUnits: [],
+  selectedWords: [],
+
 };
 
 const bus = new Vue({
@@ -64,7 +72,8 @@ const bus = new Vue({
       }
       return Promise.resolve('Already Loaded');
     },
-    loadCoCluster(modelName = this.state.selectedModel, stateName = this.state.selectedState, nCluster = 10, params = { top_k: 300, mode: 'raw' }) {
+
+    loadCoCluster(modelName = this.state.selectedModel, stateName = this.state.selectedState, nCluster = 10, params = { top_k: 300, mode: 'raw', layer: -1 }) {
       const coCluster = new CoClusterProcessor(modelName, stateName, nCluster, params);
       const coClusterName = CoClusterProcessor.identifier(coCluster);
       if (this.state.coClusters.hasOwnProperty(coClusterName))
@@ -81,7 +90,7 @@ const bus = new Vue({
           return 'Succeed';
         });
     },
-    getCoCluster(modelName = this.state.selectedModel, stateName = this.state.selectedState, nCluster = 10, params = { top_k: 300, mode: 'positive' }) {
+    getCoCluster(modelName = this.state.selectedModel, stateName = this.state.selectedState, nCluster = 10, params = { top_k: 300, mode: 'raw', layer: -1 }) {
       const coCluster = new CoClusterProcessor(modelName, stateName, nCluster, params);
       const coClusterName = CoClusterProcessor.identifier(coCluster);
       if (this.state.coClusters.hasOwnProperty(coClusterName))
@@ -168,23 +177,23 @@ const bus = new Vue({
     // register event listener
     this.$on(SELECT_MODEL, (modelName, compare) => {
       if (compare)
-        bus.state.selectedModel2 = modelName;
+        this.state.selectedModel2 = modelName;
       else
-        bus.state.selectedModel = modelName;
+        this.state.selectedModel = modelName;
     });
 
     this.$on(SELECT_STATE, (stateName, compare) => {
       if (compare)
-        bus.state.selectedState2 = stateName;
+        this.state.selectedState2 = stateName;
       else
-        bus.state.selectedState = stateName;
+        this.state.selectedState = stateName;
     });
 
     this.$on(SELECT_LAYER, (layer, compare) => {
       if (compare)
-        bus.state.selectedLayer2 = layer;
+        this.state.selectedLayer2 = layer;
       else
-        bus.state.selectedLayer = layer;
+        this.state.selectedLayer = layer;
     });
 
 // bus.$on(CLUSTER_NUM, (clusterNum) => {
@@ -192,8 +201,10 @@ const bus = new Vue({
 // });
 
     this.$on(CHANGE_LAYOUT, (newLayout, compare) => {
-      // if(compare)
-      //   return;
+      if(compare)
+        this.state.layout2 = newLayout;
+      else
+        this.state.layout = newLayout;
       console.log(`bus > clusterNum: ${newLayout.clusterNum}`);
     });
 
@@ -201,8 +212,9 @@ const bus = new Vue({
       console.log(`bus > evaluating model ${compare ? state.selectedModel2 : state.selectedModel} on sentence "${sentence}"`);
     });
 
-    this.$on(SELECT_UNIT, (unitDims, compare) => {
-      console.log(`bus > selected ${unitDims.length} units`);
+    this.$on(SELECT_UNIT, (unitDim, compare) => {
+      console.log(`bus > selected unit ${unitDim}`);
+
     });
 
     this.$on(SELECT_WORD, (words, compare) => {

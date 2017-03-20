@@ -5,34 +5,44 @@ import cloud from 'd3-cloud';
 // var cloud = require('./d3.cloud.js');
 // console.log('haha');
 
+const bgLayout = {
+  'stroke': 'gray',
+  'stroke-width': 0.5,
+  'fill': 'white',
+  'fill-opacity': 0.0,
+  'stroke-opacity': 0.8,
+};
+
+const wordLayout = {
+  'font': 'Impact',
+  'fontSize': [6, 20],
+  'fontWeight': [200, 500],
+  'padding': 1,
+}
+
 export class WordCloud{
-  constructor(selector, radiusX = 100, radiusY = radiusX) {
+  constructor(selector, radiusX = 100, radiusY = radiusX, bgshape = 'rect') {
     this.selector = selector;
     this.bggroup = this.selector.append('g');
-    this.bg = this.bggroup.append('ellipse')
-      .attr('fill-opacity', 0.0)
-      .attr('cx', 0)
-      .attr('cy', 0)
-      .attr('rx', radiusX)
-      .attr('ry', radiusY);
+    this.bg = this.bggroup.append('g');
+    this.bgHandle;
+    this.bgshape = bgshape;
+    this.bgLayout = bgLayout;
+    this.wordLayout = wordLayout;
     this.group = this.bggroup.append('g');
-    this.radiusX = radiusX;
-    this.radiusY = radiusY;
-    this._data = [];
+    this.radius = [radiusX, radiusY];
+    this.data;
     this.cloud = null;  // the handle to all the texts
     this.font = 'Impact';
-    this.offset = null;
-    this.rotateDegree = 0;
     this.margin_ = 0;
-    this.scale = null;
     this.colorScheme = d3.scaleOrdinal(d3.schemeCategory10);
-    this.bounding();
+    // this.bounding();
   }
   get width() {
-    return (this.radiusX - this.margin_) * 2;
+    return (this.radius[0] - this.margin_) * 2;
   }
   get height() {
-    return (this.radiusY - this.margin_) * 2;
+    return (this.radius[1] - this.margin_) * 2;
   }
   get polygon() {
     let polygon = [];
@@ -44,38 +54,45 @@ export class WordCloud{
     }
     return polygon;
   }
-  // set the relative translation regarding its mother element
-  translate(x, y) {
-    this.offset = [x, y];
-    this.transform();
+  size(size) {
+    this.radius[0] = size[0] / 2;
+    this.radius[1] = size[1] / 2;
     return this;
   }
-
-  get ellipse() {
-    return this.bg;
+  wordLayoutParams(layoutParams) {
+    return arguments.length ? (this.wordLayout = layoutParams, this) : this.wordLayout;
   }
-
-  rotate(degree) {
-    this.rotateDegree = degree;
-    this.transform();
+  bgLayoutParams(layoutParams) {
+    return arguments.length ? (this.bgLayout = layoutParams, this) : this.bgLayout;
+  }
+  transform(transformStr) {
+    this.bggroup.attr('transform', transformStr);
     return this;
   }
   // set the background color and opacity
   background(color, alpha = 1.0) {
-    this.bg
-      .attr('fill', color)
-      .attr('fill-opacity', alpha);
+    this.bgLayout['fill'] = color;
+    this.bgLayout['fill-opacity'] = alpha;
     return this;
   }
-  bounding(parameters = [['stroke', this.colorScheme(0)], ['stroke-dasharray', '3,3'], ['stroke-width', '1px']]) {
-    parameters.forEach((parameter) => {
-      this.bg.attr(parameter[0], parameter[1]);
+  drawBackground() {
+    this.bgHandle = this.bg.append(this.bgshape)
+    if (this.bgshape === 'rect') {
+      this.bgHandle
+        .attr('x', -this.radius[0])
+        .attr('y', -this.radius[1])
+        .attr('width', 2 * this.radius[0])
+        .attr('height', 2 * this.radius[1])
+    } else if (this.bgshape === 'ellipse') {
+      this.bgHandle
+        .attr('cx', 0)
+        .attr('cy', 0)
+        .attr('rx', radius[0])
+        .attr('ry', radius[1]);
+    }
+    Object.keys(this.bgLayout).forEach((param) => {
+      this.bgHandle.attr(param, this.bgLayout[param]);
     });
-    return this;
-  }
-  scale(scaleX, scaleY) {
-    this.scale = {x: scaleX, y: scaleY};
-    this.transform();
     return this;
   }
   margin(margin) {
@@ -83,49 +100,46 @@ export class WordCloud{
     // this.group.attr('transform', `scale()`)
     return this;
   }
-  // perform the transform rendering, will be called by `draw()`
-  transform() {
-    const translate = this.offset ? `translate(${this.offset[0]}, ${this.offset[1]})` : '';
-    const rotate = this.rotateDegree ? `rotate(${this.rotateDegree}, 0, 0)` : '';
-    const scale = this.scaleRatio ? `scale(${this.scale.x}, ${this.scale.y})` : '';
-    const transform = scale + rotate + translate;
-    if (transform)
-      this.bggroup.attr('transform', transform);
-    return this;
-  }
   fontFamily(font) {
-    this.font = font;
+    this.wordLayout.font = font;
     return this;
   }
   color(colorScheme) {
     this.colorScheme = colorScheme;
   }
-  draw(data, bounds) {
+  draw(data = this.data, size = [this.width, this.height]) {
     // console.log(this.cloud);
-
+    if (!this.bgHandle) {
+      this.drawBackground();
+    }
+    // console.log(data);
+    const radiusX = this.radius[0] - this.margin_;
+    const radiusY = this.radius[1] - this.margin_;
+    // this.group.attr('transform', 'translate(' + [-radiusX, -radiusY] + ')');
+    const filterData = data.filter((d) => {
+      return -radiusX < d.x - d.width / 2 && -radiusY < d.y - d.height && d.x + d.width/2 < radiusX && d.y < radiusY;
+    });
     const self = this;
     this.cloud = this.group.selectAll('g text')
-      .data(data, function (d) { return d.text; }); // matching key
-    // console.log(data);
+      .data(filterData, function (d) { return d.text; }); // matching key
+
     //Entering words
     const text = this.cloud.enter()
       .append('text')
-      .style('font-family', this.font)
+      .style('font-family', this.wordLayout.font)
       .style('fill', (d, i) => { return self.colorScheme(d.type); })
       .attr('text-anchor', 'middle')
       // .attr('font-size', 1);
     text
-      .text(function (d) { return d.text; });
-
-
-    text
-      .attr('font-size', 1)
-      .transition()
-      .duration(600)
-      .style('font-size', function (d) { return d.size + 'px'; })
+      .text(function (d) { return d.text; })
       .attr('transform', function (d) {
         return 'translate(' + [d.x, d.y] + ')';
       })
+      // .attr('font-size', 1)
+      .attr('font-size', function (d) { return d.size + 'px'; })
+      // .attr('font-weight', function(d) { return d.weight; })
+      .transition()
+      .duration(300)
       .style('fill-opacity', 1);;
 
     //Exiting words
@@ -136,54 +150,36 @@ export class WordCloud{
       .attr('font-size', 1)
       .remove();
 
-    this._txt = null;
+    // this._txt = null;
     // autoscale
     // setTimeout(() => self.autoscale(bounds), 100);
   }
-  ticked(data) {
-    // console.log('ticked');
-    if (this._txt) {
-      this._txt
-        .attr('transform', function (d) {
-          return 'translate(' + [d.x, d.y] + ')';
-        })
-    } else {
-      const self = this;
-      this.group.selectAll('g, text').remove();
-      this._txt = this.group.selectAll('g text')
-        .data(data, function (d) { return d.text; }) // matching key
-        .enter()
-        .append('text')
-        .text(function (d) { return d.text; })
-        .style('font-family', this.font)
-        .style('fill', (d, i) => { return self.colorScheme(d.type); })
-        .style('font-size', function (d) { return ~~(d.size) + 'px'; })
-        .attr('transform', function (d) {
-          return 'translate(' + [d.x, d.y] + ')';
-        })
-        .style('fill-opacity', 1);
-    }
-  }
   update(words) {
     const self = this;
-
+    console.log(words);
     words.sort((a, b) => {return a.size - b.size; });
+    const fontExtent = d3.extent(words, (d) => d.size);
     const scale = d3.scalePow()
-      .range([this.width / 30, this.width / 10])
-      .domain(d3.extent(words, (d) => d.size));
+      .range(this.wordLayout.fontSize)
+      .domain(fontExtent);
+    const weightScale = d3.scaleLinear()
+      .range(this.wordLayout.fontWeight)
+      .domain(fontExtent);
+    words.forEach((word) => {
+      word.weight = Math.round(weightScale(word.size));
+      word.size = scale(word.size);
+    });
     // d3.cloud()
     cloud()
-      .size([this.width, this.height])
-      // .canvas(() => { return document.createElement("canvas"); })
+      .size([this.width, this.height]) // when layout, first give a larger region
       .words(words)
-      .padding(1)
+      .padding(this.wordLayout.padding)
       .rotate(0)
-      // .polygon(this.polygon)
-      // .d(0.3)
-      .font(this.font)
+      .font(this.wordLayout.font)
       .text(d => d.text)
-      .fontSize(d => scale(d.size))
-      .on('end', (words, bounds) => self.draw(words, bounds))
+      .fontSize(d => d.size)
+      // .fontWeight(d => d.weight)
+      .on('end', (words) => self.draw(words))
       .start();
     // return this
   }

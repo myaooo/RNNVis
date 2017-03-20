@@ -18,6 +18,13 @@ class Artist {
   draw() {
     this.drawHooks.forEach((drawHook) => drawHook());
   }
+  clean() {
+    this.handles.forEach((handle) => {
+      handle.remove();
+    });
+    this.handles = [];
+    this.drawHooks = [];
+  }
 }
 
 const defaultColorScheme = d3.scaleOrdinal(d3.schemeCategory10);
@@ -300,6 +307,16 @@ export class Chart {
     this.charts.forEach((c) => c.draw());
     this.drawAxis();
   }
+  clean() {
+    this.charts.forEach((c) => c.clean());
+    Object.keys(this.artists).forEach((name) => this.artists[name].clean());
+    Object.keys(this.axisHandles).forEach((name) => this.axisHandles[name] ? this.axisHandles[name].remove() : 1)
+    this.scale = { x: null, y: null };
+    this.extents = [[Infinity, -Infinity], [Infinity, -Infinity]];
+    this.axis = { x: null, y: null };
+    this.drawHooks = { xAxis: null, yAxis: null};
+    this.charts = [];
+  }
 }
 
 export class LineArtist extends Artist {
@@ -326,10 +343,6 @@ export class LineArtist extends Artist {
     this.lines.push(line);
     this.drawHooks.push(drawHook);
     return handle;
-  }
-  legend() {
-    const handle = this.group.append('g');
-
   }
 }
 

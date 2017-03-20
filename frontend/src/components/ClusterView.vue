@@ -51,11 +51,11 @@
 
 
   const layoutParams = {
-    clusterInterval: 20,
+    clusterInterval: 15,
     packNum: 3,
-    unitWidth: 8,
-    unitHeight: 8,
-    unitMargin: 1,
+    unitWidth: 4,
+    unitHeight: 4,
+    unitMargin: 2,
     wordCloudArcDegree: 130,
     wordCloudNormalRadius: 60,
     wordCloudShrinkRadius: 20,
@@ -81,6 +81,7 @@
         painter: null,
         shared: bus.state,
         width: 0,
+        changingFlag: false,
       }
     },
     props: {
@@ -101,34 +102,63 @@
       selectedModel: function() {
         return this.shared.selectedModel;
       },
-      clusterNum: function() {
-        console.log(`cluster > cluster number is ${this.shared.selectedLayer.clusterNum}`);
-        return this.shared.selectedLayer.clusterNum;
+      selectedLayer: function() {
+        return this.shared.selectedLayer;
       },
+      layout: function() {
+        return this.shared.layout;
+      },
+      clusterNum: function() {
+        return this.layout.clusterNum;
+      }
     },
     watch: {
       selectedState: function (state) {
-        if (state === 'state' || state === 'state_c' || state === 'state_h')
-          this.reload(this.selectedModel, state, this.clusterNum);
+        this.maybeReload();
+      },
+      selectedLayer: function (layer) {
+        this.maybeReload();
+      },
+      layout: function(layout) {
+        console.log("cluster > Changing Layout...");
+        this.maybeReload();
       },
       selectedModel: function (newModel, oldModel) {
-        bus.loadModelConfig(newModel).then(() => {
-          this.states = bus.availableStates(newModel);
-        });
+        this.maybeReload();
       },
-      clusterNum: function (newClusterNum, oldClusterNum) {
-        // do something 
-        console.log(`cluster > cluster number changed to ${newClusterNum}`);
-      }
     },
     methods: {
+      checkLegality() {
+        const state = this.selectedState;
+        return (state === 'state' || state === 'state_c' || state === 'state_h')
+          && ((typeof this.selectedLayer) === 'number') && (this.layout);
+      },
+      maybeReload() {
+        // console.log(this.changingFlag);
+        if (!this.changingFlag){
+          this.changingFlag = true;
+          // console.log(this.changingFlag);
+          if (this.checkLegality()){
+            console.log('reloading');
+            this.reload(this.selectedModel, this.selectedState, this.selectedLayer, this.clusterNum)
+              .then(() => {
+                this.changingFlag = false;
+              });
+          }
+        }
+      },
       init() {
         this.painter = new Painter(`#${this.svgId}`);
       },
-      reload(model, state, clusterNum) {
-        bus.loadCoCluster(model, state, clusterNum)
+      reload(model, state, layer, clusterNum) {
+        const params = {
+          top_k: 300,
+          mode: 'raw',
+          layer: layer,
+        };
+        return bus.loadCoCluster(model, state, clusterNum, params)
           .then(() => {
-            this.clusterData = bus.getCoCluster(model, state, clusterNum);
+            this.clusterData = bus.getCoCluster(model, state, clusterNum, params);
             this.painter.draw(this.clusterData);
           });
       },
@@ -430,7 +460,7 @@
       word_info.forEach((wclst, i) => {
         let tmp_g = g.append('g')
         let myWordCloud = new WordCloud(tmp_g, wclst.word_cloud_radius)
-          .translate(wclst.position[0], wclst.position[1])
+          .transform( 'translate(' + wclst.position + ')')
         myWordCloud.update(word_info[i].words_data);
         wclst['el'] = tmp_g.node();
       });
