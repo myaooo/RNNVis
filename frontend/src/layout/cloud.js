@@ -14,10 +14,10 @@ const bgLayout = {
 };
 
 const wordLayout = {
-  'font': 'Impact',
-  'fontSize': [6, 20],
+  'font': 'Arial',
+  'fontSize': [6, 17],
   'fontWeight': [200, 500],
-  'padding': 1,
+  'padding': 0,
 }
 
 export class WordCloud{
@@ -76,11 +76,14 @@ export class WordCloud{
     return this;
   }
   drawBackground() {
+    // console.log("Redrawing backgrounds")
     this.bgHandle = this.bg.append(this.bgshape)
     if (this.bgshape === 'rect') {
       this.bgHandle
         .attr('x', -this.radius[0])
         .attr('y', -this.radius[1])
+        .attr('rx', 4)
+        .attr('ry', 4)
         .attr('width', 2 * this.radius[0])
         .attr('height', 2 * this.radius[1])
     } else if (this.bgshape === 'ellipse') {
@@ -107,17 +110,23 @@ export class WordCloud{
   color(colorScheme) {
     this.colorScheme = colorScheme;
   }
-  draw(data = this.data, size = [this.width, this.height]) {
+  draw(size = [this.width, this.height], data = this.data) {
     // console.log(this.cloud);
+    if (size[0] !== this.width || size[1] !== this.height) {
+      this.bgHandle.remove();
+      this.bgHandle = null;
+      this.size(size);
+    }
     if (!this.bgHandle) {
       this.drawBackground();
     }
+    this.data = data;
     // console.log(data);
-    const radiusX = this.radius[0] - this.margin_;
-    const radiusY = this.radius[1] - this.margin_;
+    const radiusX = size[0] / 2;
+    const radiusY = size[1] / 2;
     // this.group.attr('transform', 'translate(' + [-radiusX, -radiusY] + ')');
     const filterData = data.filter((d) => {
-      return -radiusX < d.x - d.width / 2 && -radiusY < d.y - d.height && d.x + d.width/2 < radiusX && d.y < radiusY;
+      return -radiusX < d.x - d.width / 4 && -radiusY < d.y - d.size && d.x + d.width/4 < radiusX && d.y < radiusY;
     });
     const self = this;
     this.cloud = this.group.selectAll('g text')
@@ -156,7 +165,7 @@ export class WordCloud{
   }
   update(words) {
     const self = this;
-    console.log(words);
+    // console.log(words);
     words.sort((a, b) => {return a.size - b.size; });
     const fontExtent = d3.extent(words, (d) => d.size);
     const scale = d3.scalePow()
@@ -171,7 +180,7 @@ export class WordCloud{
     });
     // d3.cloud()
     cloud()
-      .size([this.width, this.height]) // when layout, first give a larger region
+      .size([this.width*1.2, this.height*1.2]) // when layout, first give a larger region
       .words(words)
       .padding(this.wordLayout.padding)
       .rotate(0)
@@ -179,7 +188,9 @@ export class WordCloud{
       .text(d => d.text)
       .fontSize(d => d.size)
       // .fontWeight(d => d.weight)
-      .on('end', (words) => self.draw(words))
+      .on('end', (words) => self.draw([self.width, self.height], words))
+      .random(()=> 0.5)
+      .spiral('rectangular')
       .start();
     // return this
   }

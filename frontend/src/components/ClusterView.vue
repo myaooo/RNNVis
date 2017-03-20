@@ -57,7 +57,7 @@
     unitHeight: 4,
     unitMargin: 2,
     wordCloudArcDegree: 130,
-    wordCloudNormalRadius: 60,
+    wordCloudNormalRadius: 80,
     wordCloudShrinkRadius: 20,
     wordCloudPaddingDegree: 3,
     wordCloudChord2stateClusterHeightRatio: 1.2,
@@ -81,7 +81,7 @@
         // clusterNum: 10,
         painter: null,
         shared: bus.state,
-        width: 0,
+        width: 800,
         changingFlag: false,
       }
     },
@@ -201,6 +201,7 @@
 
       this.state_elements = [];
       this.loc = null;
+      this.wordClouds = [];
     }
 
     calculate_state_info(coCluster) {
@@ -458,24 +459,32 @@
     draw_word(g, graph) {
       let self = this;
       let word_info = graph.word_info;
-      word_info.forEach((wclst, i) => {
-        let tmp_g = g.append('g')
-        let myWordCloud = new WordCloud(tmp_g, wclst.word_cloud_radius)
-          .transform( 'translate(' + wclst.position + ')')
-        myWordCloud.update(word_info[i].words_data);
-        wclst['el'] = tmp_g.node();
-      });
+      if (this.wordClouds.length !== word_info.length) {
+        this.wordClouds = new Array(word_info.length);
+        word_info.forEach((wclst, i) => {
+          const tmp_g = g.append('g')
+          this.wordClouds[i] = new WordCloud(tmp_g, wclst.word_cloud_radius)
+            .transform( 'translate(' + wclst.position + ')');
+          this.wordClouds[i].update(word_info[i].words_data);
+          wclst['el'] = tmp_g.node();
+        });
+      } else {
+        this.wordClouds.forEach((cloud, i) => {
+          cloud.draw([word_info[i].word_cloud_radius, word_info[i].word_cloud_radius]);
+        });
+      }
+
     }
 
     erase_word_link() {
       let self = this;
-      self.graph.word_info.forEach((w) => {
-        d3.select(w['el'])
-          .transition()
-          .duration(500)
-          .attr('fill-opacity', 1e-6)
-          .remove()
-      });
+      // self.graph.word_info.forEach((w) => {
+      //   d3.select(w['el'])
+      //     .transition()
+      //     .duration(500)
+      //     .attr('fill-opacity', 1e-6)
+      //     .remove()
+      // });
       self.graph.link_info.forEach((ls) => {
         ls.forEach((l) => {
           d3.select(l['el'])
@@ -526,20 +535,21 @@
       this.hg.attr('transform', 'translate(' + [this.middle_line_x, 100] + ')');
       this.wg.attr('transform', 'translate(' + [this.middle_line_x + this.dx, 100 + this.dy] + ')');
       // this.wg.attr('transform', 'translate(' + [this.middle_line_x + 100, 100 + chordLength / 2 - 50] + ')');
-      const coClusterAggregation = coCluster.aggregation_info;
-      let state_info = this.calculate_state_info(coCluster);
-      // console.log(state_info.state_cluster_info)
-      // let word_and_link_info = this.calculate_word_and_link_info(coCluster, state_info.state_cluster_info, this.dx, this.dy);
-      // let link_info = this.calculate_link_info(state_info.state_cluster_info, word_info, coCluster, dx, dy);
-      let word_info = this.calculate_word_info(coCluster);
-      let link_info = this.calculate_link_info(state_info, word_info, coCluster, this.dx, this.dy);
-
-      self.graph = {
-        state_info: state_info,
-        word_info: word_info,
-        link_info: link_info,
-        coCluster: coCluster,
-      }
+      // if (!self.graph) {
+        const coClusterAggregation = coCluster.aggregation_info;
+        let state_info = this.calculate_state_info(coCluster);
+        // console.log(state_info.state_cluster_info)
+        // let word_and_link_info = this.calculate_word_and_link_info(coCluster, state_info.state_cluster_info, this.dx, this.dy);
+        // let link_info = this.calculate_link_info(state_info.state_cluster_info, word_info, coCluster, dx, dy);
+        let word_info = this.calculate_word_info(coCluster);
+        let link_info = this.calculate_link_info(state_info, word_info, coCluster, this.dx, this.dy);
+        self.graph = {
+          state_info: state_info,
+          word_info: word_info,
+          link_info: link_info,
+          coCluster: coCluster,
+        }
+      // }
 
       this.draw_state(this.hg, self.graph);
       this.draw_word(this.wg, self.graph);

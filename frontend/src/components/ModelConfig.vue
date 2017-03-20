@@ -84,7 +84,7 @@
         selectedModel: null,
         selectedLayer: null,
         config: null,
-        layout: { clusterNum: 3 },
+        layout: { clusterNum: 10 },
         sentences: [],
         inputVisible: false,
         inputValue: '',

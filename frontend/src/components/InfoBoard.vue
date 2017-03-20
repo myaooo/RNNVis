@@ -29,6 +29,7 @@
         selectedWords: null, // []
         compare: null,
         statistics: null,
+        color: d3.scaleOrdinal(d3.schemeCategory10),
       };
     },
     props: {
@@ -89,19 +90,25 @@
           .xAxis()
           .yAxis();
         let sortIdx = wordsStatistics[0].sort_idx;
-        const range = this.range(0, sortIdx.length, ~~(sortIdx.length / 200));
+        const interval = ~~(sortIdx.length / 200)
+        const range = this.range(0, sortIdx.length, interval);
         sortIdx = range.map((i) => sortIdx[i]);
         // console.log(range);
         // console.log(sortIdx);
+        this.chart.line([[0,0], [wordsStatistics[0].mean.length,0]])
+          .attr('stroke', '#000');
         wordsStatistics.forEach((wordData, i) => {
           this.chart
-            .line(sortIdx.map((i) => wordData.mean[i]), (d, i) => { return i; }, (d) => { return d; })
-            .attr('stroke-width', 1);
+            .line(sortIdx.map((i) => wordData.mean[i]), (d, i) => i*interval, (d) => { return d; })
+            .attr('stroke-width', 1)
+            .attr('stroke', this.color(i));
           this.chart
-            .area(sortIdx.map((i) => wordData.range1[i]), (d, i) => i, (d) => d[0], (d) => d[1])
+            .area(sortIdx.map((i) => wordData.range1[i]), (d, i) => i*interval, (d) => d[0], (d) => d[1])
+            .attr('fill', this.color(i))
             .attr('fill-opacity', 0.2);
           this.chart
-            .area(sortIdx.map((i) => wordData.range2[i]), (d, i) => i, (d) => d[0], (d) => d[1])
+            .area(sortIdx.map((i) => wordData.range2[i]), (d, i) => i*interval, (d) => d[0], (d) => d[1])
+            .attr('fill', this.color(i))
             .attr('fill-opacity', 0.1);
         });
         this.chart.draw();

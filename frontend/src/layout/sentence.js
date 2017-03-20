@@ -2,9 +2,11 @@ import * as d3 from 'd3';
 import { SentenceRecord, CoClusterProcessor } from '../preprocess'
 
 const layoutParams = {
-  nodeInterval: 5,
+  nodeIntervalScale: 1.5,
   color: d3.scaleOrdinal(d3.schemeCategory20),
   radiusScale: 1.5,
+  widthScale: 1.5,
+  avgValueRange: [0, 0.4],
 };
 
 // example usage:
@@ -28,13 +30,24 @@ class SentenceLayout{
     return arguments.length ? (this._size = size, this) : this._size;
   }
   get radius() {
-    const radius = this._size[0] / (this.params.radiusScale*2);
-    if (this.sentence){
-      const radius2 = (this._size[1] - (this.sentence.length - 1) * this.params.nodeInterval) /
-        (this.sentence.length * this.params.radiusScale * 2);
-      return radius < radius2 ? radius : radius2;
+    if (!this._radius){
+      const radius = this._size[0] / (this.params.widthScale*2);
+      if (this.sentence && !this._radius){
+        const radius2 = (this._size[1] - (this.sentence.length - 1) * this.params.nodeIntervalScale * radius) /
+          (this.sentence.length * this.params.radiusScale * 2);
+        this._radius = radius < radius2 ? radius : radius2;
+      }
     }
-    return radius;
+    return this._radius;
+  }
+  get nodeHeight() {
+    return this.params.radiusScale * 2 * this.radius;
+  }
+  get nodeWidth() {
+    return this.params.widthScale * 2 * this.radius;
+  }
+  get nodeInterval() {
+    return this.params.nodeIntervalScale * this.radius;
   }
   // set the sentence data used
   sentence(sentence) {
@@ -49,16 +62,41 @@ class SentenceLayout{
     return arguments.length ? (this._words = words, this) : this;
   }
   // start to layout words
-  draw() {
+  draw(type='bar') {
     if (this.dataList.length !== this._sentence.length)
       this.dataList = this.preprocess(this._sentence, this._coCluster, this._words);
     else
       this.clean();
-    // console.log(dataList);
+    // prepare
+    this.scaleHeight = d3.scaleLinear()
+      .range([0, this.nodeHeight])
+      .domain(this.params.avgValueRange);
+    let stateSize = 0;
+    for( let j = 0; j < this.dataList[0].data.length; j++) stateSize += this.dataList[0].data[j].size;
+    this.scaleWidth = d3.scaleLinear()
+      .range([0, this.nodeWidth])
+      .domain([0, stateSize]);
+
+    // draw
+    if (type === 'pie') {
+      this.dataList.forEach((data, i) => {
+        const pos = this.getWordPos(i);
+        const g = this.group.append('g');
+        this.drawOneWordPie(g, data, i)
+          .attr('transform', 'translate(' + pos + ')');
+      });
+      return;
+    }
     this.dataList.forEach((data, i) => {
+      const pos = this.getWordPos(i);
+      if(i > 0){
+        const gl = this.group.append('g');
+        this.drawOneConnection(gl, data, i)
+          .attr('transform', 'translate(' + [0, pos[1] - this.nodeHeight / 2 - this.nodeInterval] + ')')
+      }
       const g = this.group.append('g');
-      this.drawOneWord(g, data, i)
-        .attr('transform', 'translate(' + this.getWordPos(i) + ')');
+      this.drawOneWordBar(g, data, i)
+        .attr('transform', 'translate(' + [0, pos[1]-this.nodeHeight/2] + ')');
     });
   }
   // remove all the elements, all the preprocessed data are kept
@@ -77,11 +115,85 @@ class SentenceLayout{
   }
   // get the position [x, y] of a word regarding this.group
   getWordPos(i){
-    return [this._size[0] / 2, this.radius * (this.params.radiusScale * (1 + 2 * i)) + i * this.params.nodeInterval];
+    return [this._size[0] / 2, this.radius * (this.params.radiusScale * (1 + 2 * i)) + i * this.nodeInterval];
+  }
+  // draw one word using bar chart
+  // data: {word: 'he', data: Array}
+  drawOneWordBar(el, data, i) {
+    const height = this.nodeHeight;
+    const width = this.nodeWidth;
+    const color = this.params.color;
+    console.log(data);
+    const scaleHeight = this.scaleHeight;
+    const scaleWidth = this.scaleWidth;
+
+    const bg = el.append('rect')
+      .attr('x', 0)
+      .attr('y', scaleHeight(this.params.avgValueRange[0]))
+      .attr('width', width)
+      .attr('height', scaleHeight(this.params.avgValueRange[1]))
+      .attr('stroke', 'gray')
+      .attr('stroke-width', 0.5)
+      .attr('fill', 'none');
+
+    const gSelector = el.selectAll('g')
+      .data(data.data);
+    const g1 = gSelector.enter()
+      .append('g');
+    const cur = g1.append('rect')
+      .attr('x', (d) => scaleWidth(d.accumulate))
+      .attr('y', (d) => height - scaleHeight(d.prev / d.size))
+      .attr('width', (d) => scaleWidth(d.size))
+      .attr('height', (d) => scaleHeight(d.prev / d.size))
+      .attr('fill', (d, j) => color(j))
+    g1.style('fill-opacity', 0.4)
+      .style('stroke', 'gray')
+      // .style('stroke-opacity', 0.5)
+      .style('stroke-width', 0.5)
+
+    const g2 = gSelector.enter()
+      .append('g');
+    const updated = g2.append('rect')
+      .attr('x', (d) => scaleWidth(d.accumulate))
+      .attr('y', (d) => height - (d.updated * d.major < 0 ? scaleHeight(d.prev / d.size) : (scaleHeight((d.prev + d.updated * d.major) / d.size))))
+      .attr('width', (d) => scaleWidth(d.size))
+      .attr('height', (d) => scaleHeight(Math.abs(d.updated) / d.size))
+      .attr('fill', (d, j) => d.updated * d.major < 0 ? 'white' : color(j));
+    g2.style('fill-opacity', 0.8)
+      .style('stroke', 'gray')
+      .style('stroke-width', 0.5)
+
+    data.el = el; // bind group
+    return el;
+  }
+
+  drawOneConnection(el, data, i) {
+    const height = this.nodeInterval;
+    const width = this.nodeWidth;
+    const color = this.params.color;
+    console.log(data);
+    // const scaleHeight = this.scaleHeight;
+    const scaleWidth = this.scaleWidth;
+    const calPoints = (clst) => {
+      const arr = new Array(4);
+      const mar = (1 - clst.keptRate) * clst.size / 2;
+      arr[0] = [scaleWidth(clst.accumulate), 0];
+      arr[1] = [scaleWidth(clst.accumulate + clst.size), 0];
+      arr[2] = [scaleWidth(clst.accumulate + clst.size - mar), height];
+      arr[3] = [scaleWidth(clst.accumulate + mar), height];
+      return arr[0] + ' ' + arr[1] + ' ' + arr[2] + ' ' + arr[3];
+    }
+    el.selectAll('polygon')
+      .data(data.data).enter()
+      .append('polygon')
+      .attr('points', (d) => calPoints(d))
+      .attr('fill', (d, j) => color(j))
+      .attr('fill-opacity', 0.6);
+    return el;
   }
 
   // draw one word
-  drawOneWord(el, data, i) {
+  drawOneWordPie(el, data, i) {
     const radius = this.radius;
     const color = this.params.color;
     console.log(data);
@@ -97,8 +209,8 @@ class SentenceLayout{
       .outerRadius(radius);
 
     let arc3 = d3.arc()
-      .innerRadius((d) => { return radius * (d.data.updated < 0 ? (1 + d.data.updated*2) : 1); })
-      .outerRadius((d) => { return radius * (d.data.updated < 0 ? 1 : (1 + d.data.updated*2)); });
+      .innerRadius((d) => { return radius * (d.data.updatedRate < 0 ? (1 + d.data.updatedRate*2) : 1); })
+      .outerRadius((d) => { return radius * (d.data.updatedRate < 0 ? 1 : (1 + d.data.updatedRate*2)); });
 
     let arcs = [arc1, arc3, arc2];
     let pie = d3.pie()
@@ -121,7 +233,7 @@ class SentenceLayout{
         .attr('stroke-width', 0.3)
         .attr('fill', (d, k) => (j === 2 ? 'gray' : color(k)));
     };
-    handles[1].attr('fill-opacity', (d, k) => (data.data[k].updated < 0 ? 0.3 : 0.7))
+    handles[1].attr('fill-opacity', (d, k) => (data.data[k].updatedRate < 0 ? 0.3 : 0.7))
     gs[0].attr('fill-opacity', 0.7);
     // gs[1].attr('fill-opacity', 0.6);
     gs[2].attr('fill-opacity', 0.2);
@@ -135,6 +247,12 @@ class SentenceLayout{
     const len = sentence.length;
     const clusterNum = coCluster.labels.length;
     const stateNum = sentence[0].length;
+    const clustersSize = coCluster.colClusters.map((clst) => {
+      return clst.length;
+    });
+    const accClustersSize = new Float32Array(clustersSize.length);
+    for (let i = 1; i < accClustersSize.length; i++)
+      accClustersSize[i] += accClustersSize[i-1] + clustersSize[i-1];
     // const info
     // let infoCurrent
     const currentStates = sentence.map((word) => {
@@ -145,31 +263,58 @@ class SentenceLayout{
       });
     });
 
-    const infoCurrent = currentStates.map((word, t) => { // compute an array for each word
-      return word.map((cluster, i) => { // compute a info for each cluster
-        return cluster.reduce((a, b) => Math.abs(a) + Math.abs(b));
-      })
-    });
-    const infoPrevious = [new Float32Array(clusterNum), ...infoCurrent.slice(0, len-1)];
+    const infoPositive = new Array(len);
+    const infoNegative = new Array(len);
+    const infoCurrent = new Array(len);
+    for (let t = 0; t < len; t++) {
+      infoPositive[t] = new Float32Array(clusterNum);
+      infoNegative[t] = new Float32Array(clusterNum);
+      infoCurrent[t] = new Float32Array(clusterNum);
+      for (let i = 0; i < clusterNum; i++) {
+        for (let j = 0; j < clustersSize[i]; j++) {
+          if (currentStates[t][i][j] > 0) {
+            infoPositive[t][i] += currentStates[t][i][j];
+          } else {
+            infoNegative[t][i] += currentStates[t][i][j];
+          }
+          infoCurrent[t][i] += Math.abs(currentStates[t][i][j]);
+        }
+      }
+    }
 
+    // const infoCurrent = currentStates.map((word, t) => { // compute an array for each word
+    //   return word.map((cluster, i) => { // compute a info for each cluster
+    //     let absSum = 0;
+    //     for(let j = 0; j < cluster.length; j++)
+    //       absSum += Math.abs(cluster[j]);
+    //     return absSum;
+    //   })
+    // });
+
+    const infoPrevious = [new Float32Array(clusterNum), ...infoCurrent.slice(0, len-1)];
+    console.log(infoPrevious);
     const h_tij = [currentStates[0].map((clst) => new Float32Array(clst.length)), ...currentStates];
     // console.log(h_tij);
     const infoUpdated = new Array(len);
     const infoKept = new Array(len);
+    const major = new Array(len);
     for (let t = 0; t < len; t++) {
       infoUpdated[t] = new Float32Array(clusterNum);
       infoKept[t] = new Float32Array(clusterNum);
+      major[t] = new Float32Array(clusterNum);
       for (let i = 0; i < clusterNum; i++) {
-        for (let j = 0; j < h_tij[t][i].length; j++){
+        for (let j = 0; j < clustersSize[i]; j++){
           const prev = h_tij[t][i][j];
           const cur = h_tij[t+1][i][j];
           infoUpdated[t][i] += (cur-prev);
           // infoUpdated[t][i] += Math.sign(prev) * (cur-prev);
           const ratio = cur / prev;
           infoKept[t][i] += Math.abs(prev) * (ratio < 0 ? 0 : 1 < ratio ? 1 : ratio);
+          major[t][i] += cur;
         }
       }
     }
+
     return words.map((word, t) => {
       const data = infoCurrent[t].map((current, i) => {
         const prev = infoPrevious[t][i];
@@ -178,9 +323,14 @@ class SentenceLayout{
         return {
           current: current,
           prev: prev,
-          updated: prev === 0 ? 0 : updated / prev,
-          kept: prev === 0 ? 0 : kept / prev,
-        }
+          updatedRate: prev === 0 ? 0 : updated / prev,
+          keptRate: prev === 0 ? 0 : kept / prev,
+          updated: updated,
+          kept: kept,
+          size: clustersSize[i],
+          accumulate: accClustersSize[i],
+          major: Math.sign(major[t][i]),
+        };
       });
       return {
         word: word,
