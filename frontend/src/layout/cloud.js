@@ -66,7 +66,10 @@ export class WordCloud{
     return arguments.length ? (this.bgLayout = layoutParams, this) : this.bgLayout;
   }
   transform(transformStr) {
-    this.bggroup.attr('transform', transformStr);
+    this.bggroup
+      .transition()
+      .duration(200)
+      .attr('transform', transformStr);
     return this;
   }
   // set the background color and opacity
@@ -124,8 +127,8 @@ export class WordCloud{
     if (!this.data)
       this.data = data;
     // console.log(data);
-    const radiusX = size[0] / 2;
-    const radiusY = size[1] / 2;
+    const radiusX = size[0];
+    const radiusY = size[1];
     // this.group.attr('transform', 'translate(' + [-radiusX, -radiusY] + ')');
     const filterData = data.filter((d) => {
       return -radiusX < d.x - d.width / 4 && -radiusY < d.y - d.size && d.x + d.width/4 < radiusX && d.y < radiusY;
@@ -150,6 +153,7 @@ export class WordCloud{
       // .attr('font-size', 1)
       .attr('font-size', function (d) { return d.size + 'px'; })
       // .attr('font-weight', function(d) { return d.weight; })
+      .style('fill-opacity', 0)
       .transition()
       .duration(300)
       .style('fill-opacity', 1);;

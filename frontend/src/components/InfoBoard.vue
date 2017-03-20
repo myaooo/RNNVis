@@ -3,6 +3,7 @@
     <h4 class="normal">{{type === 'state' ? 'Hidden State' : 'Word'}}</h4>
     <hr>
     <svg :id='svgId' :width='width' :height='height'> </svg>
+    <svg :id='svgId+"2"' :width='width' :height='30'> </svg>
   </div>
 </template>
 
@@ -24,6 +25,7 @@
       return {
         width: 0,
         chart: null,
+        labelBoard: null,
         shared: bus.state,
         selectedUnits: null, // []
         selectedWords: null, // []
@@ -75,10 +77,7 @@
       init() {
         this.chart = new Chart(d3.select(`#${this.svgId}`), this.width, this.height)
           .background('lightgray', 0.0);
-      },
-      range(start, end, interval) {
-        const num = ~~((end - start -1) / interval) + 1;
-        return Array.from({length: num}, (v, i) => start + i * interval);
+        this.labelBoard = d3.select(`#${this.svgId}2`);
       },
       repaintWord() {
         this.chart.clean();
@@ -90,13 +89,14 @@
           .xAxis()
           .yAxis();
         let sortIdx = wordsStatistics[0].sort_idx;
-        const interval = ~~(sortIdx.length / 200)
-        const range = this.range(0, sortIdx.length, interval);
+        const interval = ~~(sortIdx.length / 100)
+        const range = range(0, sortIdx.length, interval);
         sortIdx = range.map((i) => sortIdx[i]);
         // console.log(range);
         // console.log(sortIdx);
         this.chart.line([[0,0], [wordsStatistics[0].mean.length,0]])
           .attr('stroke', '#000');
+        this.labelBoard.selectAll('rect, text').remove();
         wordsStatistics.forEach((wordData, i) => {
           this.chart
             .line(sortIdx.map((i) => wordData.mean[i]), (d, i) => i*interval, (d) => { return d; })
@@ -110,6 +110,12 @@
             .area(sortIdx.map((i) => wordData.range2[i]), (d, i) => i*interval, (d) => d[0], (d) => d[1])
             .attr('fill', this.color(i))
             .attr('fill-opacity', 0.1);
+          this.labelBoard.append('rect')
+            .attr('x', 80*i+20).attr('y', 10).attr('width', 30).attr('height', 1)
+            .attr('fill', this.color(i))
+          this.labelBoard.append('text')
+            .attr('x', 80*i + 60).attr('y', 15)
+            .text(this.selectedWords[i])
         });
         this.chart.draw();
 
@@ -161,10 +167,21 @@
             bus.$emit(SELECT_UNIT, [10, 20], false);
           if (this.type === 'state')
             bus.$emit(SELECT_WORD, ['he', 'she'], false);
-        }, 500);
+        }, 5000);
+        setTimeout(() => {
+          if (this.type === 'word')
+            bus.$emit(SELECT_UNIT, [10, 20], false);
+          if (this.type === 'state')
+            bus.$emit(SELECT_WORD, ['he', 'for'], false);
+        }, 8000);
 
       });
 
     }
+  }
+
+  function range(start, end, interval) {
+    const num = ~~((end - start -1) / interval) + 1;
+    return Array.from({length: num}, (v, i) => start + i * interval);
   }
 </script>

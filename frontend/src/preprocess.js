@@ -49,23 +49,21 @@ export class CoClusterProcessor {
     return Boolean(this.rawData);
   }
 
-  strength_filter(strength, mode=this.params.mode) {
-    let strength_item = 0;
-    switch(mode) {
+  strength_filter(strength, mode = this.params.mode) {
+    switch (mode) {
       case 'positive':
-        strength_item = strength > 0 ? strength : 0;
+        return strength > 0 ? strength : 0;
         break;
       case 'negative':
-        strength_item = strength < 0 ? Math.abs(strength) : 0;
+        return strength < 0 ? Math.abs(strength) : 0;
         break;
       case 'abs':
-        strength_item = Math.abs(strength);
+        return Math.abs(strength);
         break;
       case 'raw':
-        strength_item = strength;
+        return strength;
         break;
     }
-    return strength_item;
   }
 
   Create2DArray(rowNum, colNum) {
@@ -96,10 +94,12 @@ export class CoClusterProcessor {
         });
       });
 
-      return {row_cluster_2_col_cluster: row_cluster_2_col_cluster,
-              row_single_2_col_cluster: row_single_2_col_cluster,
-              row_cluster_2_col_single: row_cluster_2_col_single,
-              row_single_2_col_single: row_single_2_col_single};
+      return {
+        row_cluster_2_col_cluster: row_cluster_2_col_cluster,
+        row_single_2_col_cluster: row_single_2_col_cluster,
+        row_cluster_2_col_single: row_cluster_2_col_single,
+        row_single_2_col_single: row_single_2_col_single
+      };
     }
     return null;
   }
@@ -135,7 +135,7 @@ export class CoClusterProcessor {
 
 }
 
-export class SentenceRecord{
+export class SentenceRecord {
   constructor(inputs, modelName) {
     this.inputs = inputs;
     this.tokens;
@@ -144,7 +144,7 @@ export class SentenceRecord{
   }
   evaluate(modelName = this.modelName) {
     return dataService.getTextEvaluation(modelName, this.inputs, (response => {
-      if(response.status === 200){
+      if (response.status === 200) {
         const data = response.data;
         this.tokens = data.tokens[0]; // assume one sentence
         this.records = data.records[0];
@@ -165,7 +165,7 @@ export class SentenceRecord{
     }
     return this._layerNum;
   }
-  getRecords(stateName, layer = -1){
+  getRecords(stateName, layer = -1) {
     if (this.records) {
       layer = layer === -1 ? this.layerNum - 1 : layer;
       console.log(layer);
@@ -178,7 +178,7 @@ export class SentenceRecord{
 }
 
 export class StateStatistics {
-  constructor(modelName, stateName, layer=-1, top_k=600) {
+  constructor(modelName, stateName, layer = -1, top_k = 600) {
     this.modelName = modelName;
     this.stateName = stateName;
     this.layer = layer;
@@ -213,7 +213,7 @@ export class StateStatistics {
     return this._statesData;
   }
   get word2Id() {
-    if(this.data && !this._word2Id) {
+    if (this.data && !this._word2Id) {
       const word2Id = {}
       this.data.words.forEach((word, i) => {
         word2Id[word] = i;
@@ -223,7 +223,7 @@ export class StateStatistics {
     return this._word2Id;
   }
   get wordsData() {
-    if(this.data && !this._wordsData) {
+    if (this.data && !this._wordsData) {
       this._wordsData = this.data.mean.map((mean, i) => {
         const data = {
           mean: mean,
@@ -243,8 +243,21 @@ export class StateStatistics {
   }
 }
 
+function memorize(fn) {
+  var cache = {};
+  return function () {
+    var key = arguments.length + Array.prototype.join.call(arguments, ",");
+    if (key in cache) {
+      return cache[key];
+    } else {
+      return cache[key] = f.apply(this, arguments);
+    }
+  }
+}
+
 export default {
   CoClusterProcessor,
   SentenceRecord,
   StateStatistics,
+  memorize,
 };
