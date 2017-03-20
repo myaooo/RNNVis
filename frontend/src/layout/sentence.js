@@ -236,7 +236,7 @@ class SentenceLayout{
     handles[1].attr('fill-opacity', (d, k) => (data.data[k].updatedRate < 0 ? 0.3 : 0.7))
     gs[0].attr('fill-opacity', 0.7);
     // gs[1].attr('fill-opacity', 0.6);
-    gs[2].attr('fill-opacity', 0.2);
+    gs[2].attr('fill-opacity', 0.0);
 
     data.els = gs; // 3 groups, each group corresponds to each ring of pie chart
     data.handles = handles; // 3 handles, each handle is a selector of paths of the pie chart
