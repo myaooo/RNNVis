@@ -272,11 +272,11 @@
       let word_info = [];
       let wd_radius = wordClusters.map((d, i) => {
         if (highlight_clouds.size === 0) {
-          return d.length;
+          return Math.sqrt(d.length);
         } else if (!highlight_clouds.has(i)) {
-          return wordCloudShrinkRadius;
+          return wordCloudShrinkRadius/5;
         } else {
-          return agg_info.row_cluster_2_col_cluster[selected_state_cluster_index][i];
+          return Math.sqrt(d.length)*1.2;
           // return d.length;
         }
       });

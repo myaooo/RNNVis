@@ -50,22 +50,20 @@ export class CoClusterProcessor {
   }
 
   strength_filter(strength, mode=this.params.mode) {
-    let strength_item = 0;
     switch(mode) {
       case 'positive':
-        strength_item = strength > 0 ? strength : 0;
+        return strength > 0 ? strength : 0;
         break;
       case 'negative':
-        strength_item = strength < 0 ? Math.abs(strength) : 0;
+        return strength < 0 ? Math.abs(strength) : 0;
         break;
       case 'abs':
-        strength_item = Math.abs(strength);
+        return Math.abs(strength);
         break;
       case 'raw':
-        strength_item = strength;
+        return strength;
         break;
     }
-    return strength_item;
   }
 
   Create2DArray(rowNum, colNum) {
