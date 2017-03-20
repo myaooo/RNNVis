@@ -64,7 +64,7 @@ const bus = new Vue({
       }
       return Promise.resolve('Already Loaded');
     },
-    loadCoCluster(modelName = this.state.selectedModel, stateName = this.state.selectedState, nCluster = 10, params = { top_k: 300, mode: 'positive' }) {
+    loadCoCluster(modelName = this.state.selectedModel, stateName = this.state.selectedState, nCluster = 10, params = { top_k: 300, mode: 'raw' }) {
       const coCluster = new CoClusterProcessor(modelName, stateName, nCluster, params);
       const coClusterName = CoClusterProcessor.identifier(coCluster);
       if (this.state.coClusters.hasOwnProperty(coClusterName))
@@ -186,6 +186,10 @@ const bus = new Vue({
       else
         bus.state.selectedLayer = layer;
     });
+
+// bus.$on(CLUSTER_NUM, (clusterNum) => {
+//   bus.state.clusterNum = clusterNum;
+// });
 
     this.$on(CHANGE_LAYOUT, (newLayout, compare) => {
       // if(compare)

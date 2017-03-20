@@ -5,7 +5,7 @@ export class CoClusterProcessor {
     this.rawData;
     this._rowClusters;
     this._colClusters;
-    this._aggregation_info;
+    this._aggregation_info = null;
     this.modelName = modelName;
     this.stateName = stateName;
     this.nCluster = nCluster;
@@ -73,8 +73,11 @@ export class CoClusterProcessor {
       return Array.from({ length: colNum }, (v, i) => 0);
     });
   }
-  aggregation_info() {
+  get aggregation_info() {
     if (this.hasData) {
+      if (!this._aggregation_info) {
+        return this._aggregation_info;
+      }
       let rowClusters = this.rowClusters;
       let colClusters = this.colClusters;
       let row_cluster_2_col_cluster = this.Create2DArray(this.nCluster, this.nCluster);

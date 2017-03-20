@@ -77,7 +77,8 @@
         params: layoutParams,
         svgId: 'cluster-svg',
         clusterData: null,
-        clusterNum: 10,
+        state: bus.state,
+        // clusterNum: 10,
         painter: null,
         shared: bus.state,
         width: 0,
@@ -107,6 +108,15 @@
         if (state === 'state' || state === 'state_c' || state === 'state_h')
           this.reload(this.selectedModel, state, this.clusterNum);
       },
+      selectedModel: function (newModel, oldModel) {
+        console.log('selected model has changed');
+        bus.loadModelConfig(newModel).then(() => {
+          this.states = bus.availableStates(newModel);
+        });
+      },
+      clusterNum: function (newClusterNum, oldClusterNum) {
+        // do something 
+      }
     },
     methods: {
       init() {
@@ -123,6 +133,13 @@
     mounted() {
       this.width = this.$el.clientWidth;
       this.init();
+      // register events
+      // bus.$on(SELECT_MODEL, (model) => {
+      //   this.selectedModel = model;
+      //   bus.loadModelConfig(model).then(() => {
+      //     this.states = bus.availableStates(model);
+      //   });
+      // });
       bus.$on(CHANGE_LAYOUT, (layout, compare) => {
         if (compare)
           return;
@@ -165,7 +182,7 @@
       const clusterInterval = this.params.clusterInterval;
 
       const stateClusters = coCluster.colClusters;
-      const agg_info = coCluster.aggregation_info();
+      const agg_info = coCluster.aggregation_info;
       const nCluster = coCluster.labels.length;
       const words = coCluster.words;
 
@@ -201,7 +218,7 @@
       const words = coCluster.words;
       const nWord = words.length;
       const nCluster = coCluster.labels.length;
-      const agg_info = coCluster.aggregation_info();
+      const agg_info = coCluster.aggregation_info;
 
       let chordLength = nCluster * (clusterHeight + clusterInterval) * wordCloudChord2stateClusterHeightRatio;
 
@@ -259,9 +276,11 @@
     }
 
     calculate_link_info(state_info, word_info, coCluster, dx, dy) {
+      console.log('agg_info');
+      console.log(coCluster.aggregation_info.row_cluster_2_col_cluster);
       const strengthThresholdPercent = this.params.strengthThresholdPercent;
       let links = [];
-      let row_cluster_2_col_cluster = coCluster.aggregation_info().row_cluster_2_col_cluster;
+      let row_cluster_2_col_cluster = coCluster.aggregation_info.row_cluster_2_col_cluster;
       state_info.state_cluster_info.forEach((s, i) => {
         let strength_max = d3.extent(row_cluster_2_col_cluster[i])[1];
         word_info.forEach((w, j) => {
@@ -473,7 +492,7 @@
       this.hg.attr('transform', 'translate(' + [this.middle_line_x, 100] + ')');
       this.wg.attr('transform', 'translate(' + [this.middle_line_x + this.dx, 100 + this.dy] + ')');
       // this.wg.attr('transform', 'translate(' + [this.middle_line_x + 100, 100 + chordLength / 2 - 50] + ')');
-      const coClusterAggregation = coCluster.aggregation_info();
+      const coClusterAggregation = coCluster.aggregation_info;
       let state_info = this.calculate_state_info(coCluster);
       // console.log(state_info.state_cluster_info)
       // let word_and_link_info = this.calculate_word_and_link_info(coCluster, state_info.state_cluster_info, this.dx, this.dy);
@@ -492,6 +511,10 @@
       this.draw_word(this.wg, self.graph);
       this.draw_link(this.hg, self.graph);
 
+    }
+
+    destroy() {
+      // self.graph.state_info.forEach(())
     }
   }
 
