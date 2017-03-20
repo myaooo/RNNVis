@@ -2,9 +2,7 @@
   <div>
     <h4 class="normal">Interpreter</h4>
     <hr>
-    <!--<cluster-view class="content" :height="height"> </cluster-view>-->
-    <test-view> </test-view>
-    
+    <cluster-view class="content" :height="height"> </cluster-view>
   </div>
 
   <!--<el-tabs v-model="activeTab" @tab-click="handleClick" type="border-card" height=800>

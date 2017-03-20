@@ -58,9 +58,10 @@
     unitMargin: 2,
     wordCloudArcDegree: 130,
     wordCloudNormalRadius: 60,
-    wordCloudShrinkRadius: 20,
-    wordCloudPaddingDegree: 3,
+    wordCloudShrinkHeight: 20,
+    wordCloudPaddingLength: 10,
     wordCloudChord2stateClusterHeightRatio: 1.2,
+    wordCloudWidth2HeightRatio: 1.2,
     littleTriangleWidth: 5,
     littleTriangleHeight: 5,
     strengthThresholdPercent: 0.2,
@@ -159,6 +160,7 @@
         return bus.loadCoCluster(model, state, clusterNum, params)
           .then(() => {
             this.clusterData = bus.getCoCluster(model, state, clusterNum, params);
+            this.painter.destroy();
             this.painter.draw(this.clusterData);
           });
       },
@@ -196,7 +198,7 @@
       this.triangle_width = 5;
 
       this.dx = 0, this.dy = 0;
-      this.graph = {};
+      this.graph = null;
 
       this.state_elements = [];
       this.loc = null;
@@ -243,10 +245,11 @@
       const wordCloudArcDegree = this.params.wordCloudArcDegree;
       const clusterInterval = this.params.clusterInterval;
       const clusterHeight = this.params.clusterHeight;
-      const wordCloudPaddingDegree = this.params.wordCloudPaddingDegree;
+      const wordCloudPaddingLength = this.params.wordCloudPaddingLength;
       const wordCloudChord2stateClusterHeightRatio = this.params.wordCloudChord2stateClusterHeightRatio;
-      const wordCloudShrinkRadius = this.params.wordCloudShrinkRadius;
+      const wordCloudShrinkHeight = this.params.wordCloudShrinkHeight;
       const wordSize2StrengthRatio = this.params.wordSize2StrengthRatio;
+      const wordCloudWidth2HeightRatio = this.params.wordCloudWidth2HeightRatio;
       const wordClusters = coCluster.rowClusters;
       const words = coCluster.words;
       const nWord = words.length;
@@ -254,10 +257,13 @@
       const agg_info = coCluster.aggregation_info;
 
       let chordLength = nCluster * (clusterHeight + clusterInterval) * wordCloudChord2stateClusterHeightRatio;
+      let availableLength = chordLength - nCluster * wordCloudPaddingLength;
+      console.log(availableLength)
+      console.log(chordLength);
 
       const wordCloudArcRadius = chordLength / 2 / Math.sin(wordCloudArcDegree / 2 * Math.PI / 180);
       this.params.wordCloudArcRadius = wordCloudArcRadius;
-      const wordCloudArcLength = wordCloudArcRadius * wordCloudArcDegree * Math.PI / 180;
+      // const wordCloudArcLength = wordCloudArcRadius * wordCloudArcDegree * Math.PI / 180;
 
       let highlight_clouds = [];
       if (selected_state_cluster_index >= 0) {
@@ -269,48 +275,51 @@
       }
       highlight_clouds = new Set(highlight_clouds);
       let word_info = [];
-      let wd_radius = wordClusters.map((d, i) => {
+      let wd_height = wordClusters.map((d, i) => {
         if (highlight_clouds.size === 0) {
-          return d.length;
+          return Math.sqrt(d.length);
         } else if (!highlight_clouds.has(i)) {
-          return wordCloudShrinkRadius;
+          return wordCloudShrinkHeight;
         } else {
-          return agg_info.row_cluster_2_col_cluster[selected_state_cluster_index][i];
-          // return d.length;
+          return Math.sqrt(d.length);
         }
       });
-      console.log('wd_radius');
-      console.log(wd_radius);
+      // console.log('wd_radius');
+      // console.log(wd_radius);
 
-      let availableDegree = wordCloudArcDegree - nCluster * wordCloudPaddingDegree;
-      let wd_radius_sum = wd_radius.reduce((acc, val) => {
+      // let availableDegree = wordCloudArcDegree - nCluster * wordCloudPaddingDegree;
+      let wd_height_sum = wd_height.reduce((acc, val) => {
         return acc + val;
       }, 0);
 
-      let offset = -wordCloudArcDegree / 2;
+      let offset = -chordLength / 2;
       wordClusters.forEach((wdst, i) => {
-        let angle = wd_radius[i] / wd_radius_sum * availableDegree / 2;
-        let actual_radius = wordCloudArcRadius * angle * Math.PI / 180;
-        let angle_loc = angle + offset;
-        offset += 2 * angle + wordCloudPaddingDegree;
-        let words_data = wdst.map((d) => {
+        // let angle = wd_radius[i] / wd_radius_sum * availableDegree / 2;
+        // let actual_radius = wordCloudArcRadius * angle * Math.PI / 180;
+        // let angle_loc = angle + offset;
+        const actual_height = wd_height[i] / wd_height_sum * availableLength;
+        const actual_width = actual_height * wordCloudWidth2HeightRatio;
+        const top_left_y = offset;
+        console.log(`top_left_y is ${offset}`);
+        console.log(`height is ${actual_height}`)
+        const top_left_x = Math.sqrt(wordCloudArcRadius ** 2 - top_left_y ** 2);
+        offset += actual_height + wordCloudPaddingLength;
+        const words_data = wdst.map((d) => {
           return {text: words[d], size: agg_info.row_single_2_col_cluster[d][i] * wordSize2StrengthRatio};
         });
-        let pos_x = wordCloudArcRadius * Math.cos(angle_loc / 180 * Math.PI);
-        let pos_y = wordCloudArcRadius * Math.sin(angle_loc / 180 * Math.PI);
-        let link_pos_x = pos_x - actual_radius;
-        let link_pos_y = pos_y;
+        // let pos_x = wordCloudArcRadius * Math.cos(angle_loc / 180 * Math.PI);
+        // let pos_y = wordCloudArcRadius * Math.sin(angle_loc / 180 * Math.PI);
+        // let link_pos_x = pos_x - actual_radius;
+        // let link_pos_y = pos_y;
 
-        word_info[i] = {position: [pos_x, pos_y], link_point_position: [link_pos_x, link_pos_y],
-          word_cloud_radius: actual_radius, words_data: words_data};
+        word_info[i] = {top_left: [top_left_x, top_left_y], width: actual_width, 
+          height: actual_height, words_data: words_data};
 
       });
       return word_info;
     }
 
     calculate_link_info(state_info, word_info, coCluster, dx, dy) {
-      console.log('agg_info');
-      console.log(coCluster.aggregation_info.row_cluster_2_col_cluster);
       const strengthThresholdPercent = this.params.strengthThresholdPercent;
       let links = [];
       let row_cluster_2_col_cluster = coCluster.aggregation_info.row_cluster_2_col_cluster;
@@ -322,7 +331,7 @@
           }
           links[i][j] = {source: {x: s.top_left[0] + s.width,
             y: s.top_left[1] + s.height / 2},
-            target: {x: w.link_point_position[0] + dx, y: w.link_point_position[1] + dy},
+            target: {x: w.top_left[0] + dx, y: w.top_left[1] + w.height/2 + dy},
             strength: row_cluster_2_col_cluster[i][j] > strength_max * strengthThresholdPercent ? row_cluster_2_col_cluster[i][j] : 0,
           };
         });
@@ -336,7 +345,8 @@
 
     redraw_word_link(selected_state_cluster_index) {
       let self = this;
-      self.erase_word_link();
+      self.erase_word();
+      self.erase_link();
       self.graph.word_info = self.calculate_word_info(self.graph.coCluster, selected_state_cluster_index);
       self.graph.link_info = self.calculate_link_info(self.graph.state_info, self.graph.word_info, self.graph.coCluster, self.dx, self.dy);
       self.draw_word(self.wg, self.graph);
@@ -387,6 +397,10 @@
         })
         .attr('id', (clst, i) => (String(clst.length) + String(i)));
 
+      hGroups.each(function (d, i) {
+        graph.state_info.state_cluster_info[i]['el'] = this;
+      });
+
       hGroups.append('rect')
         .classed('hidden-cluster', true)
         .transition()
@@ -412,7 +426,7 @@
         .selectAll('rect')
         .data(d => d);
 
-      units.enter()
+      let tmp_units = units.enter()
         .append('rect')
         .on('mouseover', function(d, i) {
           if (d3.select(this.parentNode.parentNode).property('selected') === 'true') {
@@ -436,6 +450,10 @@
         .attr('y', (i) => state_info.state_info[i].top_left[1])
         .attr('fill', '#ff7f0e')
         .attr('fill-opacity', 0.5)
+      
+      tmp_units.each(function(d) {
+        graph.state_info.state_info[d]['el'] = this;
+      })
 
 
       // add
@@ -459,23 +477,15 @@
       let word_info = graph.word_info;
       word_info.forEach((wclst, i) => {
         let tmp_g = g.append('g')
-        let myWordCloud = new WordCloud(tmp_g, wclst.word_cloud_radius)
-          .transform( 'translate(' + wclst.position + ')')
+        let myWordCloud = new WordCloud(tmp_g, wclst.width/2, wclst.height/2)
+          .transform( 'translate(' + [wclst.top_left[0] + wclst.width/2, wclst.top_left[1] + wclst.height/2] + ')')
         myWordCloud.update(word_info[i].words_data);
         wclst['el'] = tmp_g.node();
       });
     }
 
-    erase_word_link() {
-      let self = this;
-      self.graph.word_info.forEach((w) => {
-        d3.select(w['el'])
-          .transition()
-          .duration(500)
-          .attr('fill-opacity', 1e-6)
-          .remove()
-      });
-      self.graph.link_info.forEach((ls) => {
+    erase_link() {
+      this.graph.link_info.forEach((ls) => {
         ls.forEach((l) => {
           d3.select(l['el'])
           .transition()
@@ -483,6 +493,27 @@
           .attr('fill', 1e-6)
           .remove()
         });
+      });
+    }
+
+    erase_word () {
+      this.graph.word_info.forEach((w) => {
+        d3.select(w['el'])
+          .transition()
+          .duration(500)
+          .attr('fill-opacity', 1e-6)
+          .remove()
+      });
+    }
+
+    erase_state() {
+      this.graph.state_info.state_cluster_info.forEach((s) => {
+        d3.select(s['el'])
+          .transition()
+          .duration(500)
+          .attr('fill-opacity', 1e-6)
+          .attr('opacity', 1e-6)
+          .remove()
       });
     }
 
@@ -520,10 +551,10 @@
       this.params.clusterInterval = (this.client_height / nCluster - clusterHeight) * 0.7;
       const clusterInterval = this.params.clusterInterval;
       let chordLength = nCluster * (clusterHeight + clusterInterval);
-      this.dx = 100, this.dy = chordLength / 2;
+      this.dx = 400, this.dy = chordLength / 2;
 
-      this.hg.attr('transform', 'translate(' + [this.middle_line_x, 100] + ')');
-      this.wg.attr('transform', 'translate(' + [this.middle_line_x + this.dx, 100 + this.dy] + ')');
+      this.hg.attr('transform', 'translate(' + [this.middle_line_x, 50] + ')');
+      this.wg.attr('transform', 'translate(' + [this.middle_line_x + this.dx, 50 + this.dy] + ')');
       // this.wg.attr('transform', 'translate(' + [this.middle_line_x + 100, 100 + chordLength / 2 - 50] + ')');
       const coClusterAggregation = coCluster.aggregation_info;
       let state_info = this.calculate_state_info(coCluster);
@@ -547,6 +578,12 @@
     }
 
     destroy() {
+      if (!this.graph) {
+        return;
+      }
+      this.erase_state();
+      this.erase_link();
+      this.erase_word();
       // self.graph.state_info.forEach(())
     }
   }
