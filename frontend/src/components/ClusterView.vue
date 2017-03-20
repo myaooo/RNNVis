@@ -77,7 +77,6 @@
         params: layoutParams,
         svgId: 'cluster-svg',
         clusterData: null,
-        state: bus.state,
         // clusterNum: 10,
         painter: null,
         shared: bus.state,
