@@ -66,7 +66,10 @@ export class WordCloud{
     return arguments.length ? (this.bgLayout = layoutParams, this) : this.bgLayout;
   }
   transform(transformStr) {
-    this.bggroup.attr('transform', transformStr);
+    this.bggroup
+      .transition()
+      .duration(200)
+      .attr('transform', transformStr);
     return this;
   }
   // set the background color and opacity
@@ -147,6 +150,7 @@ export class WordCloud{
       // .attr('font-size', 1)
       .attr('font-size', function (d) { return d.size + 'px'; })
       // .attr('font-weight', function(d) { return d.weight; })
+      .style('fill-opacity', 0)
       .transition()
       .duration(300)
       .style('fill-opacity', 1);;
