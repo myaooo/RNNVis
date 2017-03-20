@@ -8,6 +8,7 @@ const state = {
   modelConfigs: {},
   coClusters: {},
   availableModels: null,
+  clusterNum: 10,
   // sentenceRecords: [],
 };
 
@@ -48,7 +49,7 @@ const bus = new Vue({
       }
       return Promise.resolve('Already Loaded');
     },
-    loadCoCluster(modelName = this.state.selectedModel, stateName = this.state.selectedState, nCluster = 10, params = { top_k: 300, mode: 'positive' }) {
+    loadCoCluster(modelName = this.state.selectedModel, stateName = this.state.selectedState, nCluster = 10, params = { top_k: 300, mode: 'raw' }) {
       const coCluster = new CoClusterProcessor(modelName, stateName, nCluster, params);
       const coClusterName = CoClusterProcessor.identifier(coCluster);
       if (this.state.coClusters.hasOwnProperty(coClusterName))
@@ -110,10 +111,15 @@ const bus = new Vue({
 
 // event definitions goes here
 const SELECT_MODEL = 'SELECT_MODEL';
+const CLUSTER_NUM = 'CLUSTER_NUM';
 
 // register event listener
 bus.$on(SELECT_MODEL, (modelName) => {
   bus.state.selectedModel = modelName;
+});
+
+bus.$on(CLUSTER_NUM, (clusterNum) => {
+  bus.state.clusterNum = clusterNum;
 });
 
 
