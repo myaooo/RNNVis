@@ -23,7 +23,6 @@
 }
 .link {
   fill: none;
-  stroke: blue;
   opacity: 0.2;
 }
 .state_unit {
@@ -46,7 +45,7 @@
 
 <script>
   import * as d3 from 'd3'
-  import { bus, SELECT_MODEL, SELECT_STATE, CHANGE_LAYOUT } from '../event-bus'
+  import { bus, SELECT_MODEL, SELECT_STATE, CHANGE_LAYOUT, SELECT_WORD } from '../event-bus'
   import { WordCloud } from '../layout/cloud.js';
 
 
@@ -181,6 +180,23 @@
         console.log("cluster > Changing Layout...");
         // this.clusterNum = layout.clusterNum;
       });
+      bus.$on(SELECT_WORD, (words, compare) => {
+        if (words.length === 0) {
+          this.painter.render_state([]);
+          return;
+        }
+        this.selectedWords = words.slice();
+        this.compare = compare;
+        let model = this.selectedModel,
+          state = this.selectedState,
+          layer = this.selectedLayer;
+        const p = bus.loadStatistics(model, state, layer)
+          .then(() => {
+            const statistics = bus.getStatistics(model, state, layer);
+            const wordsStatistics = statistics.statOfWord(this.selectedWords[0]).mean;
+            this.painter.render_state(wordsStatistics);
+          });
+      });
     }
   }
 
@@ -203,6 +219,12 @@
       this.state_elements = [];
       this.loc = null;
       this.wordClouds = [];
+
+      this.unitNormalColor = '#ff7f0e';
+      this.unitRangeColor = ['#09adff', '#ff5b09'];
+      this.linkWidthRanage = [1, 5];
+      this.linkColor = ['#09adff', '#ff5b09'];
+      
     }
 
     calculate_state_info(coCluster) {
@@ -281,7 +303,7 @@
           // return wordCloudShrinkHeight;
           return Math.sqrt(d.length);
         } else {
-          return Math.sqrt(d.length) * 3;
+          return Math.sqrt(d.length) * 1.5;
         }
       });
       // console.log('wd_radius');
@@ -300,8 +322,6 @@
         const actual_height = wd_height[i] / wd_height_sum * availableLength;
         const actual_width = actual_height * wordCloudWidth2HeightRatio;
         const top_left_y = offset;
-        console.log(`top_left_y is ${offset}`);
-        console.log(`height is ${actual_height}`)
         const top_left_x = Math.sqrt(wordCloudArcRadius ** 2 - top_left_y ** 2);
         offset += actual_height + wordCloudPaddingLength;
         // if self.graph exist, then only update the location info
@@ -322,21 +342,25 @@
     }
 
     calculate_link_info(state_info, word_info, coCluster, dx, dy) {
+      const self = this;
       const strengthThresholdPercent = this.params.strengthThresholdPercent;
       let links = [];
-      let row_cluster_2_col_cluster = coCluster.aggregation_info.row_cluster_2_col_cluster;
+      const row_cluster_2_col_cluster = coCluster.aggregation_info.row_cluster_2_col_cluster;
+      console.log('row_cluster_2_col_cluster');
+      console.log(row_cluster_2_col_cluster);
       state_info.state_cluster_info.forEach((s, i) => {
-        let strength_max = 0;
+        let strength_extent = 0;
         if (!self.graph) {
-          strength_max = d3.extent(row_cluster_2_col_cluster[i])[1];
+          strength_extent = d3.extent(row_cluster_2_col_cluster[i]);
+          console.log(`threshold is ${strength_extent[0]*strengthThresholdPercent}, ${strength_extent[1]*strengthThresholdPercent}`);
         }
         word_info.forEach((w, j) => {
           if (links[i] === undefined) {
             links[i] = [];
           }
           // if self.graph exists, then only update the location info, keep
-          if (self.graph) {
-            console.log(self.graph.link_info[i][j].el);
+          if (this.graph) {
+            // console.log(self.graph.link_info[i][j].el);
             links[i][j] = {source: {x: s.top_left[0] + s.width,
               y: s.top_left[1] + s.height / 2},
               target: {x: w.top_left[0] + dx, y: w.top_left[1] + w.height/2 + dy},
@@ -344,10 +368,16 @@
               el: self.graph.link_info[i][j].el,
             };
           } else {
+            let tmp_strength = row_cluster_2_col_cluster[i][j];
+            if (tmp_strength > 0) {
+              tmp_strength = tmp_strength > strength_extent[1] * strengthThresholdPercent ? tmp_strength : 0;
+            } else {
+              tmp_strength = tmp_strength < strength_extent[0] * strengthThresholdPercent ? tmp_strength : 0;
+            }
             links[i][j] = {source: {x: s.top_left[0] + s.width,
               y: s.top_left[1] + s.height / 2},
               target: {x: w.top_left[0] + dx, y: w.top_left[1] + w.height/2 + dy},
-              strength: row_cluster_2_col_cluster[i][j] > strength_max * strengthThresholdPercent ? row_cluster_2_col_cluster[i][j] : 0,
+              strength: tmp_strength,
             };
           }
 
@@ -358,6 +388,25 @@
 
     ArcLength2Angle(length, radius) {
       return length / radius * 180 / Math.PI;
+    }
+
+    render_state(data) {
+      if (data.length) {
+        this.graph.state_info.state_info.forEach((s, i) => {
+          d3.select(s['el'])
+            .transition()
+            .duration(300)
+            .attr('fill', data[i] > 0 ? this.unitRangeColor[1] : this.unitRangeColor[0])
+            .attr('fill-opacity', Math.abs(data[i]))
+        });
+      } else {
+        this.graph.state_info.state_info.forEach((s, i) => {
+          d3.select(s['el'])
+            .transition()
+            .duration(300)
+            .attr('fill', this.unitNormalColor)
+        });
+      }
     }
 
     redraw_word_link(selected_state_cluster_index) {
@@ -465,7 +514,7 @@
         .attr('height', (i) => state_info.state_info[i].height)
         .attr('x', (i) => state_info.state_info[i].top_left[0])
         .attr('y', (i) => state_info.state_info[i].top_left[1])
-        .attr('fill', '#ff7f0e')
+        .attr('fill', self.unitNormalColor)
         .attr('fill-opacity', 0.5)
 
       tmp_units.each(function(d) {
@@ -498,9 +547,23 @@
             .draw([wclst.width/2, wclst.height/2])
             .transform( 'translate(' + [wclst.top_left[0] + wclst.width/2, wclst.top_left[1] + wclst.height/2] + ')')
         } else {
-          let myWordCloud = new WordCloud(g, wclst.width/2, wclst.height/2)
+          let tmp_g = g.append('g')
+            .on('mouseover', function () {
+              self.graph.link_info.forEach((ls) => {
+                d3.select(ls[i]['el'])
+                  .classed('active', true);
+              })
+            })
+            .on('mouseleave', function () {
+              self.graph.link_info.forEach((ls) => {
+                d3.select(ls[i]['el'])
+                  .classed('active', false);
+              })
+            })
+          let myWordCloud = new WordCloud(tmp_g, wclst.width/2, wclst.height/2)
             .transform( 'translate(' + [wclst.top_left[0] + wclst.width/2, wclst.top_left[1] + wclst.height/2] + ')')
           myWordCloud.update(word_info[i].words_data);
+          
           // wclst['el'] = tmp_g.node();
           wclst['wordCloud'] = myWordCloud;
         }
@@ -515,7 +578,7 @@
           d3.select(l['el'])
           .transition()
           .duration(500)
-          .attr('fill', 1e-6)
+          .attr('opacity', 1e-6)
           .remove()
         });
       });
@@ -544,8 +607,9 @@
     }
 
     draw_link(g, graph) {
-      let link_info = graph.link_info;
-      let linkWidth2StrengthRatio = this.params.linkWidth2StrengthRatio;
+      const link_info = graph.link_info;
+      const linkWidth2StrengthRatio = this.params.linkWidth2StrengthRatio;
+      
       function link(d) {
         return "M" + d.source.x + "," + d.source.y
             + "C" + (d.source.x + d.target.x) / 2 + "," + d.source.y
@@ -553,25 +617,38 @@
             + " " + d.target.x + "," + d.target.y;
       }
 
-      // function flatten(arr) {
-      //   return arr.reduce((acc, val) => {
-      //     return acc.concat(Array.isArray(val) ? flatten(val) : val);
-      //   }, []);
-      // }
+      function flatten(arr) {
+        return arr.reduce((acc, val) => {
+          return acc.concat(Array.isArray(val) ? flatten(val) : val);
+        }, []);
+      }
+
+      const strengthes = flatten(link_info).filter(d => {return d.strength > 0}).map(d => {return Math.abs(d.strength)});
+      // console.log(flatten(link_info));
+      // console.log(flatten(link_info).filter(d => {return d.length > 0}));
+      // console.log('strength is ');
+      // console.log(strengthes);
+
+      const scale = d3.scaleLinear()
+        .domain(d3.extent(strengthes))
+        .range(this.linkWidthRanage)
 
       link_info.forEach((ls, i) => {
+        // const strengthRange = d3.extent(ls);
         ls.forEach((l, j) => {
           if (l['el']) {
             d3.select(l['el'])
               .transition()
-              .duration(500)
+              .duration(300)
               .attr('d', link(l))
           } else {
             let tmp_path = g.append('path')
               .classed('link', true)
               .classed('active', false)
               .attr('d', link(l))
-              .attr('stroke-width', Math.min(l.strength * linkWidth2StrengthRatio, this.params.clusterHeight / 3))
+              .attr('stroke-width', l.strength !== 0 ? scale(Math.abs(l.strength)) : 0)
+              .attr('opacity', 0.2)
+              .attr('stroke', l.strength > 0 ? this.linkColor[1] : this.linkColor[0])
             l['el'] = tmp_path.node();
           }
 
