@@ -69,8 +69,8 @@ class SentenceLayout{
       .outerRadius(radius);
 
     let arc3 = d3.arc()
-      .innerRadius((d) => { return radius * (d.data.updated < 0 ? (1 + d.data.updated*2) : 1); })
-      .outerRadius((d) => { return radius * (d.data.updated < 0 ? 1 : (1 + d.data.updated*2)); });
+      .innerRadius((d) => { return radius * (d.data.updated < 0 ? (1 + d.data.updated/2) : 1); })
+      .outerRadius((d) => { return radius * (d.data.updated < 0 ? 1 : (1 + d.data.updated/2)); });
 
     let arcs = [arc1, arc3, arc2];
     let pie = d3.pie()
@@ -96,7 +96,7 @@ class SentenceLayout{
     handles[1].attr('fill-opacity', (d, k) => (data.data[k].updated < 0 ? 0.3 : 0.7))
     gs[0].attr('fill-opacity', 0.7);
     // gs[1].attr('fill-opacity', 0.6);
-    gs[2].attr('fill-opacity', 0.2);
+    gs[2].attr('fill-opacity', 0.0);
 
 
     return el;

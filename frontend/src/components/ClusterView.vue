@@ -77,7 +77,6 @@
         params: layoutParams,
         svgId: 'cluster-svg',
         clusterData: null,
-        state: bus.state,
         // clusterNum: 10,
         painter: null,
         shared: bus.state,
@@ -102,6 +101,10 @@
       selectedModel: function() {
         return this.shared.selectedModel;
       },
+      clusterNum: function() {
+        console.log(`cluster > cluster number is ${this.shared.selectedLayer.clusterNum}`);
+        return this.shared.selectedLayer.clusterNum;
+      },
     },
     watch: {
       selectedState: function (state) {
@@ -109,13 +112,13 @@
           this.reload(this.selectedModel, state, this.clusterNum);
       },
       selectedModel: function (newModel, oldModel) {
-        console.log('selected model has changed');
         bus.loadModelConfig(newModel).then(() => {
           this.states = bus.availableStates(newModel);
         });
       },
       clusterNum: function (newClusterNum, oldClusterNum) {
         // do something 
+        console.log(`cluster > cluster number changed to ${newClusterNum}`);
       }
     },
     methods: {
