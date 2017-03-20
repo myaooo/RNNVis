@@ -58,7 +58,7 @@
     unitMargin: 2,
     wordCloudArcDegree: 130,
     wordCloudNormalRadius: 60,
-    wordCloudShrinkHeight: 20,
+    wordCloudShrinkHeight: 5,
     wordCloudPaddingLength: 10,
     wordCloudChord2stateClusterHeightRatio: 1.2,
     wordCloudWidth2HeightRatio: 1.2,
@@ -280,9 +280,10 @@
         if (highlight_clouds.size === 0) {
           return Math.sqrt(d.length);
         } else if (!highlight_clouds.has(i)) {
-          return wordCloudShrinkHeight;
-        } else {
+          // return wordCloudShrinkHeight;
           return Math.sqrt(d.length);
+        } else {
+          return Math.sqrt(d.length) * 3;
         }
       });
       // console.log('wd_radius');
