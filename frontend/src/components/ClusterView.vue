@@ -336,6 +336,7 @@
           }
           // if self.graph exists, then only update the location info, keep
           if (self.graph) {
+            console.log(self.graph.link_info[i][j].el);
             links[i][j] = {source: {x: s.top_left[0] + s.width,
               y: s.top_left[1] + s.height / 2},
               target: {x: w.top_left[0] + dx, y: w.top_left[1] + w.height/2 + dy},
