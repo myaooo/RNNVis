@@ -51,11 +51,11 @@
 
 
   const layoutParams = {
-    clusterInterval: 20,
+    clusterInterval: 15,
     packNum: 3,
-    unitWidth: 8,
-    unitHeight: 8,
-    unitMargin: 1,
+    unitWidth: 4,
+    unitHeight: 4,
+    unitMargin: 2,
     wordCloudArcDegree: 130,
     wordCloudNormalRadius: 60,
     wordCloudShrinkRadius: 20,

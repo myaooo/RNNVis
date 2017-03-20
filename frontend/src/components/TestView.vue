@@ -198,7 +198,7 @@
             .sentence(sentenceRecord)
             .coCluster(coCluster)
             .words(record.tokens)
-            .layout();
+            .draw();
         })
 
           // .layout();
