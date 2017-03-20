@@ -6,19 +6,21 @@
   </div>
 
   <!--<el-tabs v-model="activeTab" @tab-click="handleClick" type="border-card" height=800>
-    <el-tab-pane label="Project" name="project">
-      <project-view> </project-view>
-    </el-tab-pane>
-    <el-tab-pane label="Arc" name="arc">
-      <arc-view> </arc-view>
-    </el-tab-pane>
+
     <el-tab-pane label="Cluster" name="cluster">
-      <cluster-view> </cluster-view>
+      <cluster-view class="content" :height="height"> </cluster-view>
     </el-tab-pane>
     <el-tab-pane label="Test" name="test">
       <test-view> </test-view>
     </el-tab-pane>
   </el-tabs>-->
+
+  <!--<el-tab-pane label="Project" name="project">
+      <project-view> </project-view>
+    </el-tab-pane>
+    <el-tab-pane label="Arc" name="arc">
+      <arc-view> </arc-view>
+    </el-tab-pane>-->
 
 </template>
 <style>

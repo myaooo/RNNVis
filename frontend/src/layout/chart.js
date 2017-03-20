@@ -334,9 +334,10 @@ export class LineArtist extends Artist {
       handle.datum(data)
         .attr('d', line)
         .attr('fill', 'none')
-        .attr('stroke', color)
+        // .attr('stroke', color)
         .attr('stroke-linejoin', 'round')
         .attr('stroke-linecap', 'round');
+      // handle.attr('stroke', color);
     };
     this.data.push(data);
     this.handles.push(handle);
@@ -359,8 +360,9 @@ export class AreaArtist extends Artist {
         .y0((d, i) => this.scale.y(y0fn(d, i)))
         .y1((d, i) => this.scale.y(y1fn(d, i)));
     const drawHook = () => {
-      handle.datum(data)
-        .attr('fill', color)
+      handle.datum(data);
+      handle
+        // .attr('fill', color)
         .attr('d', area);
     };
     this.data.push(data);

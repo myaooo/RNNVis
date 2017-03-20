@@ -81,7 +81,7 @@
         // clusterNum: 10,
         painter: null,
         shared: bus.state,
-        width: 0,
+        width: 800,
         changingFlag: false,
       }
     },
@@ -202,6 +202,7 @@
 
       this.state_elements = [];
       this.loc = null;
+      this.wordClouds = [];
     }
 
     calculate_state_info(coCluster) {
@@ -556,20 +557,21 @@
       this.hg.attr('transform', 'translate(' + [this.middle_line_x, 50] + ')');
       this.wg.attr('transform', 'translate(' + [this.middle_line_x + this.dx, 50 + this.dy] + ')');
       // this.wg.attr('transform', 'translate(' + [this.middle_line_x + 100, 100 + chordLength / 2 - 50] + ')');
-      const coClusterAggregation = coCluster.aggregation_info;
-      let state_info = this.calculate_state_info(coCluster);
-      // console.log(state_info.state_cluster_info)
-      // let word_and_link_info = this.calculate_word_and_link_info(coCluster, state_info.state_cluster_info, this.dx, this.dy);
-      // let link_info = this.calculate_link_info(state_info.state_cluster_info, word_info, coCluster, dx, dy);
-      let word_info = this.calculate_word_info(coCluster);
-      let link_info = this.calculate_link_info(state_info, word_info, coCluster, this.dx, this.dy);
-
-      self.graph = {
-        state_info: state_info,
-        word_info: word_info,
-        link_info: link_info,
-        coCluster: coCluster,
-      }
+      // if (!self.graph) {
+        const coClusterAggregation = coCluster.aggregation_info;
+        let state_info = this.calculate_state_info(coCluster);
+        // console.log(state_info.state_cluster_info)
+        // let word_and_link_info = this.calculate_word_and_link_info(coCluster, state_info.state_cluster_info, this.dx, this.dy);
+        // let link_info = this.calculate_link_info(state_info.state_cluster_info, word_info, coCluster, dx, dy);
+        let word_info = this.calculate_word_info(coCluster);
+        let link_info = this.calculate_link_info(state_info, word_info, coCluster, this.dx, this.dy);
+        self.graph = {
+          state_info: state_info,
+          word_info: word_info,
+          link_info: link_info,
+          coCluster: coCluster,
+        }
+      // }
 
       this.draw_state(this.hg, self.graph);
       this.draw_word(this.wg, self.graph);

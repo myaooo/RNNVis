@@ -1,10 +1,10 @@
 <template>
   <div class="project">
-    <div class="header">
+    <!--<div class="header">
       <el-radio-group v-model="selectedState" size="small">
         <el-radio-button v-for="state in states" :label="state"></el-radio-button>
       </el-radio-group>
-    </div>
+    </div>-->
     <project-graph :svg-id="paneId(model, selectedState)" :width="width" :height="height" :graph-data="graphData" :ready="ready" :config="config">
     </project-graph>
     <div class="config">
@@ -48,7 +48,7 @@
       const drawConfig = Object.assign({}, ProjectGraph.defaultConfig); // get a copy
       return {
         model: '',
-        selectedState: '',
+        // selectedState: '',
         states: '',
         ready: false,
         graphData: { states: null, strength: null },
@@ -59,7 +59,9 @@
     },
     components: { ProjectGraph },
     computed: {
-
+      selectedState: function () {
+        return this.shared.selectedState;
+      }
     },
     watch: {
       selectedState: function (newState, oldState) {
