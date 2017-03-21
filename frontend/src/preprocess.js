@@ -1,26 +1,47 @@
 import dataService from './services/dataService';
 
 export class CoClusterProcessor {
-  constructor(modelName, stateName, nCluster = 10, params = { top_k: 300, mode: 'raw', layer: -1 }) {
+  constructor(modelName, stateName, nCluster = 10, params = { top_k: 300, mode: 'raw', layer: -1 }, sortBy = 'col') {
     this.rawData;
     this._rowClusters;
     this._colClusters;
+    this._colSizes;
+    this._rolSizes;
     this._aggregation_info = null;
     this.modelName = modelName;
     this.stateName = stateName;
     this.nCluster = nCluster;
     this.params = params;
+    this.sortBy = sortBy;
   }
   get correlation() {
     return this.hasData ? this.rawData.data : undefined;
   }
   get labels() {
-    if (this.hasData) {
+    if (this.hasData && !this._labels) {
       this._labels = [...new Set(this.rowLabels)];
-      this._labels.sort();
-      return this._labels;
+      if (this.sortBy === 'col')
+        this._labels.sort((a, b) => this.colSizes[a] - this.colSizes[b]);
+      else if (this.sortBy === 'row')
+        this._labels.sort((a, b) => this.rowSizes[a] - this.rowSizes[b]);
     }
     return this._labels;
+  }
+  get colSizes() {
+    if (this.hasData && !this._colSizes) {
+      const colSizes = [];
+      this.colLabels.forEach((label, i) => { colSizes[label] = 1 + (colSizes[label] || 0); });
+      this._colSizes = colSizes;
+    }
+    return this._colSizes;
+  }
+  get rowSizes() {
+    if (this.hasData && !this._rowSizes) {
+      const rowSizes = [];
+      this.rowLabels.forEach((label, i) => { rowSizes[label] = 1 + (rowSizes[label] || 0); });
+      this._rowSizes = rowSizes;
+    }
+    return this._rowSizes;
   }
   get rowLabels() {
     return this.hasData ? this.rawData.row : undefined;
@@ -106,25 +127,29 @@ export class CoClusterProcessor {
 
   get rowClusters() {
     if (this.hasData && !this._rowClusters) {
-      this._rowClusters = [];
+      const rowClusters = new Array(this.labels.length);
       this.rawData.row.forEach((r, i) => {
-        if (this._rowClusters[r] === undefined) {
-          this._rowClusters[r] = [];
+        if (rowClusters[r] === undefined) {
+          rowClusters[r] = [];
         }
-        this._rowClusters[r].push(i);
+        rowClusters[r].push(i);
       });
+      this._rowClusters = new Array(this.labels.length);
+      this.labels.forEach((l, i) => this._rowClusters[i] = rowClusters[l]);
     }
     return this._rowClusters;
   }
   get colClusters() {
     if (this.hasData && !this._colClusters) {
-      this._colClusters = [];
+      const colClusters = [];
       this.rawData.col.forEach((c, i) => {
-        if (this._colClusters[c] === undefined) {
-          this._colClusters[c] = [];
+        if (colClusters[c] === undefined) {
+          colClusters[c] = [];
         }
-        this._colClusters[c].push(i);
+        colClusters[c].push(i);
       });
+      this._colClusters = new Array(this.labels.length);
+      this.labels.forEach((l, i) => this._colClusters[i] = colClusters[l]);
     }
     return this._colClusters;
   }

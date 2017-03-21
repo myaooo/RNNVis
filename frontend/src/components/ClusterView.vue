@@ -1,12 +1,16 @@
 <style>
 .hidden-cluster {
   stroke: gray;
+  stroke-opacity: 0.5;
+  stroke-width: 0.5;
   fill: lightgray;
-  fill-opacity: 0.5;
+  fill-opacity: 0.3;
 }
-.hidden-cluster.cluster-selected {
-  stroke-width: 0;
-  fill-opacity: 0;
+.cluster-selected {
+  stroke-width: 1.5;
+  stroke-opacity: 0.5;
+  stroke: black;
+  fill-opacity: 0.3;
 }
 #middle_line {
   stroke: lightskyblue;
@@ -43,7 +47,7 @@
         <el-radio-button v-for="state in states" :label="state"></el-radio-button>
       </el-radio-group>
     </div>-->
-    <svg :id='svgId' :width='width' :height='height'> </svg>
+    <svg :id='svgId' :width='width' :height='height' :transform='compare ? "scale(-1,1)" : ""'> </svg>
   </div>
 </template>
 
@@ -70,56 +74,70 @@
     strengthThresholdPercent: 0.2,
     linkWidth2StrengthRatio: 0.01,
     wordSize2StrengthRatio: 3,
+    get clusterHeight() {
+      return this.unitHeight * this.packNum + this.unitMargin * (this.packNum + 1);
+    },
+    // clusterRectStyle: {
+    //   'fill': '#eee',
+    //   'fill-opacity': 0.5,
+    //   'stroke': '#555',
+    //   'stroke-width': 0.5,
+    //   'stroke-opacity': 0.5,
+    // },
   };
-  layoutParams.clusterHeight = layoutParams.unitHeight*layoutParams.packNum + layoutParams.unitMargin * (layoutParams.packNum + 1);
+  // layoutParams.clusterHeight = layoutParams.unitHeight*layoutParams.packNum + layoutParams.unitMargin * (layoutParams.packNum + 1);
   // layoutParams.clusterWidth = layoutParams.clusterHeight / (layoutParams.packNum);
 
   export default {
     name: 'ClusterView',
     data() {
       return {
-        params: layoutParams,
-        svgId: 'cluster-svg',
+        params: Object.assign({}, layoutParams),
+        // svgId: 'cluster-svg',
         clusterData: null,
         // clusterNum: 10,
         painter: null,
+        painter2: null,
         shared: bus.state,
         width: 800,
         changingFlag: false,
       }
     },
     props: {
-      // width: {
-      //   type: Number,
-      //   default: 800,
-      // },
+      compare: {
+        type: Boolean,
+        defautl: false,
+      },
       height: {
         type: Number,
         default: 800,
       },
     },
     computed: {
+      svgId: function () {
+        return this.compare ? 'cluster-svg2' : 'cluster-svg';
+      },
       selectedState: function() {
         console.log(`cluster > state changed to ${this.shared.selectedState}`);
-        return this.shared.selectedState;
+        return this.compare ? this.shared.selectedState2 : this.shared.selectedState;
       },
       selectedModel: function() {
-        return this.shared.selectedModel;
+        return this.compare ? this.shared.selectedModel2 : this.shared.selectedModel;
       },
       selectedLayer: function() {
-        return this.shared.selectedLayer;
+        return this.compare ? this.shared.selectedLayer2 : this.shared.selectedLayer;
       },
       layout: function() {
-        return this.shared.layout;
+        return this.compare ? this.shared.layout2 : this.shared.layout;
       },
       clusterNum: function() {
         return this.layout.clusterNum;
       },
       selectedWords: function() {
-        return this.shared.selectedWords;
+        return this.compare ? this.shared.selectedWords2 : this.shared.selectedWords;
       },
       selectedUnits: function() {
-        return this.shared.selectedUnits;
+        return this.compare ? this.shared.selectedUnits2 : this.shared.selectedUnits;
       },
     },
     watch: {
@@ -175,7 +193,7 @@
         }
       },
       init() {
-        this.painter = new Painter(`#${this.svgId}`);
+        this.painter = new Painter(`#${this.svgId}`, this.params, this.compare);
       },
       reload(model, state, layer, clusterNum) {
         const params = {
@@ -194,41 +212,17 @@
     mounted() {
       this.width = this.$el.clientWidth;
       this.init();
-      // register events
-      // bus.$on(SELECT_MODEL, (model) => {
-      //   this.selectedModel = model;
-      //   bus.loadModelConfig(model).then(() => {
-      //     this.states = bus.availableStates(model);
-      //   });
-      // });
       bus.$on(CHANGE_LAYOUT, (layout, compare) => {
         if (compare)
           return;
         console.log("cluster > Changing Layout...");
         // this.clusterNum = layout.clusterNum;
       });
-      // bus.$on(SELECT_WORD, (words, compare) => {
-      //   if (words.length === 0) {
-      //     this.painter.render_state([]);
-      //     return;
-      //   }
-      //   this.selectedWords = words.slice();
-      //   this.compare = compare;
-      //   let model = this.selectedModel,
-      //     state = this.selectedState,
-      //     layer = this.selectedLayer;
-      //   const p = bus.loadStatistics(model, state, layer)
-      //     .then(() => {
-      //       const statistics = bus.getStatistics(model, state, layer);
-      //       const wordsStatistics = statistics.statOfWord(this.selectedWords[0]).mean;
-      //       this.painter.render_state(wordsStatistics);
-      //     });
-      // });
     }
   }
 
   class Painter {
-    constructor(selector, params = layoutParams) {
+    constructor(selector, params = layoutParams, compare=false) {
       this.svg = d3.select(selector);
       this.params = params;
       this.hg = this.svg.append('g');
@@ -236,12 +230,13 @@
 
       this.client_width = this.svg.node().getBoundingClientRect().width;
       this.client_height = this.svg.node().getBoundingClientRect().height;
-      this.middle_line_x = 150;
+      this.middle_line_x = 400;
       this.triangle_height = 5;
       this.triangle_width = 5;
 
       this.dx = 0, this.dy = 0;
       this.graph = null;
+      this.clusterSelected = [];
 
       this.state_elements = [];
       this.loc = null;
@@ -251,8 +246,14 @@
       this.unitRangeColor = ['#09adff', '#ff5b09'];
       this.linkWidthRanage = [1, 5];
       this.linkColor = ['#09adff', '#ff5b09'];
+      this.compare = compare;
 
     }
+
+    // get middle_line_x() {
+    //   console.log(this.client_width);
+    //   return this.client_width / 2;
+    // }
 
     calculate_state_info(coCluster) {
       let state_loc = [];
@@ -352,7 +353,7 @@
         const top_left_x = Math.sqrt(wordCloudArcRadius ** 2 - top_left_y ** 2);
         offset += actual_height + wordCloudPaddingLength;
         // if self.graph exist, then only update the location info
-        if (self.graph) {
+        if (self.graph && self.graph.word_info) {
           self.graph.word_info[i].top_left = [top_left_x, top_left_y];
           self.graph.word_info[i].width = actual_width;
           self.graph.word_info[i].height = actual_height;
@@ -377,7 +378,7 @@
       console.log(row_cluster_2_col_cluster);
       state_info.state_cluster_info.forEach((s, i) => {
         let strength_extent = 0;
-        if (!self.graph) {
+        if (!self.graph || !this.graph.link_info) {
           strength_extent = d3.extent(row_cluster_2_col_cluster[i]);
           console.log(`threshold is ${strength_extent[0]*strengthThresholdPercent}, ${strength_extent[1]*strengthThresholdPercent}`);
         }
@@ -386,7 +387,7 @@
             links[i] = [];
           }
           // if self.graph exists, then only update the location info, keep
-          if (this.graph) {
+          if (this.graph && this.graph.link_info) {
             // console.log(self.graph.link_info[i][j].el);
             links[i][j] = {source: {x: s.top_left[0] + s.width,
               y: s.top_left[1] + s.height / 2},
@@ -436,7 +437,7 @@
       }
     }
 
-    redraw_word_link(selected_state_cluster_index) {
+    redraw_word_link(selected_state_cluster_index = -1) {
       let self = this;
       self.erase_word();
       self.erase_link();
@@ -459,6 +460,10 @@
       const littleTriangleWidth = this.params.littleTriangleWidth;
       const littleTriangleHeight = this.params.littleTriangleHeight;
 
+      if (this.clusterSelected.length !== coCluster.colClusters.length) {
+        this.clusterSelected = coCluster.colClusters.map((d, i) => 0);
+      }
+      const clusterSelected = this.clusterSelected;
       g.append('line')
         .attr('id', 'middle_line')
         .attr('x1', 0)
@@ -469,12 +474,28 @@
       const hiddenClusters = g.selectAll('g rect')
         .data(coCluster.colClusters, (clst, i) => Array.isArray(clst) ? (String(clst.length) + String(i)) : this.id); // matching function
 
+      const selectCluster = function (clst, i) {
+        if (!clusterSelected[i]){
+          clusterSelected[i] = 1;
+          d3.select(this).select('rect').classed('cluster-selected', true);
+          d3.select(this).property('selected', 'true');
+          self.redraw_word_link(i)
+          graph.link_info[i].forEach((l) => {d3.select(l['el']).classed('active', true);})
+        } else {
+          clusterSelected[i] = 0;
+        }
+      }
+
       const hGroups = hiddenClusters.enter()
         .append('g')
-        .on('mouseover', (clst, i) => {
+        .on('mouseover', function (clst, i) {
+          if (clusterSelected[i]) return;
+          // const selectedIdx = clusterSelected.indexOf(1);
+          d3.select(this).select('rect').classed('cluster-selected', true);
           graph.link_info[i].forEach((l) => {d3.select(l['el']).classed('active', true);})
         })
         .on('mouseleave', function(clst, i) {
+          if (clusterSelected[i]) return;
           if (d3.select(this).property('selected') === 'true') {
             d3.select(this).property('selected', 'false');
             self.redraw_word_link(-1);
@@ -482,26 +503,21 @@
           d3.select(this).select('rect').classed('cluster-selected', false);
           graph.link_info[i].forEach((l) => {d3.select(l['el']).classed('active', false);})
         })
-        .on('click', function(d, i) {
-          d3.select(this).select('rect').classed('cluster-selected', true);
-          d3.select(this).property('selected', 'true');
-          self.redraw_word_link(i)
-          graph.link_info[i].forEach((l) => {d3.select(l['el']).classed('active', true);})
-        })
+        .on('click', selectCluster)
         .attr('id', (clst, i) => (String(clst.length) + String(i)));
 
       hGroups.each(function (d, i) {
         graph.state_info.state_cluster_info[i]['el'] = this;
       });
 
-      hGroups.append('rect')
+      const clusterRect = hGroups.append('rect')
         .classed('hidden-cluster', true)
         .transition()
         .duration(400)
         .attr('width', (clst, i) => state_info.state_cluster_info[i].width)
         .attr('height', (clst, i) => state_info.state_cluster_info[i].height)
         .attr('x', (clst, i) => state_info.state_cluster_info[i].top_left[0])
-        .attr('y', (clst, i) => state_info.state_cluster_info[i].top_left[1])
+        .attr('y', (clst, i) => state_info.state_cluster_info[i].top_left[1]);
 
       hGroups.append('path')
         .classed('little-triangle', true)
@@ -587,7 +603,7 @@
                   .classed('active', false);
               })
             })
-          let myWordCloud = new WordCloud(tmp_g, wclst.width/2, wclst.height/2)
+          let myWordCloud = new WordCloud(tmp_g, wclst.width/2, wclst.height/2, 'rect', this.compare)
             .transform( 'translate(' + [wclst.top_left[0] + wclst.width/2, wclst.top_left[1] + wclst.height/2] + ')')
           myWordCloud.update(word_info[i].words_data);
 
@@ -685,36 +701,46 @@
 
     draw(coCluster) {
       let self = this;
+      // console.log(coCluster.colClusters);
+      const maxClusterSize = coCluster.colClusters.reduce((a, b) => Math.max(Array.isArray(a) ? a.length : a, b.length));
+      // console.log(maxClusterSize);
+      this.params.packNum = maxClusterSize > 60 ? Math.round(maxClusterSize / 40) : 2;
       const clusterHeight = this.params.clusterHeight;
       const nCluster = coCluster.labels.length;
       this.params.clusterInterval = (this.client_height / nCluster - clusterHeight) * 0.7;
       const clusterInterval = this.params.clusterInterval;
       let chordLength = nCluster * (clusterHeight + clusterInterval);
-      this.dx = 400, this.dy = chordLength / 2;
+      this.dx = 0, this.dy = chordLength / 2;
+      const coClusterAggregation = coCluster.aggregation_info;
+      let state_info = this.calculate_state_info(coCluster);
 
+      // let word_info = this.calculate_word_info(coCluster);
+      // let link_info = this.calculate_link_info(state_info, word_info, coCluster, this.dx, this.dy);
+      self.graph = {
+        state_info: state_info,
+        // word_info: word_info,
+        // link_info: link_info,
+        coCluster: coCluster,
+      }
+      // }
+      this.draw_state(this.hg, self.graph);
+
+      this.redraw_word_link();
+      // this.adjustdx(-10);
+
+      this.translateX(0);
+
+    }
+
+    translateX(x) {
+      this.middle_line_x += x;
       this.hg.attr('transform', 'translate(' + [this.middle_line_x, 50] + ')');
       this.wg.attr('transform', 'translate(' + [this.middle_line_x + this.dx, 50 + this.dy] + ')');
-      // this.wg.attr('transform', 'translate(' + [this.middle_line_x + 100, 100 + chordLength / 2 - 50] + ')');
-      // if (!self.graph) {
-        const coClusterAggregation = coCluster.aggregation_info;
-        let state_info = this.calculate_state_info(coCluster);
-        // console.log(state_info.state_cluster_info)
-        // let word_and_link_info = this.calculate_word_and_link_info(coCluster, state_info.state_cluster_info, this.dx, this.dy);
-        // let link_info = this.calculate_link_info(state_info.state_cluster_info, word_info, coCluster, dx, dy);
-        let word_info = this.calculate_word_info(coCluster);
-        let link_info = this.calculate_link_info(state_info, word_info, coCluster, this.dx, this.dy);
-        self.graph = {
-          state_info: state_info,
-          word_info: word_info,
-          link_info: link_info,
-          coCluster: coCluster,
-        }
-      // }
+    }
 
-      this.draw_state(this.hg, self.graph);
-      this.draw_word(this.wg, self.graph);
-      this.draw_link(this.hg, self.graph);
-
+    adjustdx(newdx) {
+      this.dx = newdx;
+      this.redraw_word_link();
     }
 
     destroy() {

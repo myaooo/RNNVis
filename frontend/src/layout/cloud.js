@@ -20,6 +20,7 @@ const wordLayout = {
   'fontWeight': [200, 300, 400, 500, 600],
   'padding': 0,
   'opacity': 0.7,
+  'baseColor': 'steelblue',
 }
 
 export class WordCloud{
@@ -38,7 +39,8 @@ export class WordCloud{
     this.font = 'Impact';
     this.margin_ = 0;
     this.colorScheme = d3.scaleOrdinal(d3.schemeCategory10);
-    // this.word2data;
+    this.word2data;
+    this.compare = compare;
     // this.selected = [];
     // this.bounding();
     // register event listener
@@ -71,6 +73,7 @@ export class WordCloud{
     return arguments.length ? (this.bgLayout = layoutParams, this) : this.bgLayout;
   }
   transform(transformStr) {
+    if (this.compare) transformStr += ' scale(-1, 1)';
     this.bggroup
       .transition()
       .duration(200)
@@ -131,6 +134,7 @@ export class WordCloud{
     }
     if (!this.data)
       this.data = data;
+    // if (this.compare) this.group
     // console.log(data);
     const radiusX = size[0];
     const radiusY = size[1];
@@ -147,7 +151,7 @@ export class WordCloud{
     const text = this.cloud.enter()
       .append('text')
       .style('font-family', wordLayout.font)
-      .style('fill', (d, i) => { return self.colorScheme(d.type); })
+      .style('fill', (d, i) => { return d.hasOwnProperty('type') ? self.colorScheme(d.type) : wordLayout.baseColor; })
       .attr('text-anchor', 'middle')
       // .attr('font-size', 1);
     text
@@ -176,6 +180,7 @@ export class WordCloud{
         if (!d.select){
           d.select = true;
           d.opacity = wordLayout.opacity;
+          d.baseColor = wordLayout.baseColor;
           d3.select(this).style('fill-opacity', 1.0).style('font-weight', d.weight+300);
           bus.$emit(SELECT_WORD, d, false);
         } else {
