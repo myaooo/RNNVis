@@ -33,6 +33,8 @@ const state = {
   selectedWords: [],
   selectedUnits2: [],
   selectedWords2: [],
+  compare: false,
+  color: d3.scaleOrdinal(d3.schemeCategory10),
 };
 
 const bus = new Vue({
@@ -183,8 +185,10 @@ const bus = new Vue({
   created() {
     // register event listener
     this.$on(SELECT_MODEL, (modelName, compare) => {
-      if (compare)
+      if (compare) {
         this.state.selectedModel2 = modelName;
+        this.state.compare = modelName ? true : false;
+      }
       else
         this.state.selectedModel = modelName;
     });
@@ -244,11 +248,10 @@ const bus = new Vue({
       else words = this.state.selectedWords.slice();
       words.splice(0, 0, word);
       if (words.length > maxSelected) {
-        deactivate(words[maxSelected]);
-        words.splice(2, 1);
+        deactivateText(words[maxSelected]);
+        words.splice(maxSelected, 1);
       }
-      words.forEach((word) => activateText(word));
-      focusText(words[0]);
+      afterChangeWords(words);
       if (compare) this.state.selectedWords2 = words;
       else this.state.selectedWords = words;
       console.log(`bus > selected word: ${word.text}`);
@@ -273,7 +276,7 @@ const bus = new Vue({
       console.log(`bus > deleted idx: ${idx}`);
       deactivateText(words[idx]);
       words.splice(idx, 1);
-      if(words.length && idx === 0) focusText(words[0]);
+      afterChangeWords(words);
       if (compare) this.state.selectedWords2 = words;
       else this.state.selectedWords = words;
       console.log(`bus > deselected word: ${word.text}`);
@@ -282,22 +285,49 @@ const bus = new Vue({
   }
 });
 
+function afterChangeWords(words) {
+  words.forEach((word, i) => {
+    word.color = state.color(words.length-i);
+    activateText(word);
+  });
+  if (words.length)
+    focusText(words[0]);
+}
+
 function deactivateText(data) {
   d3.select(data.el)
     .style('fill-opacity', data.opacity)
     .style('font-weight', data.weight)
-    .style('stroke', 'none');
+    .style('stroke', 'none')
+    .style('fill', data.baseColor);
+  if(data.bound) {
+    data.bound.remove();
+    data.bound = null;
+  }
 }
 
 function activateText(data) {
   d3.select(data.el).style('fill-opacity', 1)
     .style('font-weight', data.weight + 300)
-    .style('stroke', 'none');
+    .style('stroke', 'none')
+    .style('fill', data.color);
+  if(data.bound) {
+    data.bound.remove();
+    data.bound = null;
+  }
 }
 
 function focusText(data) {
-  d3.select(data.el)
-    .style('stroke', '#0c0').style('stroke-width', 0.5).style('stroke-opacity', 0.5);
+  const box = data.el.getBBox();
+  // console.log(box);
+  // d3.select(data.el)
+  //   .style('stroke', '#000').style('stroke-width', 0.5); //.style('stroke-opacity', 0.5);
+  data.bound = d3.select(data.el.parentNode).insert('rect')
+    .attr('x', data.x - box.width/2 -1.5).attr('y', data.y - box.height*0.78)
+    .attr('width', box.width + 3).attr('height', box.height*0.9)
+    .style('stroke', 'black').style('stroke-opacity', 0.3)
+    .style('fill', 'none');
+
 }
 
 export default bus;

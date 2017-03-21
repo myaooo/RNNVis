@@ -19,6 +19,13 @@
   import { Chart } from '../layout/chart';
   import { bus, SELECT_UNIT, SELECT_WORD, SELECT_LAYER } from '../event-bus';
 
+  const layoutParams = {
+    lineLength: 30,
+    wordWidth: 50,
+    interval: 20,
+    color: d3.scaleOrdinal(d3.schemeCategory10),
+  };
+
   export default {
     name: 'InfoBoard',
     data(){
@@ -27,10 +34,8 @@
         chart: null,
         labelBoard: null,
         shared: bus.state,
-        // selectedUnits: null, // []
-        // selectedWords: null, // []
         statistics: null,
-        color: d3.scaleOrdinal(d3.schemeCategory10),
+        layoutParams: layoutParams,
       };
     },
     props: {
@@ -118,6 +123,9 @@
           console.log('Painting no words');
           return;
         }
+        const layout = this.layoutParams;
+        const color = layout.color;
+        const labelLength = layout.lineLength + layout.wordWidth + layout.interval;
         const wordsStatistics = this.selectedWords.map((word, i) => {
           return this.statistics.statOfWord(word.text);
         });
@@ -138,21 +146,21 @@
           this.chart
             .line(sortIdx.map((i) => wordData.mean[i]), (d, i) => i*interval, (d) => { return d; })
             .attr('stroke-width', 1)
-            .attr('stroke', this.color(i));
+            .attr('stroke', this.selectedWords[i].color);
           this.chart
             .area(sortIdx.map((i) => wordData.range1[i]), (d, i) => i*interval, (d) => d[0], (d) => d[1])
-            .attr('fill', this.color(i))
+            .attr('fill', this.selectedWords[i].color)
             .attr('fill-opacity', 0.2);
           this.chart
             .area(sortIdx.map((i) => wordData.range2[i]), (d, i) => i*interval, (d) => d[0], (d) => d[1])
-            .attr('fill', this.color(i))
+            .attr('fill', this.selectedWords[i].color)
             .attr('fill-opacity', 0.1);
           // draw labels
           this.labelBoard.append('rect')
-            .attr('x', 80*i+20).attr('y', 10).attr('width', 30).attr('height', 1)
-            .attr('fill', this.color(i))
+            .attr('x', labelLength*i + 20).attr('y', 10).attr('width', layout.lineLength).attr('height', 1)
+            .attr('fill', this.selectedWords[i].color)
           this.labelBoard.append('text')
-            .attr('x', 80*i + 60).attr('y', 15)
+            .attr('x', labelLength*i + 30 + layout.lineLength).attr('y', 15)
             .text(this.selectedWords[i].text)
         });
         this.chart.draw();
@@ -161,36 +169,7 @@
       repaintState() {
 
       },
-      // register() {
-      //   if(this.type === 'state') {
-      //     bus.$on(SELECT_UNIT, (unitDims, compare) => {
-      //       this.selectedUnits = unitDims;
-      //       this.compare = compare;
-      //       let model = this.selectedModel,
-      //         state = this.selectedState,
-      //         layer = this.selectedLayer;
-      //       const p = bus.loadStatistics(model, state, layer)
-      //         .then(() => {
-      //           this.statistics = bus.getStatistics(model, state, layer);
-      //           this.repaintState();
-      //         });
-      //     });
-      //   } else if (this.type === 'word') {
-      //     bus.$on(SELECT_WORD, (words, compare) => {
-      //       this.selectedWords = words.slice();
-      //       this.compare = compare;
-      //       let model = this.selectedModel,
-      //         state = this.selectedState,
-      //         layer = this.selectedLayer;
-      //       const p = bus.loadStatistics(model, state, layer)
-      //         .then(() => {
-      //           this.statistics = bus.getStatistics(model, state, layer);
-      //           this.repaintWord();
-      //           // const wordsStatistics = this.statistics.statOfWord(this.selectedWords[0]).mean;
-      //         });
-      //     });
-      //   }
-      // }
+
     },
     mounted() {
       // console.log(this.$el);
