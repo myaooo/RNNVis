@@ -193,12 +193,14 @@
           const coCluster = bus.getCoCluster('PTB-LSTM', 'state_c', 10, {top_k: 300, mode: 'raw'});
           const sentenceRecord = record.getRecords('state_c', -1);
           console.log(record);
-          const a = sentence(d3.select(`#${this.svgId}`))
+          const a = sentence(d3.select(`#${this.svgId}`).append('g'))
+            .transform('translate(50, 10)')
             .size([50, 500])
             .sentence(sentenceRecord)
             .coCluster(coCluster)
             .words(record.tokens)
             .draw();
+          console.log(a.strengthByCluster);
         })
 
           // .layout();

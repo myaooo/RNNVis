@@ -33,6 +33,10 @@ class SentenceLayout{
   size(size){
     return arguments.length ? (this._size = size, this) : this._size;
   }
+  transform(transformStr) {
+    this.group.attr('transform', transformStr);
+    return this;
+  }
   get radius() {
     if (!this._radius){
       const radius = this._size[0] / (this.params.widthScale*2);
@@ -104,7 +108,7 @@ class SentenceLayout{
     return this;
   }
   prepareDraw(type = this.type) {
-    if (this._dataList.length !== this._sentence.length)
+    if (this._dataList.length !== this._sentence.length || this._dataList[0].data[0].current.length != this._coCluster.labels.length)
       this._dataList = this.preprocess(this._sentence, this._coCluster, this._words);
     else
       this.clean();
@@ -118,7 +122,8 @@ class SentenceLayout{
         maxValue = maxValue < clstMax ? clstMax : maxValue;
       })
     });
-    this.params.avgValueRange = [-maxValue*1.1, maxValue*1.1];
+    maxValue = Math.ceil(maxValue * 11) / 10;
+    this.params.avgValueRange = [-maxValue, maxValue];
     if (type === 'bar'){
       this.scaleHeight = d3.scaleLinear()
         .range([-this.nodeHeight/2, this.nodeHeight/2])
@@ -141,10 +146,14 @@ class SentenceLayout{
   clean() {
     this._dataList.forEach(data => {
       if (data.el)
-        data.el.remove();
-      data.el = null;
-      data.els = null;
-      data.handles = null;
+        data.el
+          .transition()
+          .duration(300)
+          .style('opacity', 0)
+          .remove();
+      // data.el = null;
+      // data.els = null;
+      // data.handles = null;
     });
   }
   destroy() {
@@ -264,13 +273,28 @@ class SentenceLayout{
       .attr('height', (d) => scaleHeight(Math.abs(d.updateds[0]) / d.size))
       .attr('transform', (d) => d.updateds[0] < 0 ? ('translate(' + [0, -scaleHeight(Math.abs(d.updateds[0]) / d.size) ] + ')') : '')
       .attr('fill', (d, j) => d.updateds[0] < 0 ? 'none' : color(j))
-      .style('fill-opacity', 0.4);
+      .style('fill-opacity', 0.5);
     gUpdated2 //.style('fill-opacity', 0.8)
       .style('stroke', 'gray')
       .style('stroke-width', 0.5)
 
     el.append('path').attr('d', 'M0 ' + height/2 + ' H ' + width)
       .style('stroke', 'black').style('stroke-width', 0.5);
+
+    el.selectAll('text')
+      .data(this.params.avgValueRange).enter()
+      .append('text')
+      .attr('x', -2)
+      .attr('y', (d, i) => i*(height-4)+5)
+      .attr('text-anchor', 'end')
+      .attr('font-size', 8)
+      .text((d) => d);
+    el.append('text')
+      .attr('x', -2)
+      .attr('y', (height/2)+4)
+      .attr('text-anchor', 'end')
+      .attr('font-size', 10)
+      .text(data.word);
 
     cur.each(function(d) {
       if(d.els) d.els[0] = this;
@@ -492,6 +516,19 @@ class SentenceLayout{
       };
     });
     return dataList;
+  }
+  get strengthByCluster() {
+    if (!this._sentence || !this._coCluster) return undefined;
+    if (this._dataList.length !== this._sentence.length || this._dataList[0].data[0].current.length != this._coCluster.labels.length)
+      this._dataList = this.preprocess(this._sentence, this._coCluster, this._words);
+    if (!this._strengthByCluster) {
+      this._strengthByCluster = this._dataList.map((word, i) => {
+        return word.data.map((clst, j) => {
+          return clst.updated;
+        });
+      });
+    }
+    return this._strengthByCluster;
   }
 };
 
