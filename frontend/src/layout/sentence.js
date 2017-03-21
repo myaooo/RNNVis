@@ -20,7 +20,7 @@ class SentenceLayout{
     this._coCluster;
     this.params = params;
     // this.handles = [];
-    this.dataList = [];
+    this._dataList = [];
     // each data in data list has 3 handles after drawing:
     // el: the group holding all elements of a word
     // els: 3 groups, each holds a pie chart
@@ -49,8 +49,8 @@ class SentenceLayout{
   get nodeInterval() {
     return this.params.nodeIntervalScale * this.radius;
   }
-  get dataLength() {
-    return this.dataList.length;
+  get dataList() {
+    return this._dataList;
   }
   // set the sentence data used
   sentence(sentence) {
@@ -66,8 +66,8 @@ class SentenceLayout{
   }
   // start to layout words
   draw(type='bar') {
-    if (this.dataList.length !== this._sentence.length)
-      this.dataList = this.preprocess(this._sentence, this._coCluster, this._words);
+    if (this._dataList.length !== this._sentence.length)
+      this._dataList = this.preprocess(this._sentence, this._coCluster, this._words);
     else
       this.clean();
     // prepare
@@ -75,22 +75,22 @@ class SentenceLayout{
       .range([0, this.nodeHeight])
       .domain(this.params.avgValueRange);
     let stateSize = 0;
-    for( let j = 0; j < this.dataList[0].data.length; j++) stateSize += this.dataList[0].data[j].size;
+    for( let j = 0; j < this._dataList[0].data.length; j++) stateSize += this._dataList[0].data[j].size;
     this.scaleWidth = d3.scaleLinear()
       .range([0, this.nodeWidth])
       .domain([0, stateSize]);
 
     // draw
     if (type === 'pie') {
-      this.dataList.forEach((data, i) => {
+      this._dataList.forEach((data, i) => {
         const pos = this.getWordPos(i);
         const g = this.group.append('g');
         this.drawOneWordPie(g, data, i)
           .attr('transform', 'translate(' + pos + ')');
       });
-      return;
+      return this;
     }
-    this.dataList.forEach((data, i) => {
+    this._dataList.forEach((data, i) => {
       const pos = this.getWordPos(i);
       if(i > 0){
         const gl = this.group.append('g');
@@ -101,10 +101,11 @@ class SentenceLayout{
       this.drawOneWordBar(g, data, i)
         .attr('transform', 'translate(' + [pos[0], pos[1]] + ')');
     });
+    return this;
   }
   // remove all the elements, all the preprocessed data are kept
   clean() {
-    this.dataList.forEach(data => {
+    this._dataList.forEach(data => {
       if (data.el)
         data.el.remove();
       data.el = null;
@@ -114,7 +115,7 @@ class SentenceLayout{
   }
   destroy() {
     this.clean();
-    this.dataList = [];
+    this._dataList = [];
   }
   // get the position [x, y] of a word regarding this.group
   getWordPos(i){

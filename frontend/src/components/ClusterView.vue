@@ -251,6 +251,7 @@
       this.client_width = this.svg.node().getBoundingClientRect().width;
       this.client_height = this.svg.node().getBoundingClientRect().height;
       this.middle_line_x = 150;
+      this.middle_line_y = 50;
       this.triangle_height = 5;
       this.triangle_width = 5;
 
@@ -270,24 +271,39 @@
 
     drawSentence(record, sentenceRecord) {
       const sg = this.svg.append('g');
-      for (var i = 0; i < record.dataLength; i++) {
-        console.log(record.getWordPos(i));
-      }
-      // record.dataLength.forEach((d, i) => {
-      //   console.log(record.getWordPos(i));
-      // })
+      const scaleFactor = 0.7;
+      const translationX = 400;
       this.hwg
-        .attr('transform', 'scale(0.7, 1)translate(400, 0)');
+        .attr('transform', `scale(${scaleFactor}, 1)translate(${translationX}, 0)`);
       console.log(record);
       // TODO change -1 to something else
       const a = sentence(sg)
-        .size([100, 600])
+        .size([100, this.client_height])
         .sentence(sentenceRecord)
         .coCluster(this.graph.coCluster)
         .words(record.tokens)
         .draw();
       
+      let links = [];
+      console.log(a.dataList);
+      a.dataList.forEach((d, i) => {
+        const wordPos = a.getWordPos(i);
+        this.graph.state_info.state_cluster_info.forEach((s, j) => {
+          let link = {
+            source: {x: a.getWordPos(i)[0] + a.nodeWidth, y: a.getWordPos(i)[1] + a.nodeHeight/2},
+            target: {x: (s.top_left[0] + this.middle_line_x) * scaleFactor + translationX, y: s.top_left[1] + this.middle_line_y},
+          };
+          links.push(link);
+        });
+      });
 
+      sg.selectAll('path')
+        .data(links).enter()
+        .append('path')
+        .attr('d', l => this.createLink(l))
+        .attr('fill', 'none')
+        .attr('stroke-width', 2)
+        .attr('stroke', 'blue')
     }
 
     calculate_state_info(coCluster) {
@@ -669,16 +685,22 @@
       });
     }
 
-    draw_link(g, graph) {
-      const link_info = graph.link_info;
-      const linkWidth2StrengthRatio = this.params.linkWidth2StrengthRatio;
-
-      function link(d) {
+    createLink(d) {
         return "M" + d.source.x + "," + d.source.y
             + "C" + (d.source.x + d.target.x) / 2 + "," + d.source.y
             + " " + (d.source.x + d.target.x) / 2 + "," + d.target.y
             + " " + d.target.x + "," + d.target.y;
       }
+
+    draw_link(g, graph) {
+      const link_info = graph.link_info;
+      const linkWidth2StrengthRatio = this.params.linkWidth2StrengthRatio;
+      // function link(d) {
+      //   return "M" + d.source.x + "," + d.source.y
+      //       + "C" + (d.source.x + d.target.x) / 2 + "," + d.source.y
+      //       + " " + (d.source.x + d.target.x) / 2 + "," + d.target.y
+      //       + " " + d.target.x + "," + d.target.y;
+      // }
 
       function flatten(arr) {
         return arr.reduce((acc, val) => {
@@ -703,12 +725,12 @@
             d3.select(l['el'])
               .transition()
               .duration(300)
-              .attr('d', link(l))
+              .attr('d', this.createLink(l))
           } else {
             let tmp_path = g.append('path')
               .classed('link', true)
               .classed('active', false)
-              .attr('d', link(l))
+              .attr('d', this.createLink(l))
               .attr('stroke-width', l.strength !== 0 ? scale(Math.abs(l.strength)) : 0)
               .attr('opacity', 0.2)
               .attr('stroke', l.strength > 0 ? this.linkColor[1] : this.linkColor[0])
@@ -728,8 +750,8 @@
       let chordLength = nCluster * (clusterHeight + clusterInterval);
       this.dx = 400, this.dy = chordLength / 2;
 
-      this.hg.attr('transform', 'translate(' + [this.middle_line_x, 50] + ')');
-      this.wg.attr('transform', 'translate(' + [this.middle_line_x + this.dx, 50 + this.dy] + ')');
+      this.hg.attr('transform', 'translate(' + [this.middle_line_x, this.middle_line_y] + ')');
+      this.wg.attr('transform', 'translate(' + [this.middle_line_x + this.dx, this.middle_line_y + this.dy] + ')');
       // this.wg.attr('transform', 'translate(' + [this.middle_line_x + 100, 100 + chordLength / 2 - 50] + ')');
       // if (!self.graph) {
         const coClusterAggregation = coCluster.aggregation_info;
