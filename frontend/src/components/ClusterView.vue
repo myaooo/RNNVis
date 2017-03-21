@@ -269,17 +269,24 @@
     }
 
     drawSentence(record, sentenceRecord) {
-      const sg = this.hwg.append('g');
+      const sg = this.svg.append('g');
+      for (var i = 0; i < record.dataLength; i++) {
+        console.log(record.getWordPos(i));
+      }
+      // record.dataLength.forEach((d, i) => {
+      //   console.log(record.getWordPos(i));
+      // })
       this.hwg
-        .attr('transform', 'scale(0.7, 1)translate(500, 0)');
+        .attr('transform', 'scale(0.7, 1)translate(400, 0)');
       console.log(record);
       // TODO change -1 to something else
-      const a = sentence(d3.select(`#${this.svgId}`))
-        .size([50, 600])
+      const a = sentence(sg)
+        .size([100, 600])
         .sentence(sentenceRecord)
         .coCluster(this.graph.coCluster)
         .words(record.tokens)
         .draw();
+      
 
     }
 

@@ -6,7 +6,7 @@ const layoutParams = {
   color: d3.scaleOrdinal(d3.schemeCategory20),
   radiusScale: 1.5,
   widthScale: 1.5,
-  avgValueRange: [0, 0.9],
+  avgValueRange: [0, 1.6],
 };
 
 // example usage:
@@ -49,17 +49,20 @@ class SentenceLayout{
   get nodeInterval() {
     return this.params.nodeIntervalScale * this.radius;
   }
+  get dataLength() {
+    return this.dataList.length;
+  }
   // set the sentence data used
   sentence(sentence) {
-    return arguments.length ? (this._sentence = sentence, this) : this;
+    return arguments.length ? (this._sentence = sentence, this) : this._sentence;
   }
   // set the coCluster data used
   coCluster(coCluster) {
-    return arguments.length ? (this._coCluster = coCluster, this) : this;
+    return arguments.length ? (this._coCluster = coCluster, this) : this._coCluster;
   }
   // set the words that used
   words(words) {
-    return arguments.length ? (this._words = words, this) : this;
+    return arguments.length ? (this._words = words, this) : this._words;
   }
   // start to layout words
   draw(type='bar') {
