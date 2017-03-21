@@ -6,7 +6,7 @@ const layoutParams = {
   color: d3.scaleOrdinal(d3.schemeCategory20),
   radiusScale: 1.5,
   widthScale: 1.5,
-  avgValueRange: [0, 0.4],
+  avgValueRange: [0, 0.9],
 };
 
 // example usage:
@@ -92,11 +92,11 @@ class SentenceLayout{
       if(i > 0){
         const gl = this.group.append('g');
         this.drawOneConnection(gl, data, i)
-          .attr('transform', 'translate(' + [0, pos[1] - this.nodeHeight / 2 - this.nodeInterval] + ')')
+          .attr('transform', 'translate(' + [pos[0], pos[1] - this.nodeInterval] + ')')
       }
       const g = this.group.append('g');
       this.drawOneWordBar(g, data, i)
-        .attr('transform', 'translate(' + [0, pos[1]-this.nodeHeight/2] + ')');
+        .attr('transform', 'translate(' + [pos[0], pos[1]] + ')');
     });
   }
   // remove all the elements, all the preprocessed data are kept
@@ -263,33 +263,33 @@ class SentenceLayout{
       });
     });
 
-    const infoPositive = new Array(len);
-    const infoNegative = new Array(len);
-    const infoCurrent = new Array(len);
-    for (let t = 0; t < len; t++) {
-      infoPositive[t] = new Float32Array(clusterNum);
-      infoNegative[t] = new Float32Array(clusterNum);
-      infoCurrent[t] = new Float32Array(clusterNum);
-      for (let i = 0; i < clusterNum; i++) {
-        for (let j = 0; j < clustersSize[i]; j++) {
-          if (currentStates[t][i][j] > 0) {
-            infoPositive[t][i] += currentStates[t][i][j];
-          } else {
-            infoNegative[t][i] += currentStates[t][i][j];
-          }
-          infoCurrent[t][i] += Math.abs(currentStates[t][i][j]);
-        }
-      }
-    }
+    // const infoPositive = new Array(len);
+    // const infoNegative = new Array(len);
+    // const infoCurrent = new Array(len);
+    // for (let t = 0; t < len; t++) {
+    //   infoPositive[t] = new Float32Array(clusterNum);
+    //   infoNegative[t] = new Float32Array(clusterNum);
+    //   infoCurrent[t] = new Float32Array(clusterNum);
+    //   for (let i = 0; i < clusterNum; i++) {
+    //     for (let j = 0; j < clustersSize[i]; j++) {
+    //       if (currentStates[t][i][j] > 0) {
+    //         infoPositive[t][i] += currentStates[t][i][j];
+    //       } else {
+    //         infoNegative[t][i] += currentStates[t][i][j];
+    //       }
+    //       infoCurrent[t][i] += Math.abs(currentStates[t][i][j]);
+    //     }
+    //   }
+    // }
 
-    // const infoCurrent = currentStates.map((word, t) => { // compute an array for each word
-    //   return word.map((cluster, i) => { // compute a info for each cluster
-    //     let absSum = 0;
-    //     for(let j = 0; j < cluster.length; j++)
-    //       absSum += Math.abs(cluster[j]);
-    //     return absSum;
-    //   })
-    // });
+    const infoCurrent = currentStates.map((word, t) => { // compute an array for each word
+      return word.map((cluster, i) => { // compute a info for each cluster
+        let absSum = 0;
+        for(let j = 0; j < cluster.length; j++)
+          absSum += Math.abs(cluster[j]);
+        return absSum;
+      })
+    });
 
     const infoPrevious = [new Float32Array(clusterNum), ...infoCurrent.slice(0, len-1)];
     console.log(infoPrevious);

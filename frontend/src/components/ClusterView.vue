@@ -45,8 +45,9 @@
 
 <script>
   import * as d3 from 'd3'
-  import { bus, SELECT_MODEL, SELECT_STATE, CHANGE_LAYOUT, SELECT_WORD } from '../event-bus'
+  import { bus, SELECT_MODEL, SELECT_STATE, CHANGE_LAYOUT, SELECT_WORD, EVALUATE_SENTENCE} from '../event-bus'
   import { WordCloud } from '../layout/cloud.js';
+  import { sentence } from '../layout/sentence.js';
 
 
   const layoutParams = {
@@ -174,6 +175,18 @@
       //     this.states = bus.availableStates(model);
       //   });
       // });
+      bus.$on(EVALUATE_SENTENCE, (value, compare) => {
+        // const p1 = bus.loadCoCluster(this.selectedModel, this.selectedState, this.clusterNum, {top_k: 300, mode: 'raw'});
+        const record = bus.evalSentence(value, this.selectedModel);
+        const p2 = record.evaluate();
+        Promise.all([p2]).then((values) => {
+          // const coCluster = bus.getCoCluster(this.selectedModel, this.selectedState, this.clusterNum, {top_k: 300, mode: 'raw'});
+          // TODO change -1 to something else
+          const sentenceRecord = record.getRecords(this.selectedState, -1);
+          this.painter.drawSentence(record, sentenceRecord);
+          
+        })
+      });
       bus.$on(CHANGE_LAYOUT, (layout, compare) => {
         if (compare)
           return;
@@ -204,8 +217,9 @@
     constructor(selector, params = layoutParams) {
       this.svg = d3.select(selector);
       this.params = params;
-      this.hg = this.svg.append('g');
-      this.wg = this.svg.append('g');
+      this.hwg = this.svg.append('g');
+      this.hg = this.hwg.append('g');
+      this.wg = this.hwg.append('g');
 
       this.client_width = this.svg.node().getBoundingClientRect().width;
       this.client_height = this.svg.node().getBoundingClientRect().height;
@@ -225,6 +239,21 @@
       this.linkWidthRanage = [1, 5];
       this.linkColor = ['#09adff', '#ff5b09'];
       
+    }
+
+    drawSentence(record, sentenceRecord) {
+      const sg = this.hwg.append('g');
+      this.hwg
+        .attr('transform', 'scale(0.7, 1)translate(500, 0)');
+      console.log(record);
+      // TODO change -1 to something else
+      const a = sentence(d3.select(`#${this.svgId}`))
+        .size([50, 600])
+        .sentence(sentenceRecord)
+        .coCluster(this.graph.coCluster)
+        .words(record.tokens)
+        .draw();
+
     }
 
     calculate_state_info(coCluster) {
