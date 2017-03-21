@@ -1,5 +1,6 @@
 import Vue from 'vue';
 import dataService from './services/dataService';
+import * as d3 from 'd3';
 import { CoClusterProcessor, SentenceRecord, StateStatistics } from './preprocess'
 
 // event definitions goes here
@@ -9,6 +10,8 @@ const CHANGE_LAYOUT = 'CHANGE_LAYOUT';
 const EVALUATE_SENTENCE = 'EVALUATE_SENTENCE';
 const SELECT_UNIT = 'SELECT_UNIT';
 const SELECT_WORD = 'SELECT_WORD';
+const DESELECT_UNIT = 'DESELECT_UNIT';
+const DESELECT_WORD = 'DESELECT_WORD';
 const SELECT_LAYER = 'SELECT_LAYER';
 
 const state = {
@@ -28,7 +31,8 @@ const state = {
   modelsSet: null,
   selectedUnits: [],
   selectedWords: [],
-
+  selectedUnits2: [],
+  selectedWords2: [],
 };
 
 const bus = new Vue({
@@ -41,6 +45,9 @@ const bus = new Vue({
     },
   },
   computed: {
+    // selectedUnits: function() {
+    //   return this.state.selectedUnits;
+    // },
   },
   methods: {
 
@@ -156,7 +163,7 @@ const bus = new Vue({
         layer = this.layerNum(modelName) - 1;
       }
       if (state.statistics[modelName][stateName][layer]){
-        return Promise.resolve('Already Loaded');
+        return state.statistics[modelName][stateName][layer].load();
       }
       const stat = new StateStatistics(modelName, stateName, layer, top_k);
       state.statistics[modelName][stateName][layer] = stat;
@@ -213,15 +220,85 @@ const bus = new Vue({
     });
 
     this.$on(SELECT_UNIT, (unitDim, compare) => {
+      if (compare) {
+        const units = this.state.selectedUnits2.slice();
+        units.push(unitDim);
+        if (units.length > 2)
+          units.splice(0, 1);
+        this.state.selectedUnits2 = units;
+      } else {
+        const units = this.state.selectedUnits.slice();
+        units.push(unitDim);
+        if (units.length > 2)
+          units.splice(0, 1);
+        this.state.selectedUnits = units;
+      }
       console.log(`bus > selected unit ${unitDim}`);
 
     });
 
-    this.$on(SELECT_WORD, (words, compare) => {
-      console.log(`bus > selected ${words.length} word(s): ${words}`);
+    this.$on(SELECT_WORD, (word, compare) => {
+      const maxSelected = 3;
+      let words;
+      if (compare) words = this.state.selectedWords2.slice();
+      else words = this.state.selectedWords.slice();
+      words.splice(0, 0, word);
+      if (words.length > maxSelected) {
+        deactivate(words[maxSelected]);
+        words.splice(2, 1);
+      }
+      words.forEach((word) => activateText(word));
+      focusText(words[0]);
+      if (compare) this.state.selectedWords2 = words;
+      else this.state.selectedWords = words;
+      console.log(`bus > selected word: ${word.text}`);
     });
+
+    this.$on(DESELECT_UNIT, (unit, compare) => {
+      if (compare) {
+        const idx = this.state.selectedUnits2.indexOf(unit);
+        this.state.selectedUnits2.splice(idx, 1);
+      } else {
+        const idx = this.state.selectedUnits.indexOf(unit);
+        this.state.selectedUnits.splice(idx, 1);
+      }
+      console.log(`bus > deselected unit: ${unit}`);
+    });
+
+    this.$on(DESELECT_WORD, (word, compare) => {
+      let words;
+      if (compare) words = this.state.selectedWords2.slice();
+      else words = this.state.selectedWords.slice();
+      const idx = words.findIndex((d) => d.text === word.text);
+      console.log(`bus > deleted idx: ${idx}`);
+      deactivateText(words[idx]);
+      words.splice(idx, 1);
+      if(words.length && idx === 0) focusText(words[0]);
+      if (compare) this.state.selectedWords2 = words;
+      else this.state.selectedWords = words;
+      console.log(`bus > deselected word: ${word.text}`);
+    });
+
   }
 });
+
+function deactivateText(data) {
+  d3.select(data.el)
+    .style('fill-opacity', data.opacity)
+    .style('font-weight', data.weight)
+    .style('stroke', 'none');
+}
+
+function activateText(data) {
+  d3.select(data.el).style('fill-opacity', 1)
+    .style('font-weight', data.weight + 300)
+    .style('stroke', 'none');
+}
+
+function focusText(data) {
+  d3.select(data.el)
+    .style('stroke', '#0c0').style('stroke-width', 0.5).style('stroke-opacity', 0.5);
+}
 
 export default bus;
 
@@ -236,4 +313,6 @@ export {
   SELECT_UNIT,
   SELECT_WORD,
   SELECT_LAYER,
+  DESELECT_UNIT,
+  DESELECT_WORD,
 }

@@ -214,7 +214,7 @@
       this.init();
       // this.draw2();
       // this.draw_arc();
-      this.draw3();
+      this.draw();
     }
 
   }

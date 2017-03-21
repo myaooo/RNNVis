@@ -31,6 +31,10 @@
 .state_unit .active {
 
 }
+.active-word {
+
+}
+
 </style>
 <template>
   <div>
@@ -111,7 +115,13 @@
       },
       clusterNum: function() {
         return this.layout.clusterNum;
-      }
+      },
+      selectedWords: function() {
+        return this.shared.selectedWords;
+      },
+      selectedUnits: function() {
+        return this.shared.selectedUnits;
+      },
     },
     watch: {
       selectedState: function (state) {
@@ -126,6 +136,23 @@
       },
       selectedModel: function (newModel, oldModel) {
         this.maybeReload();
+      },
+      selectedWords: function (words) {
+        if (words.length === 0) {
+          this.painter.render_state([]);
+          return;
+        }
+        // const words = words.map((word) => word.text);
+        // this.compare = compare;
+        let model = this.selectedModel,
+          state = this.selectedState,
+          layer = this.selectedLayer;
+        const p = bus.loadStatistics(model, state, layer)
+          .then(() => {
+            const statistics = bus.getStatistics(model, state, layer);
+            const wordsStatistics = statistics.statOfWord(this.selectedWords[0].text).mean;
+            this.painter.render_state(wordsStatistics);
+          });
       },
     },
     methods: {
@@ -193,23 +220,23 @@
         console.log("cluster > Changing Layout...");
         // this.clusterNum = layout.clusterNum;
       });
-      bus.$on(SELECT_WORD, (words, compare) => {
-        if (words.length === 0) {
-          this.painter.render_state([]);
-          return;
-        }
-        this.selectedWords = words.slice();
-        this.compare = compare;
-        let model = this.selectedModel,
-          state = this.selectedState,
-          layer = this.selectedLayer;
-        const p = bus.loadStatistics(model, state, layer)
-          .then(() => {
-            const statistics = bus.getStatistics(model, state, layer);
-            const wordsStatistics = statistics.statOfWord(this.selectedWords[0]).mean;
-            this.painter.render_state(wordsStatistics);
-          });
-      });
+      // bus.$on(SELECT_WORD, (words, compare) => {
+      //   if (words.length === 0) {
+      //     this.painter.render_state([]);
+      //     return;
+      //   }
+      //   this.selectedWords = words.slice();
+      //   this.compare = compare;
+      //   let model = this.selectedModel,
+      //     state = this.selectedState,
+      //     layer = this.selectedLayer;
+      //   const p = bus.loadStatistics(model, state, layer)
+      //     .then(() => {
+      //       const statistics = bus.getStatistics(model, state, layer);
+      //       const wordsStatistics = statistics.statOfWord(this.selectedWords[0]).mean;
+      //       this.painter.render_state(wordsStatistics);
+      //     });
+      // });
     }
   }
 
@@ -238,7 +265,7 @@
       this.unitRangeColor = ['#09adff', '#ff5b09'];
       this.linkWidthRanage = [1, 5];
       this.linkColor = ['#09adff', '#ff5b09'];
-      
+
     }
 
     drawSentence(record, sentenceRecord) {
@@ -592,7 +619,7 @@
           let myWordCloud = new WordCloud(tmp_g, wclst.width/2, wclst.height/2)
             .transform( 'translate(' + [wclst.top_left[0] + wclst.width/2, wclst.top_left[1] + wclst.height/2] + ')')
           myWordCloud.update(word_info[i].words_data);
-          
+
           // wclst['el'] = tmp_g.node();
           wclst['wordCloud'] = myWordCloud;
         }
@@ -638,7 +665,7 @@
     draw_link(g, graph) {
       const link_info = graph.link_info;
       const linkWidth2StrengthRatio = this.params.linkWidth2StrengthRatio;
-      
+
       function link(d) {
         return "M" + d.source.x + "," + d.source.y
             + "C" + (d.source.x + d.target.x) / 2 + "," + d.source.y
