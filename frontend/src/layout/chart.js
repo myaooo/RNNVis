@@ -106,25 +106,25 @@ export class Chart {
     }
   }
   // rotate the chart, and perform axis rotation as well
-  // rotate() {
-  //   this.rotateFlag = !this.rotateFlag;
-  //   if (this.rotateFlag) {
-  //     this.drawTmp = this.draw;
-  //     this.draw = () => {
-  //       this.axisHandles.x = this.axisHandles.y = 1;
-  //       this.drawTmp();
-  //       this.axisHandles.x = this.axisHandles.y = null;
-  //       this.extents.reverse();
-  //       this.updateScale();
-  //       this.drawAxis();
-  //       this.extents.reverse();
-  //       this.updateScale();
-  //     };
-  //   } else {
-  //     this.draw = this.drawTmp;
-  //   }
-  //   return this;
-  // }
+  rotate() {
+    this.rotateFlag = !this.rotateFlag;
+    if (this.rotateFlag) {
+      this.drawTmp = this.draw;
+      this.draw = () => {
+        this.axisHandles.x = this.axisHandles.y = 1;
+        this.drawTmp();
+        this.axisHandles.x = this.axisHandles.y = null;
+        this.extents.reverse();
+        this.updateScale();
+        this.drawAxis();
+        this.extents.reverse();
+        this.updateScale();
+      };
+    } else {
+      this.draw = this.drawTmp;
+    }
+    return this;
+  }
   // set the background color and opacity
   background(color, alpha) {
     this.bg
@@ -310,11 +310,16 @@ export class Chart {
   clean() {
     this.charts.forEach((c) => c.clean());
     Object.keys(this.artists).forEach((name) => this.artists[name].clean());
-    Object.keys(this.axisHandles).forEach((name) => this.axisHandles[name] ? this.axisHandles[name].remove() : 1)
+    Object.keys(this.axisHandles).forEach((name) => {
+      if (this.axisHandles[name]) {
+        this.axisHandles[name].remove();
+        this.axisHandles[name] = null;
+      }
+    })
     this.scale = { x: null, y: null };
     this.extents = [[Infinity, -Infinity], [Infinity, -Infinity]];
-    this.axis = { x: null, y: null };
-    this.drawHooks = { xAxis: null, yAxis: null};
+    // this.axis = { x: null, y: null };
+    // this.drawHooks = { xAxis: null, yAxis: null};
     this.charts = [];
   }
 }

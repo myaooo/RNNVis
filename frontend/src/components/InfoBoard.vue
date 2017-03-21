@@ -27,9 +27,8 @@
         chart: null,
         labelBoard: null,
         shared: bus.state,
-        selectedUnits: null, // []
-        selectedWords: null, // []
-        compare: null,
+        // selectedUnits: null, // []
+        // selectedWords: null, // []
         statistics: null,
         color: d3.scaleOrdinal(d3.schemeCategory10),
       };
@@ -46,7 +45,11 @@
       type: {
         type: String,
         default: 'state',
-      }
+      },
+      compare: {
+        type: Boolean,
+        default: false,
+      },
     },
     computed: {
       svgId: function () {
@@ -61,15 +64,43 @@
       selectedState: function () {
         return this.compare ? this.shared.selectedState2 : this.shared.selectedState;
       },
-      // width: function () {
-
-      // }
+      selectedUnits: function () {
+        return this.type === 'state' ? (this.compare ? this.shared.selectedUnits2 : this.shared.selectedUnits) : 0;
+      },
+      selectedWords: function () {
+        return this.type === 'word' ? (this.comapre ? this.shared.selectedWords2 : this.shared.selectedWords) : 0;
+      }
     },
     watch: {
       width: function () {
         if (this.selectedLayer && this.selectedModel && this.selectedState) {
           if (this.type === 'word' && this.selectedWords) this.repaintWord();
           else if (this.type === 'state' && this.selectedState) this.repaintState();
+        }
+      },
+      selectedUnits: function () {
+        if (this.selectedUnits) {
+          let model = this.selectedModel,
+            state = this.selectedState,
+            layer = this.selectedLayer;
+          const p = bus.loadStatistics(model, state, layer)
+            .then(() => {
+              this.statistics = bus.getStatistics(model, state, layer);
+              this.repaintState();
+            });
+        }
+      },
+      selectedWords: function() {
+        if (this.selectedWords) {
+          let model = this.selectedModel,
+            state = this.selectedState,
+            layer = this.selectedLayer;
+          const p = bus.loadStatistics(model, state, layer)
+            .then(() => {
+              this.statistics = bus.getStatistics(model, state, layer);
+              this.repaintWord();
+              // const wordsStatistics = this.statistics.statOfWord(this.selectedWords[0]).mean;
+            });
         }
       }
     },
@@ -90,8 +121,8 @@
           .yAxis();
         let sortIdx = wordsStatistics[0].sort_idx;
         const interval = ~~(sortIdx.length / 100)
-        const range = range(0, sortIdx.length, interval);
-        sortIdx = range.map((i) => sortIdx[i]);
+        const ranges = range(0, sortIdx.length, interval);
+        sortIdx = ranges.map((i) => sortIdx[i]);
         // console.log(range);
         // console.log(sortIdx);
         this.chart.line([[0,0], [wordsStatistics[0].mean.length,0]])
@@ -123,42 +154,43 @@
       repaintState() {
 
       },
-      register() {
-        if(this.type === 'state') {
-          bus.$on(SELECT_UNIT, (unitDims, compare) => {
-            this.selectedUnits = unitDims;
-            this.compare = compare;
-            let model = this.selectedModel,
-              state = this.selectedState,
-              layer = this.selectedLayer;
-            const p = bus.loadStatistics(model, state, layer)
-              .then(() => {
-                this.statistics = bus.getStatistics(model, state, layer);
-                this.repaintState();
-              });
-          });
-        } else if (this.type === 'word') {
-          bus.$on(SELECT_WORD, (words, compare) => {
-            this.selectedWords = words.slice();
-            this.compare = compare;
-            let model = this.selectedModel,
-              state = this.selectedState,
-              layer = this.selectedLayer;
-            const p = bus.loadStatistics(model, state, layer)
-              .then(() => {
-                this.statistics = bus.getStatistics(model, state, layer);
-                this.repaintWord();
-              });
-          });
-        }
-      }
+      // register() {
+      //   if(this.type === 'state') {
+      //     bus.$on(SELECT_UNIT, (unitDims, compare) => {
+      //       this.selectedUnits = unitDims;
+      //       this.compare = compare;
+      //       let model = this.selectedModel,
+      //         state = this.selectedState,
+      //         layer = this.selectedLayer;
+      //       const p = bus.loadStatistics(model, state, layer)
+      //         .then(() => {
+      //           this.statistics = bus.getStatistics(model, state, layer);
+      //           this.repaintState();
+      //         });
+      //     });
+      //   } else if (this.type === 'word') {
+      //     bus.$on(SELECT_WORD, (words, compare) => {
+      //       this.selectedWords = words.slice();
+      //       this.compare = compare;
+      //       let model = this.selectedModel,
+      //         state = this.selectedState,
+      //         layer = this.selectedLayer;
+      //       const p = bus.loadStatistics(model, state, layer)
+      //         .then(() => {
+      //           this.statistics = bus.getStatistics(model, state, layer);
+      //           this.repaintWord();
+      //           // const wordsStatistics = this.statistics.statOfWord(this.selectedWords[0]).mean;
+      //         });
+      //     });
+      //   }
+      // }
     },
     mounted() {
       // console.log(this.$el);
       this.width = this.$el.clientWidth;
       this.init();
       // register event listener
-      this.register();
+      // this.register();
 
       // test event
       bus.$on(SELECT_LAYER, () => {
@@ -166,14 +198,14 @@
           if (this.type === 'word')
             bus.$emit(SELECT_UNIT, [10, 20], false);
           if (this.type === 'state')
-            bus.$emit(SELECT_WORD, ['he', 'she'], false);
-        }, 5000);
+            bus.$emit(SELECT_WORD, 'he', false);
+        }, 2000);
         setTimeout(() => {
           if (this.type === 'word')
             bus.$emit(SELECT_UNIT, [10, 20], false);
           if (this.type === 'state')
-            bus.$emit(SELECT_WORD, ['he', 'for'], false);
-        }, 8000);
+            bus.$emit(SELECT_WORD, 'she', false);
+        }, 5000);
 
       });
 

@@ -9,6 +9,8 @@ const CHANGE_LAYOUT = 'CHANGE_LAYOUT';
 const EVALUATE_SENTENCE = 'EVALUATE_SENTENCE';
 const SELECT_UNIT = 'SELECT_UNIT';
 const SELECT_WORD = 'SELECT_WORD';
+const DESELECT_UNIT = 'DESELECT_UNIT';
+const DESELECT_WORD = 'DESELECT_WORD';
 const SELECT_LAYER = 'SELECT_LAYER';
 
 const state = {
@@ -28,7 +30,8 @@ const state = {
   modelsSet: null,
   selectedUnits: [],
   selectedWords: [],
-
+  selectedUnits2: [],
+  selectedWords2: [],
 };
 
 const bus = new Vue({
@@ -213,13 +216,62 @@ const bus = new Vue({
     });
 
     this.$on(SELECT_UNIT, (unitDim, compare) => {
+      if (compare) {
+        const units = this.state.selectedUnits2.slice();
+        units.push(unitDim);
+        if (units.length > 2)
+          units.splice(0, 1);
+        this.state.selectedUnits2 = units;
+      } else {
+        const units = this.state.selectedUnits.slice();
+        units.push(unitDim);
+        if (units.length > 2)
+          units.splice(0, 1);
+        this.state.selectedUnits = units;
+      }
       console.log(`bus > selected unit ${unitDim}`);
 
     });
 
-    this.$on(SELECT_WORD, (words, compare) => {
-      console.log(`bus > selected ${words.length} word(s): ${words}`);
+    this.$on(SELECT_WORD, (word, compare) => {
+      if (compare) {
+        const words = this.state.selectedWords2.slice();
+        words.push(word);
+        if (words.length > 3)
+          words.splice(0, 1);
+        this.state.selectedWords2 = words;
+      } else {
+        const words = this.state.selectedWords.slice();
+        words.push(word);
+        if (words.length > 3)
+          words.splice(0, 1);
+        this.state.selectedWords = words;
+      }
+      console.log(`bus > selected word: ${word}`);
     });
+
+    this.$on(DESELECT_UNIT, (unit, compare) => {
+      if (compare) {
+        const idx = this.state.selectedUnits2.indexOf(unit);
+        this.state.selectedUnits2.splice(idx, 1);
+      } else {
+        const idx = this.state.selectedUnits.indexOf(unit);
+        this.state.selectedUnits.splice(idx, 1);
+      }
+      console.log(`bus > deselected unit: ${unit}`);
+    });
+
+    this.$on(DESELECT_WORD, (word, compare) => {
+      if (compare) {
+        const idx = this.state.selectedWords2.indexOf(word);
+        this.state.selectedWords2.splice(idx, 1);
+      } else {
+        const idx = this.state.selectedWords.indexOf(word);
+        this.state.selectedWords.splice(idx, 1);
+      }
+      console.log(`bus > deselected word: ${word}`);
+    });
+
   }
 });
 
@@ -236,4 +288,6 @@ export {
   SELECT_UNIT,
   SELECT_WORD,
   SELECT_LAYER,
+  DESELECT_UNIT,
+  DESELECT_WORD,
 }

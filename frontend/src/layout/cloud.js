@@ -1,5 +1,6 @@
 import * as d3 from 'd3';
 import cloud from 'd3-cloud';
+import { bus, SELECT_WORD, DESELECT_WORD } from '../event-bus';
 // import cloud from './forcecloud.js';
 // console.log(d3);
 // var cloud = require('./d3.cloud.js');
@@ -16,8 +17,9 @@ const bgLayout = {
 const wordLayout = {
   'font': 'Arial',
   'fontSize': [6, 17],
-  'fontWeight': [200, 500],
+  'fontWeight': [300, 400, 500, 600, 700],
   'padding': 0,
+  'opacity': 0.7,
 }
 
 export class WordCloud{
@@ -129,6 +131,7 @@ export class WordCloud{
     // console.log(data);
     const radiusX = size[0];
     const radiusY = size[1];
+    const wordLayout = this.wordLayout;
     // this.group.attr('transform', 'translate(' + [-radiusX, -radiusY] + ')');
     const filterData = data.filter((d) => {
       return -radiusX < d.x - d.width / 4 && -radiusY < d.y - d.size && d.x + d.width/4 < radiusX && d.y < radiusY;
@@ -140,7 +143,7 @@ export class WordCloud{
     //Entering words
     const text = this.cloud.enter()
       .append('text')
-      .style('font-family', this.wordLayout.font)
+      .style('font-family', wordLayout.font)
       .style('fill', (d, i) => { return self.colorScheme(d.type); })
       .attr('text-anchor', 'middle')
       // .attr('font-size', 1);
@@ -152,11 +155,31 @@ export class WordCloud{
       })
       // .attr('font-size', 1)
       .attr('font-size', function (d) { return d.size + 'px'; })
-      // .attr('font-weight', function(d) { return d.weight; })
+      .attr('font-weight', function(d) { return d.weight; })
       .style('fill-opacity', 0)
       .transition()
       .duration(300)
-      .style('fill-opacity', 1);;
+      .style('fill-opacity', wordLayout.opacity);
+
+    text
+      .on('mouseover', function () {
+        d3.select(this).style('fill-opacity', 1.0);
+      })
+      .on('mouseout', function (d, i) {
+        if (d.select) return;
+        d3.select(this).style('fill-opacity', wordLayout.opacity);
+      })
+      .on('click', function (d, i) {
+        if (!d.select){
+          d.select = true;
+          bus.$emit(SELECT_WORD, d.text, false);
+          d3.select(this).style('fill-opacity', 1).style('font-weight', d.weight + 300);
+        } else {
+          d.select = false;
+          bus.$emit(DESELECT_WORD, d.text, false);
+          d3.select(this).style('fill-opacity', wordLayout.opacity).style('font-weight', d.weight);
+        }
+      })
 
     //Exiting words
     this.cloud.exit()
@@ -180,7 +203,7 @@ export class WordCloud{
     const scale = d3.scalePow()
       .range(this.wordLayout.fontSize)
       .domain(fontExtent);
-    const weightScale = d3.scaleLinear()
+    const weightScale = d3.scaleQuantize()
       .range(this.wordLayout.fontWeight)
       .domain(fontExtent);
     words.forEach((word) => {
@@ -196,7 +219,7 @@ export class WordCloud{
       .font(this.wordLayout.font)
       .text(d => d.text)
       .fontSize(d => d.size)
-      // .fontWeight(d => d.weight)
+      .fontWeight(d => d.weight)
       .on('end', (words) => self.draw([self.width, self.height], words))
       .random(()=> 0.5)
       .spiral('rectangular')
