@@ -90,8 +90,8 @@
           .yAxis();
         let sortIdx = wordsStatistics[0].sort_idx;
         const interval = ~~(sortIdx.length / 100)
-        const range = range(0, sortIdx.length, interval);
-        sortIdx = range.map((i) => sortIdx[i]);
+        const ranges = range(0, sortIdx.length, interval);
+        sortIdx = ranges.map((i) => sortIdx[i]);
         // console.log(range);
         // console.log(sortIdx);
         this.chart.line([[0,0], [wordsStatistics[0].mean.length,0]])
