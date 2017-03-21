@@ -2,8 +2,8 @@
   <div>
     <h4 class="normal">Interpreter</h4>
     <hr>
-    <cluster-view class="content" :height="height"> </cluster-view>
-    <!--<test-view> </test-view>-->
+    <!--<cluster-view class="content" :height="height"> </cluster-view>-->
+    <test-view> </test-view>
 
   </div>
 

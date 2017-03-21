@@ -6,7 +6,10 @@ const layoutParams = {
   color: d3.scaleOrdinal(d3.schemeCategory20),
   radiusScale: 1.5,
   widthScale: 1.5,
-  avgValueRange: [0, 1.6],
+  avgValueRange: [-0.5, 0.5],
+  rulerWidth: 2,
+  markerWidth: 4,
+  markerHeight: 2,
 };
 
 // example usage:
@@ -21,6 +24,7 @@ class SentenceLayout{
     this.params = params;
     // this.handles = [];
     this._dataList = [];
+    this.type = 'bar2';
     // each data in data list has 3 handles after drawing:
     // el: the group holding all elements of a word
     // els: 3 groups, each holds a pie chart
@@ -32,10 +36,16 @@ class SentenceLayout{
   get radius() {
     if (!this._radius){
       const radius = this._size[0] / (this.params.widthScale*2);
-      if (this.sentence && !this._radius){
-        const radius2 = (this._size[1] - (this.sentence.length - 1) * this.params.nodeIntervalScale * radius) /
-          (this.sentence.length * this.params.radiusScale * 2);
+      if (this._sentence && !this._radius){
+        const radius2 = this._size[1] /
+          (this.params.nodeIntervalScale * (this._sentence.length - 1) + this.params.radiusScale * 2 * this._sentence.length);
+        // const radius2 = (this._size[1] - (this.sentence.length - 1) * this.params.nodeIntervalScale * radius) /
+        //   (this.sentence.length * this.params.radiusScale * 2);
+        // console.log(this.sentence.length)
+        // console.log(radius2);
         this._radius = radius < radius2 ? radius : radius2;
+      } else {
+        return radius;
       }
     }
     return this._radius;
@@ -65,43 +75,67 @@ class SentenceLayout{
     return arguments.length ? (this._words = words, this) : this._words;
   }
   // start to layout words
-  draw(type='bar') {
-    if (this._dataList.length !== this._sentence.length)
-      this._dataList = this.preprocess(this._sentence, this._coCluster, this._words);
-    else
-      this.clean();
+  draw(type=this.type) {
+    this.type = type;
     // prepare
-    this.scaleHeight = d3.scaleLinear()
-      .range([0, this.nodeHeight])
-      .domain(this.params.avgValueRange);
-    let stateSize = 0;
-    for( let j = 0; j < this._dataList[0].data.length; j++) stateSize += this._dataList[0].data[j].size;
-    this.scaleWidth = d3.scaleLinear()
-      .range([0, this.nodeWidth])
-      .domain([0, stateSize]);
+    this.prepareDraw(type);
 
     // draw
     if (type === 'pie') {
       this._dataList.forEach((data, i) => {
         const pos = this.getWordPos(i);
         const g = this.group.append('g');
-        this.drawOneWordPie(g, data, i)
+        this.drawWord(g, data, i)
           .attr('transform', 'translate(' + pos + ')');
       });
-      return this;
+    } else {
+      this._dataList.forEach((data, i) => {
+        const pos = this.getWordPos(i);
+        if(i > 0){
+          const gl = this.group.append('g');
+          this.drawConnection(gl, data, i)
+            .attr('transform', 'translate(' + [pos[0], pos[1] - this.nodeInterval] + ')')
+        }
+        const g = this.group.append('g');
+        this.drawWord(g, data, i)
+          .attr('transform', 'translate(' + pos + ')');
+      });
     }
-    this._dataList.forEach((data, i) => {
-      const pos = this.getWordPos(i);
-      if(i > 0){
-        const gl = this.group.append('g');
-        this.drawOneConnection(gl, data, i)
-          .attr('transform', 'translate(' + [pos[0], pos[1] - this.nodeInterval] + ')')
-      }
-      const g = this.group.append('g');
-      this.drawOneWordBar(g, data, i)
-        .attr('transform', 'translate(' + [pos[0], pos[1]] + ')');
-    });
     return this;
+  }
+  prepareDraw(type = this.type) {
+    if (this._dataList.length !== this._sentence.length)
+      this._dataList = this.preprocess(this._sentence, this._coCluster, this._words);
+    else
+      this.clean();
+    // adaptive height
+    let maxValue = 0.1;
+    this.dataList.forEach((data) => {
+      data.data.forEach((clst) => {
+        const clstMaxP =  clst.currents[0] + (clst.updateds[0] < 0 ? clst.updateds[0] : 0);
+        const clstMaxN =  clst.currents[1] + (clst.updateds[1] < 0 ? clst.updateds[1] : 0);
+        const clstMax = Math.max(clstMaxP/clst.size, clstMaxN/clst.size);
+        maxValue = maxValue < clstMax ? clstMax : maxValue;
+      })
+    });
+    this.params.avgValueRange = [-maxValue*1.1, maxValue*1.1];
+    if (type === 'bar'){
+      this.scaleHeight = d3.scaleLinear()
+        .range([-this.nodeHeight/2, this.nodeHeight/2])
+        .domain(this.params.avgValueRange);
+      let stateSize = 0;
+      for( let j = 0; j < this._dataList[0].data.length; j++) stateSize += this._dataList[0].data[j].size;
+      this.scaleWidth = d3.scaleLinear()
+      .range([0, this.nodeWidth])
+      .domain([0, stateSize]);
+    }
+    else if (type === 'bar2')
+      this.scaleHeight = d3.scaleLinear()
+        .range([-this.nodeHeight/2, this.nodeHeight/2])
+        .domain(this.params.avgValueRange);
+    this.drawWord = type === 'pie' ? this.drawOneWordPie : (type === 'bar' ? this.drawOneWordBar : this.drawOneWordBar2);
+    this.drawConnection = type === 'bar' ? this.drawOneConnection : (type === 'bar2' ? this.drawOneConnection2 : null);
+
   }
   // remove all the elements, all the preprocessed data are kept
   clean() {
@@ -119,7 +153,10 @@ class SentenceLayout{
   }
   // get the position [x, y] of a word regarding this.group
   getWordPos(i){
-    return [this._size[0] / 2, this.radius * (this.params.radiusScale * (1 + 2 * i)) + i * this.nodeInterval];
+    // if (this.type === 'bar')
+    //   return [this._size[0] / 2, this.radius * (this.params.radiusScale * (1 + 2 * i)) + i * this.nodeInterval];
+    // else
+      return [0, (this.nodeHeight + this.nodeInterval) * i]
   }
   // draw one word using bar chart
   // data: {word: 'he', data: Array}
@@ -133,9 +170,9 @@ class SentenceLayout{
 
     const bg = el.append('rect')
       .attr('x', 0)
-      .attr('y', scaleHeight(this.params.avgValueRange[0]))
+      .attr('y', 0)
       .attr('width', width)
-      .attr('height', scaleHeight(this.params.avgValueRange[1]))
+      .attr('height', height)
       .attr('stroke', 'gray')
       .attr('stroke-width', 0.5)
       .attr('fill', 'none');
@@ -168,6 +205,118 @@ class SentenceLayout{
       .style('stroke-width', 0.5)
 
     data.el = el; // bind group
+    return el;
+  }
+
+  drawOneWordBar2(el, data, t) {
+    const height = this.nodeHeight;
+    const width = this.nodeWidth;
+    const color = this.params.color;
+    console.log(data);
+    const scaleHeight = this.scaleHeight;
+    const unitWidth = this.nodeWidth / data.data.length;
+
+    // bounding box
+    const bg = el.append('rect')
+      .attr('x', 0)
+      .attr('y', 0)
+      .attr('width', width)
+      .attr('height', height)
+      .attr('stroke', 'gray')
+      .attr('stroke-width', 1)
+      .attr('fill', 'none');
+
+    const gSelector = el.selectAll('g')
+      .data(data.data);
+    const gCurrent = gSelector.enter()
+      .append('g');
+    const cur = gCurrent.append('rect')
+      .attr('x', (d, i) => unitWidth*i)
+      .attr('y', (d) => height/2 - scaleHeight(d.currents[0] / d.size))
+      .attr('width', (d) => unitWidth)
+      .attr('height', (d) => scaleHeight((d.currents[0]-d.currents[1]) / d.size))
+      .attr('fill', (d, j) => color(j))
+    gCurrent.style('fill-opacity', 0.4)
+      .style('stroke', 'gray')
+      // .style('stroke-opacity', 0.5)
+      .style('stroke-width', 0.5)
+
+    const gUpdated1 = gSelector.enter()
+      .append('g');
+    const updated1 = gUpdated1.append('rect')
+      .attr('x', (d, i) => unitWidth * i)
+      .attr('y', (d) => height/2 + scaleHeight(-d.currents[1] / d.size))
+      .attr('width', (d) => unitWidth)
+      .attr('height', (d) => scaleHeight(Math.abs(d.updateds[1]) / d.size))
+      .attr('transform', (d) => d.updateds[1] < 0 ? ('translate(' + [0, -scaleHeight(Math.abs(d.updateds[1]) / d.size) ] + ')') : '')
+      .attr('fill', (d, j) => d.updateds[1] > 0 ? 'none' : color(j))
+      .style('fill-opacity', 0.4);
+    gUpdated1 //.style('fill-opacity', 0.8)
+      .style('stroke', 'gray')
+      .style('stroke-width', 0.5);
+
+    const gUpdated2 = gSelector.enter()
+      .append('g');
+    const updated2 = gUpdated2.append('rect')
+      .attr('x', (d, i) => unitWidth * i)
+      .attr('y', (d) => height/2 - scaleHeight(d.currents[0] / d.size))
+      .attr('width', (d) => unitWidth)
+      .attr('height', (d) => scaleHeight(Math.abs(d.updateds[0]) / d.size))
+      .attr('transform', (d) => d.updateds[0] < 0 ? ('translate(' + [0, -scaleHeight(Math.abs(d.updateds[0]) / d.size) ] + ')') : '')
+      .attr('fill', (d, j) => d.updateds[0] < 0 ? 'none' : color(j))
+      .style('fill-opacity', 0.4);
+    gUpdated2 //.style('fill-opacity', 0.8)
+      .style('stroke', 'gray')
+      .style('stroke-width', 0.5)
+
+    el.append('path').attr('d', 'M0 ' + height/2 + ' H ' + width)
+      .style('stroke', 'black').style('stroke-width', 0.5);
+
+    cur.each(function(d) {
+      if(d.els) d.els[0] = this;
+      else d.els = [this];
+    });
+    updated1.each(function(d) { d.els[1] = this; });
+    updated2.each(function(d) { d.els[2] = this; });
+    data.els = [cur, updated1, updated2];
+    data.el = el; // bind group
+    return el;
+  }
+
+  drawOneConnection2(el, data, t) {
+    const height = this.nodeInterval;
+    // const width = this.nodeWidth;
+    const color = this.params.color;
+    const rulerWidth = this.params.rulerWidth;
+    const markerWidth = this.params.markerWidth;
+    const markerHeight = this.params.markerHeight;
+    // console.log(data);
+    // const scaleHeight = this.scaleHeight;
+    const unitWidth = this.nodeWidth / data.data.length;
+    const gs = el.selectAll('g')
+      .data(data.data).enter()
+      .append('g');
+    const rulers1 = gs.append('rect')
+      .attr('x', (d, i) => unitWidth * (i+0.5) - rulerWidth/2).attr('y', 0)
+      .attr('width', rulerWidth).attr('height', (d) => (height-markerHeight) * d.keptRate)
+      .style('stroke', 'none').style('fill', (d, i) => color(i)).style('fill-opacity', 0.5);
+
+    const rulers2 = gs.append('rect')
+      .attr('x', (d, i) => unitWidth * (i+0.5) - rulerWidth/2).attr('y', (d) => (height-markerHeight) * d.keptRate)
+      .attr('width', rulerWidth).attr('height', (d) => height - (height-markerHeight) * d.keptRate)
+      .style('stroke', 'none').style('fill', 'gray').style('fill-opacity', 0.5);
+
+    // const markers = gs.append('rect')
+    //   .attr('x', (d, i) => unitWidth * (i+0.5) - markerWidth/2).attr('y', (d) => height * (d.keptRate))
+    //   .attr('width', markerWidth).attr('height', markerHeight);
+
+    const markers = gs.append('path')
+      .attr('d', (d, i) => {
+        return 'M' + (unitWidth * (i+0.5) - markerWidth/2) + ' ' + ((height-markerHeight) * d.keptRate)
+          + ' ' + 'H' + ' ' + (unitWidth * (i+0.5) + markerWidth/2)
+          + ' ' + 'L' + ' ' + (unitWidth * (i+0.5)) + ' ' + ((height-markerHeight) * d.keptRate + markerHeight);
+      });
+
     return el;
   }
 
@@ -267,73 +416,74 @@ class SentenceLayout{
       });
     });
 
-    // const infoPositive = new Array(len);
-    // const infoNegative = new Array(len);
-    // const infoCurrent = new Array(len);
-    // for (let t = 0; t < len; t++) {
-    //   infoPositive[t] = new Float32Array(clusterNum);
-    //   infoNegative[t] = new Float32Array(clusterNum);
-    //   infoCurrent[t] = new Float32Array(clusterNum);
-    //   for (let i = 0; i < clusterNum; i++) {
-    //     for (let j = 0; j < clustersSize[i]; j++) {
-    //       if (currentStates[t][i][j] > 0) {
-    //         infoPositive[t][i] += currentStates[t][i][j];
-    //       } else {
-    //         infoNegative[t][i] += currentStates[t][i][j];
-    //       }
-    //       infoCurrent[t][i] += Math.abs(currentStates[t][i][j]);
-    //     }
-    //   }
-    // }
-
-    const infoCurrent = currentStates.map((word, t) => { // compute an array for each word
-      return word.map((cluster, i) => { // compute a info for each cluster
-        let absSum = 0;
-        for(let j = 0; j < cluster.length; j++)
-          absSum += Math.abs(cluster[j]);
-        return absSum;
-      })
-    });
-
-    const infoPrevious = [new Float32Array(clusterNum), ...infoCurrent.slice(0, len-1)];
-    console.log(infoPrevious);
-    const h_tij = [currentStates[0].map((clst) => new Float32Array(clst.length)), ...currentStates];
-    // console.log(h_tij);
-    const infoUpdated = new Array(len);
-    const infoKept = new Array(len);
-    const major = new Array(len);
+    const infoPositive = new Array(len);
+    const infoNegative = new Array(len);
+    const infoCurrent = new Array(len);
     for (let t = 0; t < len; t++) {
-      infoUpdated[t] = new Float32Array(clusterNum);
-      infoKept[t] = new Float32Array(clusterNum);
-      major[t] = new Float32Array(clusterNum);
+      infoPositive[t] = new Float32Array(clusterNum);
+      infoNegative[t] = new Float32Array(clusterNum);
+      infoCurrent[t] = new Float32Array(clusterNum);
       for (let i = 0; i < clusterNum; i++) {
-        for (let j = 0; j < clustersSize[i]; j++){
-          const prev = h_tij[t][i][j];
-          const cur = h_tij[t+1][i][j];
-          infoUpdated[t][i] += (cur-prev);
-          // infoUpdated[t][i] += Math.sign(prev) * (cur-prev);
-          const ratio = cur / prev;
-          infoKept[t][i] += Math.abs(prev) * (ratio < 0 ? 0 : 1 < ratio ? 1 : ratio);
-          major[t][i] += cur;
+        for (let j = 0; j < clustersSize[i]; j++) {
+          if (currentStates[t][i][j] > 0) {
+            infoPositive[t][i] += currentStates[t][i][j];
+          } else {
+            infoNegative[t][i] += currentStates[t][i][j];
+          }
+          infoCurrent[t][i] += Math.abs(currentStates[t][i][j]);
         }
       }
     }
 
-    return words.map((word, t) => {
-      const data = infoCurrent[t].map((current, i) => {
+    const infoPrevious = [new Float32Array(clusterNum), ...infoCurrent.slice(0, len-1)];
+    const h_tij = [currentStates[0].map((clst) => new Float32Array(clst.length)), ...currentStates];
+    // console.log(h_tij);
+    const infoKept = new Array(len);
+    const keptPositive = new Array(len);
+    const keptNegative = new Array(len);
+    for (let t = 0; t < len; t++) {
+      infoKept[t] = new Float32Array(clusterNum);
+      keptPositive[t] = new Float32Array(clusterNum);
+      keptNegative[t] = new Float32Array(clusterNum);
+      for (let i = 0; i < clusterNum; i++) {
+        for (let j = 0; j < clustersSize[i]; j++){
+          const prev = h_tij[t][i][j];
+          const cur = h_tij[t+1][i][j];
+          const ratio = cur / prev;
+          infoKept[t][i] += Math.abs(prev) * (ratio < 0 ? 0 : 1 < ratio ? 1 : ratio);
+          keptPositive[t][i] += prev > 0 ? (cur > 0 ? (cur > prev ? prev : cur) : 0) : 0;
+          keptNegative[t][i] += prev < 0 ? (cur < 0 ? (cur < prev ? prev : cur) : 0) : 0;
+        }
+      }
+    }
+
+    const dataList = words.map((word, t) => {
+      const data = Array.from(infoCurrent[t], (current, i) => {
         const prev = infoPrevious[t][i];
-        const updated = infoUpdated[t][i];
-        const kept = infoKept[t][i];
+        // const kept = infoKept[t][i];
+        const keptP = keptPositive[t][i];
+        const keptN = keptNegative[t][i];
+        const kept = keptP - keptN;
+        const positive = infoPositive[t][i];
+        const negative = infoNegative[t][i];
+        const prevPositive = t > 0 ? infoPositive[t-1][i] : 0;
+        const prevNegative = t > 0 ? infoNegative[t-1][i] : 0;
+        const updatedPositive = positive - prevPositive;
+        const updatedNegative = negative - prevNegative;
+        const updated = updatedPositive + updatedNegative;
         return {
+          currents: [positive, negative],
           current: current,
           prev: prev,
           updatedRate: prev === 0 ? 0 : updated / prev,
           keptRate: prev === 0 ? 0 : kept / prev,
           updated: updated,
+          updateds: [updatedPositive, updatedNegative],
+          kepts: [keptP, keptN],
           kept: kept,
           size: clustersSize[i],
           accumulate: accClustersSize[i],
-          major: Math.sign(major[t][i]),
+          major: Math.sign(positive + negative),
         };
       });
       return {
@@ -341,6 +491,7 @@ class SentenceLayout{
         data: data,
       };
     });
+    return dataList;
   }
 };
 

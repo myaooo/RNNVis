@@ -93,7 +93,7 @@
     name: 'ClusterView',
     data() {
       return {
-        params: Object.assign({}, layoutParams),
+        params: layoutParams,
         // svgId: 'cluster-svg',
         clusterData: null,
         // clusterNum: 10,
@@ -229,7 +229,7 @@
           // TODO change -1 to something else
           const sentenceRecord = record.getRecords(this.selectedState, -1);
           this.painter.drawSentence(record, sentenceRecord);
-          
+
         })
       });
       bus.$on(CHANGE_LAYOUT, (layout, compare) => {
@@ -286,7 +286,7 @@
         .coCluster(this.graph.coCluster)
         .words(record.tokens)
         .draw();
-      
+
       let links = [];
       console.log(a.dataList);
       a.dataList.forEach((d, i) => {
