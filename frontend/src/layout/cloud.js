@@ -17,13 +17,13 @@ const bgLayout = {
 const wordLayout = {
   'font': 'Arial',
   'fontSize': [6, 17],
-  'fontWeight': [300, 400, 500, 600, 700],
+  'fontWeight': [200, 300, 400, 500, 600],
   'padding': 0,
   'opacity': 0.7,
 }
 
 export class WordCloud{
-  constructor(selector, radiusX = 100, radiusY = radiusX, bgshape = 'rect') {
+  constructor(selector, radiusX = 100, radiusY = radiusX, bgshape = 'rect', compare = false) {
     this.selector = selector;
     this.bggroup = this.selector.append('g');
     this.bg = this.bggroup.append('g');
@@ -38,7 +38,10 @@ export class WordCloud{
     this.font = 'Impact';
     this.margin_ = 0;
     this.colorScheme = d3.scaleOrdinal(d3.schemeCategory10);
+    // this.word2data;
+    // this.selected = [];
     // this.bounding();
+    // register event listener
   }
   get width() {
     return (this.radius[0] - this.margin_) * 2;
@@ -172,14 +175,24 @@ export class WordCloud{
       .on('click', function (d, i) {
         if (!d.select){
           d.select = true;
-          bus.$emit(SELECT_WORD, d.text, false);
-          d3.select(this).style('fill-opacity', 1).style('font-weight', d.weight + 300);
+          d.opacity = wordLayout.opacity;
+          d3.select(this).style('fill-opacity', 1.0).style('font-weight', d.weight+300);
+          bus.$emit(SELECT_WORD, d, false);
         } else {
           d.select = false;
-          bus.$emit(DESELECT_WORD, d.text, false);
+          bus.$emit(DESELECT_WORD, d, false);
           d3.select(this).style('fill-opacity', wordLayout.opacity).style('font-weight', d.weight);
         }
-      })
+      });
+
+    // registering el in to datum
+    text.each(function(d) {
+      d.el = this;
+    });
+
+    this.word2data = {}
+    this.data.forEach((d) => this.word2data[d.text] = d);
+    // console.log(data);
 
     //Exiting words
     this.cloud.exit()

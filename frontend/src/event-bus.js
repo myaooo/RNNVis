@@ -1,5 +1,6 @@
 import Vue from 'vue';
 import dataService from './services/dataService';
+import * as d3 from 'd3';
 import { CoClusterProcessor, SentenceRecord, StateStatistics } from './preprocess'
 
 // event definitions goes here
@@ -44,6 +45,9 @@ const bus = new Vue({
     },
   },
   computed: {
+    // selectedUnits: function() {
+    //   return this.state.selectedUnits;
+    // },
   },
   methods: {
 
@@ -159,7 +163,7 @@ const bus = new Vue({
         layer = this.layerNum(modelName) - 1;
       }
       if (state.statistics[modelName][stateName][layer]){
-        return Promise.resolve('Already Loaded');
+        return state.statistics[modelName][stateName][layer].load();
       }
       const stat = new StateStatistics(modelName, stateName, layer, top_k);
       state.statistics[modelName][stateName][layer] = stat;
@@ -234,20 +238,20 @@ const bus = new Vue({
     });
 
     this.$on(SELECT_WORD, (word, compare) => {
-      if (compare) {
-        const words = this.state.selectedWords2.slice();
-        words.push(word);
-        if (words.length > 3)
-          words.splice(0, 1);
-        this.state.selectedWords2 = words;
-      } else {
-        const words = this.state.selectedWords.slice();
-        words.push(word);
-        if (words.length > 3)
-          words.splice(0, 1);
-        this.state.selectedWords = words;
+      const maxSelected = 3;
+      let words;
+      if (compare) words = this.state.selectedWords2.slice();
+      else words = this.state.selectedWords.slice();
+      words.splice(0, 0, word);
+      if (words.length > maxSelected) {
+        deactivate(words[maxSelected]);
+        words.splice(2, 1);
       }
-      console.log(`bus > selected word: ${word}`);
+      words.forEach((word) => activateText(word));
+      focusText(words[0]);
+      if (compare) this.state.selectedWords2 = words;
+      else this.state.selectedWords = words;
+      console.log(`bus > selected word: ${word.text}`);
     });
 
     this.$on(DESELECT_UNIT, (unit, compare) => {
@@ -262,18 +266,39 @@ const bus = new Vue({
     });
 
     this.$on(DESELECT_WORD, (word, compare) => {
-      if (compare) {
-        const idx = this.state.selectedWords2.indexOf(word);
-        this.state.selectedWords2.splice(idx, 1);
-      } else {
-        const idx = this.state.selectedWords.indexOf(word);
-        this.state.selectedWords.splice(idx, 1);
-      }
-      console.log(`bus > deselected word: ${word}`);
+      let words;
+      if (compare) words = this.state.selectedWords2.slice();
+      else words = this.state.selectedWords.slice();
+      const idx = words.findIndex((d) => d.text === word.text);
+      console.log(`bus > deleted idx: ${idx}`);
+      deactivateText(words[idx]);
+      words.splice(idx, 1);
+      if(words.length && idx === 0) focusText(words[0]);
+      if (compare) this.state.selectedWords2 = words;
+      else this.state.selectedWords = words;
+      console.log(`bus > deselected word: ${word.text}`);
     });
 
   }
 });
+
+function deactivateText(data) {
+  d3.select(data.el)
+    .style('fill-opacity', data.opacity)
+    .style('font-weight', data.weight)
+    .style('stroke', 'none');
+}
+
+function activateText(data) {
+  d3.select(data.el).style('fill-opacity', 1)
+    .style('font-weight', data.weight + 300)
+    .style('stroke', 'none');
+}
+
+function focusText(data) {
+  d3.select(data.el)
+    .style('stroke', '#0c0').style('stroke-width', 0.5).style('stroke-opacity', 0.5);
+}
 
 export default bus;
 

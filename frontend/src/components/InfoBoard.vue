@@ -98,6 +98,7 @@
           const p = bus.loadStatistics(model, state, layer)
             .then(() => {
               this.statistics = bus.getStatistics(model, state, layer);
+              // console.log(this.statistics);
               this.repaintWord();
               // const wordsStatistics = this.statistics.statOfWord(this.selectedWords[0]).mean;
             });
@@ -112,8 +113,13 @@
       },
       repaintWord() {
         this.chart.clean();
+        // console.log(this.statistics);
+        if (!this.selectedWords.length){
+          console.log('Painting no words');
+          return;
+        }
         const wordsStatistics = this.selectedWords.map((word, i) => {
-          return this.statistics.statOfWord(word);
+          return this.statistics.statOfWord(word.text);
         });
         this.chart
           .margin(5, 5, 20, 30)
@@ -141,12 +147,13 @@
             .area(sortIdx.map((i) => wordData.range2[i]), (d, i) => i*interval, (d) => d[0], (d) => d[1])
             .attr('fill', this.color(i))
             .attr('fill-opacity', 0.1);
+          // draw labels
           this.labelBoard.append('rect')
             .attr('x', 80*i+20).attr('y', 10).attr('width', 30).attr('height', 1)
             .attr('fill', this.color(i))
           this.labelBoard.append('text')
             .attr('x', 80*i + 60).attr('y', 15)
-            .text(this.selectedWords[i])
+            .text(this.selectedWords[i].text)
         });
         this.chart.draw();
 
@@ -193,21 +200,21 @@
       // this.register();
 
       // test event
-      bus.$on(SELECT_LAYER, () => {
-        setTimeout(() => {
-          if (this.type === 'word')
-            bus.$emit(SELECT_UNIT, [10, 20], false);
-          if (this.type === 'state')
-            bus.$emit(SELECT_WORD, 'he', false);
-        }, 2000);
-        setTimeout(() => {
-          if (this.type === 'word')
-            bus.$emit(SELECT_UNIT, [10, 20], false);
-          if (this.type === 'state')
-            bus.$emit(SELECT_WORD, 'she', false);
-        }, 5000);
+      // bus.$on(SELECT_LAYER, () => {
+      //   setTimeout(() => {
+      //     if (this.type === 'word')
+      //       bus.$emit(SELECT_UNIT, [10, 20], false);
+      //     if (this.type === 'state')
+      //       bus.$emit(SELECT_WORD, 'he', false);
+      //   }, 2000);
+      //   setTimeout(() => {
+      //     if (this.type === 'word')
+      //       bus.$emit(SELECT_UNIT, [10, 20], false);
+      //     if (this.type === 'state')
+      //       bus.$emit(SELECT_WORD, 'she', false);
+      //   }, 5000);
 
-      });
+      // });
 
     }
   }

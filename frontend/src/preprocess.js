@@ -186,6 +186,7 @@ export class StateStatistics {
     this.data;
   }
   load() {
+    if (this.data) return Promise.resolve("Already loaded");
     return dataService.getStateStatistics(this.modelName, this.stateName, this.layer, this.top_k, (response) => {
       this.data = response.data;
     });
@@ -238,8 +239,11 @@ export class StateStatistics {
     return this._wordsData;
   }
   statOfWord(word) {
-    const id = this.word2Id[word];
-    return this.wordsData[id];
+    if (this.data) {
+      const id = this.word2Id[word];
+      return this.wordsData[id];
+    }
+    return undefined;
   }
 }
 
