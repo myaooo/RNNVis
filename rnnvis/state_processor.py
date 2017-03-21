@@ -239,7 +239,7 @@ def get_state_statistics(data_name, model_name, state_name, diff=True, layer=-1,
         stats = {key: value[:top_k].tolist() for key, value in stats.items()}
     else:
         stats = {key: value[k].tolist() for key, value in stats.items()}
-    stats['words'] = words
+    stats['words'] = words[:top_k]
     return stats
 
 
