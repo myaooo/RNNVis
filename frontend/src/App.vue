@@ -7,10 +7,10 @@
       </el-menu>
     <!--</el-row>-->
     <el-row :gutter="10">
-      <el-col :span="6" class="col-bg" :gutter="15">
+      <el-col :span="4" class="col-bg" :gutter="15">
         <model-view></model-view>
       </el-col>
-      <el-col :span="18" class="col-bg" :gutter="15">
+      <el-col :span="20" class="col-bg" :gutter="15">
         <!--<router-view></router-view>-->
         <el-row>
           <main-view :height="height * 0.6"> </main-view>

@@ -191,6 +191,7 @@ const bus = new Vue({
       }
       else
         this.state.selectedModel = modelName;
+      console.log(`bus > current models : ${state.selectedModel}, ${state.selectedModel2}`);
     });
 
     this.$on(SELECT_STATE, (stateName, compare) => {
@@ -198,6 +199,7 @@ const bus = new Vue({
         this.state.selectedState2 = stateName;
       else
         this.state.selectedState = stateName;
+      console.log(`bus > current states : ${state.selectedState}, ${state.selectedState2}`);
     });
 
     this.$on(SELECT_LAYER, (layer, compare) => {

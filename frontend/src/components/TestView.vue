@@ -187,7 +187,7 @@
       },
       draw3() {
         const p1 = bus.loadCoCluster('PTB-LSTM', 'state_c', 10, {top_k: 300, mode: 'raw'});
-        const record = bus.evalSentence('What can I do for you my dear?', 'PTB-LSTM');
+        const record = bus.evalSentence('What can I do for you?', 'PTB-LSTM');
         const p2 = record.evaluate();
         Promise.all([p1, p2]).then((values) => {
           const coCluster = bus.getCoCluster('PTB-LSTM', 'state_c', 10, {top_k: 300, mode: 'raw'});
@@ -195,7 +195,7 @@
           console.log(record);
           const a = sentence(d3.select(`#${this.svgId}`).append('g'))
             .transform('translate(50, 10)')
-            .size([50, 500])
+            .size([50, 450])
             .sentence(sentenceRecord)
             .coCluster(coCluster)
             .words(record.tokens)

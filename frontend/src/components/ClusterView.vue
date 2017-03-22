@@ -41,14 +41,14 @@
 
 </style>
 <template>
-  <div>
+  <!--<div>-->
     <!--<div class="header">
       <el-radio-group v-model="selectedState" size="small">
         <el-radio-button v-for="state in states" :label="state"></el-radio-button>
       </el-radio-group>
     </div>-->
     <svg :id='svgId' :width='width' :height='height' :transform='compare ? "scale(-1,1)" : ""'> </svg>
-  </div>
+  <!--</div>-->
 </template>
 
 <script>
@@ -58,26 +58,30 @@
   import { sentence } from '../layout/sentence.js';
 
 
-  const layoutParams = {
-    clusterInterval: 15,
-    packNum: 3,
-    unitWidth: 4,
-    unitHeight: 4,
-    unitMargin: 2,
-    wordCloudArcDegree: 130,
-    wordCloudNormalRadius: 60,
-    wordCloudShrinkHeight: 5,
-    wordCloudPaddingLength: 10,
-    wordCloudChord2stateClusterHeightRatio: 1.2,
-    wordCloudWidth2HeightRatio: 1.2,
-    littleTriangleWidth: 5,
-    littleTriangleHeight: 5,
-    strengthThresholdPercent: 0.2,
-    linkWidth2StrengthRatio: 0.01,
-    wordSize2StrengthRatio: 3,
+  class LayoutParamsConstructor {
+    constructor(){
+      this.clusterInterval= 15;
+      this.packNum= 3;
+      this.unitWidth= 4;
+      this.unitHeight= 4;
+      this.unitMargin= 2;
+      this.wordCloudArcDegree= 130;
+      this.wordCloudNormalRadius= 60;
+      this.wordCloudShrinkHeight= 5;
+      this.wordCloudPaddingLength= 10;
+      this.wordCloudChord2stateClusterHeightRatio= 1.2;
+      this.wordCloudWidth2HeightRatio= 1.2;
+      this.littleTriangleWidth= 5;
+      this.littleTriangleHeight= 5;
+      this.strengthThresholdPercent= 0.2;
+      this.linkWidth2StrengthRatio= 0.01;
+      this.wordSize2StrengthRatio= 3;
+      this.middleLineX = 300;
+      this.middleLineY = 100;
+    }
     get clusterHeight() {
       return this.unitHeight * this.packNum + this.unitMargin * (this.packNum + 1);
-    },
+    }
     // clusterRectStyle: {
     //   'fill': '#eee',
     //   'fill-opacity': 0.5,
@@ -85,7 +89,8 @@
     //   'stroke-width': 0.5,
     //   'stroke-opacity': 0.5,
     // },
-  };
+  }
+  const layoutParams = new LayoutParamsConstructor();
   // layoutParams.clusterHeight = layoutParams.unitHeight*layoutParams.packNum + layoutParams.unitMargin * (layoutParams.packNum + 1);
   // layoutParams.clusterWidth = layoutParams.clusterHeight / (layoutParams.packNum);
 
@@ -93,14 +98,14 @@
     name: 'ClusterView',
     data() {
       return {
-        params: layoutParams,
+        params: new LayoutParamsConstructor(),
         // svgId: 'cluster-svg',
         clusterData: null,
         // clusterNum: 10,
         painter: null,
-        painter2: null,
+        // painter2: null,
         shared: bus.state,
-        width: 800,
+        // width: 800,
         changingFlag: false,
       }
     },
@@ -108,6 +113,10 @@
       compare: {
         type: Boolean,
         defautl: false,
+      },
+      width: {
+        type: Number,
+        default: 800,
       },
       height: {
         type: Number,
@@ -119,7 +128,6 @@
         return this.compare ? 'cluster-svg2' : 'cluster-svg';
       },
       selectedState: function() {
-        console.log(`cluster > state changed to ${this.shared.selectedState}`);
         return this.compare ? this.shared.selectedState2 : this.shared.selectedState;
       },
       selectedModel: function() {
@@ -143,16 +151,19 @@
     },
     watch: {
       selectedState: function (state) {
+        console.log(`${this.svgId} > state changed to ${this.selectedState}`);
         this.maybeReload();
       },
       selectedLayer: function (layer) {
+        console.log(`${this.svgId} > layer changed to ${this.selectedLayer}`);
         this.maybeReload();
       },
       layout: function(layout) {
-        console.log("cluster > Changing Layout...");
+        console.log(`${this.svgId} > layout changed. clusterNum: ${this.clusterNum}`);
         this.maybeReload();
       },
       selectedModel: function (newModel, oldModel) {
+        console.log(`${this.svgId} > model changed to ${this.selectedModel}`);
         this.maybeReload();
       },
       selectedWords: function (words) {
@@ -172,10 +183,19 @@
             this.painter.render_state(wordsStatistics);
           });
       },
+      width: function (newWidth, oldWidth) {
+        console.log("width ${newWidth}");
+        if (this.painter && typeof newWidth === 'number') {
+          this.painter.translateX(newWidth/3 - this.painter.middle_line_x);
+        }
+      },
     },
     methods: {
       checkLegality() {
         const state = this.selectedState;
+        console.log(state);
+        console.log(this.selectedLayer);
+        console.log(this.layout);
         return (state === 'state' || state === 'state_c' || state === 'state_h')
           && ((typeof this.selectedLayer) === 'number') && (this.layout);
       },
@@ -183,13 +203,15 @@
         // console.log(this.changingFlag);
         if (!this.changingFlag){
           this.changingFlag = true;
-          // console.log(this.changingFlag);
+          console.log(this.changingFlag);
           if (this.checkLegality()){
-            console.log('reloading');
+            console.log(`${this.svgId} > reloading...`);
             this.reload(this.selectedModel, this.selectedState, this.selectedLayer, this.clusterNum)
               .then(() => {
                 this.changingFlag = false;
               });
+          } else {
+            this.changingFlag = false;
           }
         }
       },
@@ -211,7 +233,7 @@
       },
     },
     mounted() {
-      this.width = this.$el.clientWidth;
+      // this.width = this.$el.clientWidth;
       this.init();
       // register events
       // bus.$on(SELECT_MODEL, (model) => {
@@ -232,12 +254,12 @@
 
         })
       });
-      bus.$on(CHANGE_LAYOUT, (layout, compare) => {
-        if (compare)
-          return;
-        console.log("cluster > Changing Layout...");
-        // this.clusterNum = layout.clusterNum;
-      });
+      // bus.$on(CHANGE_LAYOUT, (layout, compare) => {
+      //   if (compare)
+      //     return;
+      //   console.log("cluster > Changing Layout...");
+      //   // this.clusterNum = layout.clusterNum;
+      // });
     }
   }
 
@@ -251,8 +273,8 @@
 
       this.client_width = this.svg.node().getBoundingClientRect().width;
       this.client_height = this.svg.node().getBoundingClientRect().height;
-      this.middle_line_x = 400;
-      this.middle_line_y = 50;
+      this.middle_line_x = params.middleLineX;
+      this.middle_line_y = params.middleLineY;
       this.triangle_height = 5;
       this.triangle_width = 5;
 

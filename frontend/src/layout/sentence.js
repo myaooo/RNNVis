@@ -248,7 +248,7 @@ class SentenceLayout{
     gCurrent.style('fill-opacity', 0.4)
       .style('stroke', 'gray')
       // .style('stroke-opacity', 0.5)
-      .style('stroke-width', 0.5)
+      .style('stroke-width', 0.5);
 
     const gUpdated1 = gSelector.enter()
       .append('g');
@@ -259,10 +259,12 @@ class SentenceLayout{
       .attr('height', (d) => scaleHeight(Math.abs(d.updateds[1]) / d.size))
       .attr('transform', (d) => d.updateds[1] < 0 ? ('translate(' + [0, -scaleHeight(Math.abs(d.updateds[1]) / d.size) ] + ')') : '')
       .attr('fill', (d, j) => d.updateds[1] > 0 ? 'none' : color(j))
-      .style('fill-opacity', 0.4);
+      .style('stroke-opacity', (d, j) => d.updateds[1] > 0 ? 0.6 : 0.8);
     gUpdated1 //.style('fill-opacity', 0.8)
+      .style('stroke-width', 0.5)
       .style('stroke', 'gray')
-      .style('stroke-width', 0.5);
+      .style('fill-opacity', 0.4);
+
 
     const gUpdated2 = gSelector.enter()
       .append('g');
@@ -273,14 +275,17 @@ class SentenceLayout{
       .attr('height', (d) => scaleHeight(Math.abs(d.updateds[0]) / d.size))
       .attr('transform', (d) => d.updateds[0] < 0 ? ('translate(' + [0, -scaleHeight(Math.abs(d.updateds[0]) / d.size) ] + ')') : '')
       .attr('fill', (d, j) => d.updateds[0] < 0 ? 'none' : color(j))
-      .style('fill-opacity', 0.5);
+      .style('stroke-opacity', (d, j) => d.updateds[1] < 0 ? 0.6 : 0.8);
     gUpdated2 //.style('fill-opacity', 0.8)
-      .style('stroke', 'gray')
       .style('stroke-width', 0.5)
+      .style('stroke', 'gray')
+      .style('fill-opacity', 0.5);
+
 
     el.append('path').attr('d', 'M0 ' + height/2 + ' H ' + width)
       .style('stroke', 'black').style('stroke-width', 0.5);
 
+    // append labels
     el.selectAll('text')
       .data(this.params.avgValueRange).enter()
       .append('text')
