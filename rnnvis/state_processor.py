@@ -181,7 +181,6 @@ def load_words_and_state(data_name, model_name, state_name, diff=True):
     return words, states
 
 
-@lru_cache(maxsize=32)
 def get_state_statistics(data_name, model_name, state_name, diff=True, layer=-1, top_k=500, k=None):
     """
     Get state statistics, i.e. states mean reaction, 25~75 reaction range, 9~91 reaction range regarding top_k words
@@ -420,7 +419,6 @@ def tsne_project(data, perplexity, init_dim=50, lr=50, max_iter=1000):
     return _tsne_solver.get_best_solution()
 
 
-@lru_cache(maxsize=32)
 def get_co_cluster(data_name, model_name, state_name, n_clusters, layer=-1, top_k=100,
                    mode='positive', seed=0, method='cocluster'):
     """

@@ -62,7 +62,7 @@
 
   /* Font
   -------------------------- */
-  --font-size-base: 14px;
+  --font-size-base: 12px;
   --font-color-base: var(--color-base-black);
   --font-color-disabled-base: #bbb;
 
@@ -248,7 +248,7 @@
   --input-font-size: var(--font-size-base);
   --input-color: var(--font-color-base);
   --input-width: 140px;
-  --input-height: 36px;
+  --input-height: 30px;
   --input-border: var(--border-base);
   --input-border-color: var(--border-color-base);
   --input-border-radius: var(--border-radius-base);
@@ -273,8 +273,8 @@
   --input-large-font-size: 15px;
   --input-large-height: 32px;
 
-  --input-small-font-size: 13px;
-  --input-small-height: 26px;
+  --input-small-font-size: 12px;
+  --input-small-height: 22px;
 
   --input-mini-font-size: 10px;
   --input-mini-height: 18px;
@@ -335,10 +335,10 @@
   --button-large-padding-horizontal: 19px;
 
   --button-small-font-size: 12px;
-  --button-small-padding-vertical: 7px;
-  --button-small-padding-horizontal: 9px;
+  --button-small-padding-vertical: 4px;
+  --button-small-padding-horizontal: 7px;
 
-  --button-mini-font-size: 12px;
+  --button-mini-font-size: 10px;
   --button-mini-padding-vertical: 4px;
   --button-mini-padding-horizontal: 4px;
 

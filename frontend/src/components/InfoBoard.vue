@@ -74,13 +74,13 @@
       },
       selectedWords: function () {
         return this.type === 'word' ? (this.comapre ? this.shared.selectedWords2 : this.shared.selectedWords) : 0;
-      }
+      },
     },
     watch: {
       width: function () {
         if (this.selectedLayer && this.selectedModel && this.selectedState) {
           if (this.type === 'word' && this.selectedWords) this.repaintWord();
-          else if (this.type === 'state' && this.selectedState) this.repaintState();
+          else if (this.type === 'state' && this.selectedUnits) this.repaintState();
         }
       },
       selectedUnits: function () {
@@ -118,6 +118,7 @@
       },
       repaintWord() {
         this.chart.clean();
+        this.labelBoard.selectAll('rect, text, path').remove();
         // console.log(this.statistics);
         if (!this.selectedWords.length){
           console.log('Painting no words');
@@ -141,7 +142,7 @@
         // console.log(sortIdx);
         this.chart.line([[0,0], [wordsStatistics[0].mean.length,0]])
           .attr('stroke', '#000');
-        this.labelBoard.selectAll('rect, text').remove();
+
         wordsStatistics.forEach((wordData, i) => {
           this.chart
             .line(sortIdx.map((i) => wordData.mean[i]), (d, i) => i*interval, (d) => { return d; })
@@ -158,16 +159,77 @@
           // draw labels
           this.labelBoard.append('rect')
             .attr('x', labelLength*i + 20).attr('y', 10).attr('width', layout.lineLength).attr('height', 1)
-            .attr('fill', this.selectedWords[i].color)
+            .attr('fill', this.selectedWords[i].color);
           this.labelBoard.append('text')
             .attr('x', labelLength*i + 30 + layout.lineLength).attr('y', 15)
             .text(this.selectedWords[i].text)
+            .style('font-size', 12);
+          if (i === 0) {
+            this.labelBoard.append('path')
+              .attr('d', 'M' + (30 + layout.lineLength) + ' 20 ' + 'H ' + (this.selectedWords[i].text.length*7 + 30 + layout.lineLength))
+              .style('stroke', this.selectedWords[i].color);
+          }
         });
         this.chart.draw();
 
       },
       repaintState() {
+        this.chart.clean();
+        if (!this.selectedUnits.length){
+          console.log('Painting no words');
+          return;
+        }
+        const top_k = 10;
+        // const units = this.selectedUnits;
+        const unitsStatistics = this.selectedUnits.map((unit, i) => {
+          const data = this.statistics.statesData[unit];
+          const dataArray = data.mean.map((_, j) => {
+            return {
+              mean: data.mean[j],
+              range1: [data.low1[j], data.high1[j]],
+              range2: [data.low2[j], data.high2[j]],
+              word: data.words[j],
+            };
+          });
 
+          dataArray.sort((a, b) => a.mean - b.mean);
+          dataArray.splice(top_k, dataArray.length - 2 * top_k);
+          return dataArray;
+        });
+        // console.log(unitsStatistics);
+        const subChartWidth = this.width/3;
+
+        this.labelBoard.selectAll('path, text').remove();
+        unitsStatistics.forEach((unitData, i) => {
+          const subchart = this.chart.subChart(subChartWidth, this.height)
+            .xAxis()
+            .yAxis();
+          subchart.axis.y.tickFormat((j) => {
+            // console.log(j);
+            if (-1 < j && j < top_k * 2)
+              return unitData[j].word;
+          }).tickValues(range(0,20,1));
+          subchart
+            .margin(10,10,20,60)
+            .translate(subChartWidth*i, 0)
+            .rotate();
+          subchart
+            .box(unitData, 5, (d, j) => j, (d) => d.mean, (d) => d.range1, (d) => d.range2)
+            .attr('fill', 'steelblue')
+            .attr('stroke', 'gray')
+            .attr('fill-opacity', 0.5);
+          const labelPos = subChartWidth*i + subChartWidth/2 - 6;
+          this.labelBoard.append('text')
+            .attr('x', labelPos).attr('y', 15)
+            .text('Dim: ' + this.selectedUnits[i])
+            .style('font-size', 12);
+          if (i === 0){
+            this.labelBoard.append('path')
+              .attr('d', 'M' + labelPos + ' 20 ' + 'H ' + (this.selectedUnits[0].toString().length*6 + 30 + labelPos))
+              .style('stroke', '#a36');
+          }
+        })
+        this.chart.draw();
       },
 
     },
@@ -179,26 +241,30 @@
       // this.register();
 
       // test event
-      // bus.$on(SELECT_LAYER, () => {
-      //   setTimeout(() => {
-      //     if (this.type === 'word')
-      //       bus.$emit(SELECT_UNIT, [10, 20], false);
-      //     if (this.type === 'state')
-      //       bus.$emit(SELECT_WORD, 'he', false);
-      //   }, 2000);
-      //   setTimeout(() => {
-      //     if (this.type === 'word')
-      //       bus.$emit(SELECT_UNIT, [10, 20], false);
-      //     if (this.type === 'state')
-      //       bus.$emit(SELECT_WORD, 'she', false);
-      //   }, 5000);
+      bus.$on(SELECT_LAYER, () => {
+        setTimeout(() => {
+          if (this.type === 'word')
+            bus.$emit(SELECT_UNIT, 10, false);
+          // if (this.type === 'state')
+          //   bus.$emit(SELECT_WORD, 'he', false);
+        }, 1000);
+        setTimeout(() => {
+          if (this.type === 'word')
+            bus.$emit(SELECT_UNIT, 20, false);
+          // if (this.type === 'state')
+          //   bus.$emit(SELECT_WORD, 'she', false);
+        }, 4000);
 
-      // });
+      });
 
     }
   }
 
-  function range(start, end, interval) {
+  function getSortedStatesData(words) {
+
+  }
+
+  function range(start, end, interval = 1) {
     const num = ~~((end - start -1) / interval) + 1;
     return Array.from({length: num}, (v, i) => start + i * interval);
   }

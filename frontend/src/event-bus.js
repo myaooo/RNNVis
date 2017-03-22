@@ -248,10 +248,10 @@ const bus = new Vue({
       let words;
       if (compare) words = this.state.selectedWords2.slice();
       else words = this.state.selectedWords.slice();
-      words.splice(0, 0, word);
+      words.push(word);
       if (words.length > maxSelected) {
-        deactivateText(words[maxSelected]);
-        words.splice(maxSelected, 1);
+        deactivateText(words[0]);
+        words.splice(0, 1);
       }
       afterChangeWords(words);
       if (compare) this.state.selectedWords2 = words;
@@ -289,7 +289,7 @@ const bus = new Vue({
 
 function afterChangeWords(words) {
   words.forEach((word, i) => {
-    word.color = state.color(words.length-i);
+    word.color = state.color(i);
     activateText(word);
   });
   if (words.length)
@@ -324,11 +324,14 @@ function focusText(data) {
   // console.log(box);
   // d3.select(data.el)
   //   .style('stroke', '#000').style('stroke-width', 0.5); //.style('stroke-opacity', 0.5);
-  data.bound = d3.select(data.el.parentNode).insert('rect')
-    .attr('x', data.x - box.width/2 -1.5).attr('y', data.y - box.height*0.78)
-    .attr('width', box.width + 3).attr('height', box.height*0.9)
-    .style('stroke', 'black').style('stroke-opacity', 0.3)
-    .style('fill', 'none');
+  data.bound = d3.select(data.el.parentNode).insert('path')
+    .attr('d', 'M ' + (data.x - box.width/2 -1.5) + ' ' + (data.y + 2)
+      + ' H ' + (data.x + box.width/2 + 1.5))
+    // .attr('x', data.x - box.width/2 -1.5).attr('y', data.y - box.height*0.78)
+    // .attr('width', box.width + 3).attr('height', box.height*0.9)
+    .style('stroke', data.color);
+    // .style('stroke-opacity', 0.6);
+    // .style('fill', 'none');
 
 }
 

@@ -22,7 +22,7 @@
         </el-radio-group>
       </el-form-item>
       <el-form-item label="Layer" v-if="layerNum">
-        <el-input-number size="small" v-model="selectedLayer" :max="layerNum-1" style="width: 60%; margin-top: 10px"></el-input-number>
+        <el-input-number size="small" v-model="selectedLayer" :max="layerNum-1" style="width: 100px; margin-top: 10px"></el-input-number>
       </el-form-item>
 
       <!--Sentence Editor-->
@@ -53,9 +53,15 @@
     </el-form>
   </div>
 </template>
-<style scoped>
+<style>
   .el-form-item {
-    margin-bottom: 4px;
+    margin-bottom: 5px;
+    margin-top: -5px;
+    font-size: 12px;
+  }
+
+  label {
+    font-size: 12px !important;
   }
 
   .el-tag {
@@ -142,7 +148,7 @@
               bus.$emit(SELECT_MODEL, this.selectedModel, this.compare);
               bus.$emit(CHANGE_LAYOUT, this.layout, this.compare);
             }
-          });
+          }).catch((v) => console.log(v));
       },
       selectedState: function (newState) {
         if (newState === 'state' || newState === 'state_c' || newState === 'state_h') {

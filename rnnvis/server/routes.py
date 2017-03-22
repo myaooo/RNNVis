@@ -167,7 +167,6 @@ def model_vocab():
 
 
 @app.route('/state_statistics')
-@lru_cache(maxsize=16)
 def state_statistics():
     model = request.args.get('model', '')
     state_name = request.args.get('state', '')

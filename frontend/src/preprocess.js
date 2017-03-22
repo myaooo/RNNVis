@@ -222,7 +222,7 @@ export class StateStatistics {
   get statesData() { // calculate statistics for each state unit
     if (this.data && !this._statesData) {
       this._statesData = this.data.mean[0].map((_, j) => {
-        return {
+        const data = {
           words: this.data.words,
           // freqs: this.data.freqs,
           mean: this.data.mean.map((m) => m[j]),
@@ -232,8 +232,9 @@ export class StateStatistics {
           high2: this.data.high2.map((m) => m[j]),
           rank: this.data.sort_idx.map((indices) => {
             return indices.findIndex((idx) => (idx === j));
-          })
+          }),
         };
+        return data;
       });
     }
     return this._statesData;

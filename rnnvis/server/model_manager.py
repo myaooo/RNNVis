@@ -196,6 +196,7 @@ class ModelManager(object):
         else:
             return None
 
+    @lru_cache(maxsize=32)
     def model_co_cluster(self, name, state_name, n_cluster=2, layer=-1, top_k=100,
                          mode='positive', seed=0, method='cocluster'):
         model = self._get_model(name)
@@ -217,6 +218,7 @@ class ModelManager(object):
             return model.id_to_word
         return model.id_to_word[:top_k]
 
+    @lru_cache(maxsize=32)
     def state_statistics(self, name, state_name, diff=True, layer=-1, top_k=500, k=None):
         model = self._get_model(name)
         if model is None:

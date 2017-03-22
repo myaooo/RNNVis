@@ -7,7 +7,7 @@
       <hr v-if="compare">
       <model-config v-if="compare" :compare="true" :toggle="toggleCompare"> </model-config>
       <hr>
-      <el-button @click="toggleCompare">Compare Model</el-button>
+      <el-button @click="toggleCompare" size="small">Compare Model</el-button>
     </div>
   </div>
 </template>
