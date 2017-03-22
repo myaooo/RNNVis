@@ -4,6 +4,7 @@ For example usage, see the main function below
 """
 
 import pickle
+from functools import lru_cache
 
 import numpy as np
 from scipy.spatial.distance import pdist, squareform
@@ -20,6 +21,7 @@ _tmp_dir = '_cached/tmp'
 #############
 
 
+@lru_cache(maxsize=32)
 def get_empirical_strength(data_name, model_name, state_name, layer=-1, top_k=100):
     """
     A helper function that wraps cal_empirical_strength and cached the results in .pkl file for latter use
@@ -65,6 +67,7 @@ def strength2json(strength_list, words, labels=None, path=None):
     return dict2json(points, path)
 
 
+@lru_cache(maxsize=32)
 def get_state_signature(data_name, model_name, state_name, layer=None, sample_size=5000, dim=50):
     """
     A helper function that sampled the states records,
@@ -157,6 +160,7 @@ def solution2json(solution, states_num, labels=None, path=None):
     return dict2json(points, path)
 
 
+@lru_cache(maxsize=32)
 def load_words_and_state(data_name, model_name, state_name, diff=True):
     """
     A wrapper function that wraps fetch_states and cached the results in .pkl file for latter use
@@ -177,6 +181,7 @@ def load_words_and_state(data_name, model_name, state_name, diff=True):
     return words, states
 
 
+@lru_cache(maxsize=32)
 def get_state_statistics(data_name, model_name, state_name, diff=True, layer=-1, top_k=500, k=None):
     """
     Get state statistics, i.e. states mean reaction, 25~75 reaction range, 9~91 reaction range regarding top_k words
@@ -415,6 +420,7 @@ def tsne_project(data, perplexity, init_dim=50, lr=50, max_iter=1000):
     return _tsne_solver.get_best_solution()
 
 
+@lru_cache(maxsize=32)
 def get_co_cluster(data_name, model_name, state_name, n_clusters, layer=-1, top_k=100,
                    mode='positive', seed=0, method='cocluster'):
     """

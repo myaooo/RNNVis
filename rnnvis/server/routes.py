@@ -1,4 +1,6 @@
 import yaml
+from functools import lru_cache
+
 from flask import jsonify, send_file, request
 from rnnvis.server import app
 from rnnvis.server import _manager
@@ -63,6 +65,7 @@ def model_evaluate():
 
 
 @app.route('/models/config/<string:model>')
+@lru_cache(maxsize=8)
 def model_config(model):
     result = _manager.get_config_filename(model)
     if result is None:
@@ -164,6 +167,7 @@ def model_vocab():
 
 
 @app.route('/state_statistics')
+@lru_cache(maxsize=16)
 def state_statistics():
     model = request.args.get('model', '')
     state_name = request.args.get('state', '')

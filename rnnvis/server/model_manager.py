@@ -4,6 +4,7 @@ The backend manager for handling the models
 
 import hashlib
 import os
+from functools import lru_cache
 
 from rnnvis.datasets.data_utils import Feeder, SentenceProducer
 from rnnvis.utils.io_utils import get_path, assert_path_exists
