@@ -254,6 +254,13 @@ export class WordCloud{
     const centerY = (bounds[1].y + bounds[0].y - this.height) / 2 * scale;
     this.group.attr('transform', `scale(${scale}) translate(${-centerX}, ${-centerY})`);
   }
+  destroy() {
+    this.selector
+      .transition()
+      .duration(300)
+      .attr('opacity', 0)
+      .remove();
+  }
 }
 
 export default {
