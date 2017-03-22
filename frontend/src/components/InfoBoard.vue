@@ -179,7 +179,7 @@
           console.log('Painting no words');
           return;
         }
-        const top_k = 10;
+        const top_k = 8;
         // const units = this.selectedUnits;
         const unitsStatistics = this.selectedUnits.map((unit, i) => {
           const data = this.statistics.statesData[unit];
@@ -209,15 +209,19 @@
             if (-1 < j && j < top_k * 2)
               return unitData[j].word;
           }).tickValues(range(0,20,1));
+          subchart.axis.x.ticks(7);
           subchart
             .margin(10,10,20,60)
             .translate(subChartWidth*i, 0)
             .rotate();
           subchart
-            .box(unitData, 5, (d, j) => j, (d) => d.mean, (d) => d.range1, (d) => d.range2)
+            .box(unitData, 6, (d, j) => j, (d) => d.mean, (d) => d.range1, (d) => d.range2)
             .attr('fill', 'steelblue')
             .attr('stroke', 'gray')
             .attr('fill-opacity', 0.5);
+          // horizontal line
+          subchart.line([[top_k-0.5, subchart.extents[1][0]], [top_k-0.5, subchart.extents[1][1]]])
+            .style('stroke', '#333').style('stroke-dasharray', '5 5').style('stroke-opacity', 0.6);
           const labelPos = subChartWidth*i + subChartWidth/2 - 6;
           this.labelBoard.append('text')
             .attr('x', labelPos).attr('y', 15)

@@ -185,9 +185,9 @@ export class Chart {
     // const timer = 10;
     console.log(extent);
     // const maxRange = Math.max(range, this.extents[i][1] - this.extents[i][0]);
-    const timer = range === 0 ? 1 : (20 < range ? 1 : Math.round(20 / range));
-    this.extents[i][0] = Math.min(Math.floor(timer*(extent[0] - range * 0.05))/timer, this.extents[i][0]);
-    this.extents[i][1] = Math.max(Math.ceil(timer*(extent[1] + range * 0.05))/timer, this.extents[i][1]);
+    const timer = range === 0 ? 1 : (10 < range ? 1 : Math.round(10 / range));
+    this.extents[i][0] = Math.min(Math.floor(timer*(extent[0] - range * 0.02))/timer, this.extents[i][0]);
+    this.extents[i][1] = Math.max(Math.ceil(timer*(extent[1] + range * 0.02))/timer, this.extents[i][1]);
     console.log(`${i} > ${this.extents[i]}`)
     return this;
   }
