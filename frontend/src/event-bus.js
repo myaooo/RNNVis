@@ -13,6 +13,7 @@ const SELECT_WORD = 'SELECT_WORD';
 const DESELECT_UNIT = 'DESELECT_UNIT';
 const DESELECT_WORD = 'DESELECT_WORD';
 const SELECT_LAYER = 'SELECT_LAYER';
+const CLOSE_SENTENCE = 'CLOSE_SENTENCE';
 
 const state = {
   selectedModel: null,
@@ -284,6 +285,10 @@ const bus = new Vue({
       console.log(`bus > deselected word: ${word.text}`);
     });
 
+    this.$on(CLOSE_SENTENCE, (sentence, compare) => {
+      console.log(`bus > close sentence: ${sentence}`);
+    });
+
   }
 });
 
@@ -350,4 +355,5 @@ export {
   SELECT_LAYER,
   DESELECT_UNIT,
   DESELECT_WORD,
+  CLOSE_SENTENCE,
 }

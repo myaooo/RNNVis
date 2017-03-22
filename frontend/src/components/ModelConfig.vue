@@ -89,7 +89,7 @@
   }
 </style>
 <script>
-  import { bus, SELECT_MODEL, SELECT_STATE, SELECT_LAYER, CHANGE_LAYOUT, EVALUATE_SENTENCE } from '../event-bus';
+  import { bus, SELECT_MODEL, SELECT_STATE, SELECT_LAYER, CHANGE_LAYOUT, EVALUATE_SENTENCE, CLOSE_SENTENCE } from '../event-bus';
 
   export default {
     name: 'ModelConfig',
@@ -179,7 +179,11 @@
         bus.$emit(CHANGE_LAYOUT, layout, this.compare);
       },
       closeSentence(sentence) {
-        this.sentences.splice(this.sentences.indexOf(sentence), 1);
+        const idx = this.sentences.indexOf(sentence);
+        if (idx !== -1){
+          bus.$emit(CLOSE_SENTENCE, sentence, this.compare);
+          this.sentences.splice(idx, 1);
+        }
       },
       showInput() {
         this.inputVisible = true;
