@@ -60,27 +60,35 @@
 
   class LayoutParamsConstructor {
     constructor(){
-      this.clusterInterval= 15;
-      this.packNum= 3;
-      this.unitWidth= 4;
-      this.unitHeight= 4;
-      this.unitMargin= 2;
-      this.wordCloudArcDegree= 130;
-      this.wordCloudNormalRadius= 60;
-      this.wordCloudShrinkHeight= 5;
-      this.wordCloudPaddingLength= 10;
-      this.wordCloudChord2stateClusterHeightRatio= 1.2;
-      this.wordCloudWidth2HeightRatio= 1.2;
-      this.littleTriangleWidth= 5;
-      this.littleTriangleHeight= 5;
-      this.strengthThresholdPercent= 0.2;
-      this.linkWidth2StrengthRatio= 0.01;
-      this.wordSize2StrengthRatio= 3;
+      this.unitWidth = 3;
+      this.unitHeight = 3;
+      this.unitMarginSuppose = 2;
+      this.unitMargin = 2;
+      this.wordCloudArcDegree = 130;
+      this.wordCloudNormalRadius = 60;
+      this.wordCloudHightlightRatio = 1.5;
+      this.wordCloudPaddingLength = 5;
+      this.wordCloudChord2ClusterDistance = 50;
+      this.wordCloudChordLength2ClientHeightRatio = 0.9;
+      this.wordCloudChord2stateClusterHeightRatio = 1.1;
+      this.wordCloudWidth2HeightRatio = 1.2;
+      this.littleTriangleWidth = 5;
+      this.littleTriangleHeight = 5;
+      this.strengthThresholdPercent = 0.2;
+      this.linkWidth2StrengthRatio = 0.01;
+      this.wordSize2StrengthRatio = 3;
       this.middleLineX = 300;
       this.middleLineY = 100;
     }
-    get clusterHeight() {
-      return this.unitHeight * this.packNum + this.unitMargin * (this.packNum + 1);
+
+    computeParams (clientHeight, clusterNum, clusterInterval2HeightRatio) {
+      this.wordCloudChordLength = clientHeight * this.wordCloudChordLength2ClientHeightRatio;
+      this.clusterHeight = (this.wordCloudChordLength / this.wordCloudChord2stateClusterHeightRatio) / 
+        (clusterNum + clusterNum * clusterInterval2HeightRatio - clusterInterval2HeightRatio);
+      this.clusterInterval = this.clusterHeight * clusterInterval2HeightRatio;
+      this.packNum = ~~(this.clusterHeight / (this.unitHeight + this.unitMargin));
+      // this.unitMargin = this.clusterHeight / this.packNum - this.unitHeight;
+      this.wordCloudChord2CenterDistance = this.wordCloudChordLength / 2 / Math.tan(this.wordCloudArcDegree / 2 * Math.PI / 180);
     }
     // clusterRectStyle: {
     //   'fill': '#eee',
@@ -296,39 +304,45 @@
 
     drawSentence(record, sentenceRecord) {
       const sg = this.svg.append('g');
-      const scaleFactor = 0.7;
-      const translationX = 400;
-      this.hwg
-        .attr('transform', `scale(${scaleFactor}, 1)translate(${translationX}, 0)`);
+      const translationX = 200;
+      const sentenceTranslate = [30, 0];
+      this.translateX(translationX);
       console.log(record);
       // TODO change -1 to something else
       const a = sentence(sg)
-        .size([100, this.client_height])
+        .size([translationX, this.client_height])
         .sentence(sentenceRecord)
         .coCluster(this.graph.coCluster)
         .words(record.tokens)
+        .transform('translate(' + sentenceTranslate + ')')
         .draw();
 
-      let links = [];
+      const links = [];
       console.log(a.dataList);
       a.dataList.forEach((d, i) => {
-        const wordPos = a.getWordPos(i);
+        let wordPos = a.getWordPos(i);
+        console.log('index is ' + i);
+        console.log('wordPos is ' + wordPos);
+        console.log('node width is ' + a.nodeWidth + ', node height is ' + a.nodeHeight);
         this.graph.state_info.state_cluster_info.forEach((s, j) => {
           let link = {
-            source: {x: a.getWordPos(i)[0] + a.nodeWidth, y: a.getWordPos(i)[1] + a.nodeHeight/2},
-            target: {x: (s.top_left[0] + this.middle_line_x) * scaleFactor + translationX, y: s.top_left[1] + this.middle_line_y},
+            source: {x: wordPos[0] + a.nodeWidth, y: wordPos[1] + a.nodeHeight/2},
+            target: {x: s.top_left[0] + this.middle_line_x, y: s.top_left[1] + this.middle_line_y + s.height / 2},
           };
           links.push(link);
         });
       });
-
+      console.log(links);
+      console.log('there are ' + links.length + ' links');
       sg.selectAll('path')
-        .data(links).enter()
+        .data(links)
+        .enter()
         .append('path')
-        .attr('d', l => this.createLink(l))
+        .attr('d', (l) => {console.log(l); return this.createLink(l)})
         .attr('fill', 'none')
         .attr('stroke-width', 2)
         .attr('stroke', 'blue')
+        .attr('opacity', 0.2)
     }
 
     calculate_state_info(coCluster) {
@@ -358,8 +372,8 @@
         clst.forEach((c, j) => {
           let s_width = unitWidth;
           let s_height = unitHeight;
-          let s_top_left = [(~~(j/packNum)) * (unitMargin + unitWidth) + 1 + top_left[0],
-            j%packNum * (unitHeight + unitMargin) + 1 + top_left[1]];
+          let s_top_left = [(~~(j/packNum)) * (unitMargin + unitWidth) + unitMargin / 2 + top_left[0],
+            j%packNum * (unitHeight + unitMargin) + unitMargin / 2 + top_left[1]];
           state_loc[c] = {top_left: s_top_left, width: s_width, height: s_height};
         });
       });
@@ -368,25 +382,18 @@
 
     calculate_word_info(coCluster, selected_state_cluster_index=-1) {
       let self = this;
-      const wordCloudNormalRadius = this.params.wordCloudNormalRadius;
-      const wordCloudArcDegree = this.params.wordCloudArcDegree;
-      const clusterInterval = this.params.clusterInterval;
-      const clusterHeight = this.params.clusterHeight;
       const wordCloudPaddingLength = this.params.wordCloudPaddingLength;
-      const wordCloudChord2stateClusterHeightRatio = this.params.wordCloudChord2stateClusterHeightRatio;
-      const wordCloudShrinkHeight = this.params.wordCloudShrinkHeight;
       const wordSize2StrengthRatio = this.params.wordSize2StrengthRatio;
       const wordCloudWidth2HeightRatio = this.params.wordCloudWidth2HeightRatio;
       const wordClusters = coCluster.rowClusters;
       const words = coCluster.words;
-      const nWord = words.length;
       const nCluster = coCluster.labels.length;
       const agg_info = coCluster.aggregation_info;
 
-      let chordLength = nCluster * (clusterHeight + clusterInterval) * wordCloudChord2stateClusterHeightRatio;
+      let chordLength = this.params.wordCloudChordLength;
       let availableLength = chordLength - nCluster * wordCloudPaddingLength;
 
-      const wordCloudArcRadius = chordLength / 2 / Math.sin(wordCloudArcDegree / 2 * Math.PI / 180);
+      const wordCloudArcRadius = chordLength / 2 / Math.sin(this.params.wordCloudArcDegree / 2 * Math.PI / 180);
       this.params.wordCloudArcRadius = wordCloudArcRadius;
       // const wordCloudArcLength = wordCloudArcRadius * wordCloudArcDegree * Math.PI / 180;
 
@@ -404,16 +411,12 @@
         if (highlight_clouds.size === 0) {
           return Math.sqrt(d.length);
         } else if (!highlight_clouds.has(i)) {
-          // return wordCloudShrinkHeight;
           return Math.sqrt(d.length);
         } else {
-          return Math.sqrt(d.length) * 1.5;
+          return Math.sqrt(d.length) * this.params.wordCloudHightlightRatio;
         }
       });
-      // console.log('wd_radius');
-      // console.log(wd_radius);
 
-      // let availableDegree = wordCloudArcDegree - nCluster * wordCloudPaddingDegree;
       let wd_height_sum = wd_height.reduce((acc, val) => {
         return acc + val;
       }, 0);
@@ -456,7 +459,7 @@
         let strength_extent = 0;
         if (!self.graph || !this.graph.link_info) {
           strength_extent = d3.extent(row_cluster_2_col_cluster[i]);
-          console.log(`threshold is ${strength_extent[0]*strengthThresholdPercent}, ${strength_extent[1]*strengthThresholdPercent}`);
+          // console.log(`threshold is ${strength_extent[0]*strengthThresholdPercent}, ${strength_extent[1]*strengthThresholdPercent}`);
         }
         word_info.forEach((w, j) => {
           if (links[i] === undefined) {
@@ -514,13 +517,10 @@
     }
 
     redraw_word_link(selected_state_cluster_index = -1) {
-      let self = this;
-      self.erase_word();
-      self.erase_link();
-      self.graph.word_info = self.calculate_word_info(self.graph.coCluster, selected_state_cluster_index);
-      self.graph.link_info = self.calculate_link_info(self.graph.state_info, self.graph.word_info, self.graph.coCluster, self.dx, self.dy);
-      self.draw_word(self.wg, self.graph);
-      self.draw_link(self.hg, self.graph);
+      this.graph.word_info = this.calculate_word_info(this.graph.coCluster, selected_state_cluster_index);
+      this.graph.link_info = this.calculate_link_info(this.graph.state_info, this.graph.word_info, this.graph.coCluster, this.dx, this.dy);
+      this.draw_word(this.wg, this.graph);
+      this.draw_link(this.hg, this.graph);
     }
 
     draw_state(g, graph) {
@@ -691,26 +691,21 @@
     }
 
     erase_link() {
-      return;
       this.graph.link_info.forEach((ls) => {
         ls.forEach((l) => {
           d3.select(l['el'])
           .transition()
           .duration(500)
-          .attr('opacity', 1e-6)
+          .attr('opacity', 0)
           .remove()
         });
       });
     }
 
     erase_word () {
-      return;
       this.graph.word_info.forEach((w) => {
-        d3.select(w['el'])
-          .transition()
-          .duration(500)
-          .attr('fill-opacity', 1e-6)
-          .remove()
+        w['wordCloud'].destroy();
+          
       });
     }
 
@@ -735,25 +730,13 @@
     draw_link(g, graph) {
       const link_info = graph.link_info;
       const linkWidth2StrengthRatio = this.params.linkWidth2StrengthRatio;
-      // function link(d) {
-      //   return "M" + d.source.x + "," + d.source.y
-      //       + "C" + (d.source.x + d.target.x) / 2 + "," + d.source.y
-      //       + " " + (d.source.x + d.target.x) / 2 + "," + d.target.y
-      //       + " " + d.target.x + "," + d.target.y;
-      // }
 
       function flatten(arr) {
         return arr.reduce((acc, val) => {
           return acc.concat(Array.isArray(val) ? flatten(val) : val);
         }, []);
       }
-
       const strengthes = flatten(link_info).filter(d => {return d.strength > 0}).map(d => {return Math.abs(d.strength)});
-      // console.log(flatten(link_info));
-      // console.log(flatten(link_info).filter(d => {return d.length > 0}));
-      // console.log('strength is ');
-      // console.log(strengthes);
-
       const scale = d3.scaleLinear()
         .domain(d3.extent(strengthes))
         .range(this.linkWidthRanage)
@@ -784,15 +767,31 @@
     draw(coCluster) {
       let self = this;
       // console.log(coCluster.colClusters);
-      const maxClusterSize = coCluster.colClusters.reduce((a, b) => Math.max(Array.isArray(a) ? a.length : a, b.length));
-      // console.log(maxClusterSize);
-      this.params.packNum = maxClusterSize > 60 ? Math.round(maxClusterSize / 40) : 2;
-      const clusterHeight = this.params.clusterHeight;
+      let maxClusterSize = coCluster.colClusters.reduce((a, b) => Math.max(Array.isArray(a) ? a.length : a, b.length));
       const nCluster = coCluster.labels.length;
-      this.params.clusterInterval = (this.client_height / nCluster - clusterHeight) * 0.7;
-      const clusterInterval = this.params.clusterInterval;
-      let chordLength = nCluster * (clusterHeight + clusterInterval);
-      this.dx = 0, this.dy = chordLength / 2;
+      let clusterInterval2HeightRatio = 2;
+      console.log(`cluster number is ${nCluster}`);
+      this.params.computeParams(this.client_height, coCluster.labels.length, clusterInterval2HeightRatio);
+
+      let maxClusterWidth = Math.ceil(maxClusterSize / this.params.packNum) * (this.params.unitWidth + this.params.unitMargin);
+      while (maxClusterWidth > 500) {
+        clusterInterval2HeightRatio -= 0.01;
+        maxClusterSize = coCluster.colClusters.reduce((a, b) => Math.max(Array.isArray(a) ? a.length : a, b.length));
+        this.params.computeParams(this.client_height, coCluster.labels.length, clusterInterval2HeightRatio);
+        maxClusterWidth = Math.ceil(maxClusterSize / this.params.packNum) * (this.params.unitWidth + this.params.unitMargin);
+        console.log(maxClusterWidth);
+      }
+      this.dx = this.params.wordCloudChord2ClusterDistance - (this.params.wordCloudChord2CenterDistance - maxClusterWidth / 2);
+      this.dy = this.params.wordCloudChordLength / 2;
+      console.log(`maxClusterWidth is ${maxClusterWidth}`);
+      console.log(`wordCloudChord2CenterDistance is ${this.params.wordCloudChord2CenterDistance}`);
+      console.log(`dx is ${this.dx}, dy is ${this.dy}`);
+
+      // const clusterHeight = this.params.clusterHeight;
+      // this.params.clusterInterval = (this.client_height / nCluster - clusterHeight) * 0.7;
+      // const clusterInterval = this.params.clusterInterval;
+      // let chordLength = nCluster * (clusterHeight + clusterInterval);
+      // this.dx = 0, this.dy = chordLength / 2;
       const coClusterAggregation = coCluster.aggregation_info;
       let state_info = this.calculate_state_info(coCluster);
 
