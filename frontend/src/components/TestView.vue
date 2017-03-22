@@ -186,19 +186,21 @@
 
       },
       draw3() {
-        const p1 = bus.loadCoCluster('PTB-LSTM', 'state_h', 10, {top_k: 300, mode: 'raw'});
+        const p1 = bus.loadCoCluster('PTB-LSTM', 'state_c', 10, {top_k: 300, mode: 'raw'});
         const record = bus.evalSentence('What can I do for you?', 'PTB-LSTM');
         const p2 = record.evaluate();
         Promise.all([p1, p2]).then((values) => {
-          const coCluster = bus.getCoCluster('PTB-LSTM', 'state_h', 10, {top_k: 300, mode: 'raw'});
-          const sentenceRecord = record.getRecords('state_h', -1);
+          const coCluster = bus.getCoCluster('PTB-LSTM', 'state_c', 10, {top_k: 300, mode: 'raw'});
+          const sentenceRecord = record.getRecords('state_c', -1);
           console.log(record);
-          const a = sentence(d3.select(`#${this.svgId}`))
-            .size([50, 600])
+          const a = sentence(d3.select(`#${this.svgId}`).append('g'))
+            .transform('translate(50, 10)')
+            .size([50, 450])
             .sentence(sentenceRecord)
             .coCluster(coCluster)
             .words(record.tokens)
             .draw();
+          console.log(a.strengthByCluster);
         })
 
           // .layout();
@@ -214,7 +216,7 @@
       this.init();
       // this.draw2();
       // this.draw_arc();
-      this.draw();
+      this.draw3();
     }
 
   }

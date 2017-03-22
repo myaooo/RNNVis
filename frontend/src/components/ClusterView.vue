@@ -41,14 +41,14 @@
 
 </style>
 <template>
-  <div>
+  <!--<div>-->
     <!--<div class="header">
       <el-radio-group v-model="selectedState" size="small">
         <el-radio-button v-for="state in states" :label="state"></el-radio-button>
       </el-radio-group>
     </div>-->
     <svg :id='svgId' :width='width' :height='height' :transform='compare ? "scale(-1,1)" : ""'> </svg>
-  </div>
+  <!--</div>-->
 </template>
 
 <script>
@@ -58,27 +58,28 @@
   import { sentence } from '../layout/sentence.js';
 
 
-  const layoutParams = {
-    // clusterInterval: 15,
-    // packNum: 3,
-    unitWidth: 3,
-    unitHeight: 3,
-    unitMarginSuppose: 2,
-    unitMargin: 2,
-    // clusterInterval2HeightRatioInit: 2,
-    wordCloudArcDegree: 130,
-    wordCloudNormalRadius: 60,
-    wordCloudHightlightRatio: 1.5,
-    wordCloudPaddingLength: 5,
-    wordCloudChord2ClusterDistance: 50,
-    wordCloudChordLength2ClientHeightRatio: 0.9,
-    wordCloudChord2stateClusterHeightRatio: 1.1,
-    wordCloudWidth2HeightRatio: 1.2,
-    littleTriangleWidth: 5,
-    littleTriangleHeight: 5,
-    strengthThresholdPercent: 0.2,
-    linkWidth2StrengthRatio: 0.01,
-    wordSize2StrengthRatio: 3,
+  class LayoutParamsConstructor {
+    constructor(){
+      this.unitWidth = 3;
+      this.unitHeight = 3;
+      this.unitMarginSuppose = 2;
+      this.unitMargin = 2;
+      this.wordCloudArcDegree = 130;
+      this.wordCloudNormalRadius = 60;
+      this.wordCloudHightlightRatio = 1.5;
+      this.wordCloudPaddingLength = 5;
+      this.wordCloudChord2ClusterDistance = 50;
+      this.wordCloudChordLength2ClientHeightRatio = 0.9;
+      this.wordCloudChord2stateClusterHeightRatio = 1.1;
+      this.wordCloudWidth2HeightRatio = 1.2;
+      this.littleTriangleWidth = 5;
+      this.littleTriangleHeight = 5;
+      this.strengthThresholdPercent = 0.2;
+      this.linkWidth2StrengthRatio = 0.01;
+      this.wordSize2StrengthRatio = 3;
+      this.middleLineX = 300;
+      this.middleLineY = 100;
+    }
 
     computeParams (clientHeight, clusterNum, clusterInterval2HeightRatio) {
       this.wordCloudChordLength = clientHeight * this.wordCloudChordLength2ClientHeightRatio;
@@ -96,7 +97,8 @@
     //   'stroke-width': 0.5,
     //   'stroke-opacity': 0.5,
     // },
-  };
+  }
+  const layoutParams = new LayoutParamsConstructor();
   // layoutParams.clusterHeight = layoutParams.unitHeight*layoutParams.packNum + layoutParams.unitMargin * (layoutParams.packNum + 1);
   // layoutParams.clusterWidth = layoutParams.clusterHeight / (layoutParams.packNum);
 
@@ -104,14 +106,14 @@
     name: 'ClusterView',
     data() {
       return {
-        params: layoutParams,
+        params: new LayoutParamsConstructor(),
         // svgId: 'cluster-svg',
         clusterData: null,
         // clusterNum: 10,
         painter: null,
-        painter2: null,
+        // painter2: null,
         shared: bus.state,
-        width: 800,
+        // width: 800,
         changingFlag: false,
       }
     },
@@ -119,6 +121,10 @@
       compare: {
         type: Boolean,
         defautl: false,
+      },
+      width: {
+        type: Number,
+        default: 800,
       },
       height: {
         type: Number,
@@ -130,7 +136,6 @@
         return this.compare ? 'cluster-svg2' : 'cluster-svg';
       },
       selectedState: function() {
-        console.log(`cluster > state changed to ${this.shared.selectedState}`);
         return this.compare ? this.shared.selectedState2 : this.shared.selectedState;
       },
       selectedModel: function() {
@@ -154,16 +159,19 @@
     },
     watch: {
       selectedState: function (state) {
+        console.log(`${this.svgId} > state changed to ${this.selectedState}`);
         this.maybeReload();
       },
       selectedLayer: function (layer) {
+        console.log(`${this.svgId} > layer changed to ${this.selectedLayer}`);
         this.maybeReload();
       },
       layout: function(layout) {
-        console.log("cluster > Changing Layout...");
+        console.log(`${this.svgId} > layout changed. clusterNum: ${this.clusterNum}`);
         this.maybeReload();
       },
       selectedModel: function (newModel, oldModel) {
+        console.log(`${this.svgId} > model changed to ${this.selectedModel}`);
         this.maybeReload();
       },
       selectedWords: function (words) {
@@ -183,10 +191,19 @@
             this.painter.render_state(wordsStatistics);
           });
       },
+      width: function (newWidth, oldWidth) {
+        console.log("width ${newWidth}");
+        if (this.painter && typeof newWidth === 'number') {
+          this.painter.translateX(newWidth/3 - this.painter.middle_line_x);
+        }
+      },
     },
     methods: {
       checkLegality() {
         const state = this.selectedState;
+        console.log(state);
+        console.log(this.selectedLayer);
+        console.log(this.layout);
         return (state === 'state' || state === 'state_c' || state === 'state_h')
           && ((typeof this.selectedLayer) === 'number') && (this.layout);
       },
@@ -194,13 +211,15 @@
         // console.log(this.changingFlag);
         if (!this.changingFlag){
           this.changingFlag = true;
-          // console.log(this.changingFlag);
+          console.log(this.changingFlag);
           if (this.checkLegality()){
-            console.log('reloading');
+            console.log(`${this.svgId} > reloading...`);
             this.reload(this.selectedModel, this.selectedState, this.selectedLayer, this.clusterNum)
               .then(() => {
                 this.changingFlag = false;
               });
+          } else {
+            this.changingFlag = false;
           }
         }
       },
@@ -222,7 +241,7 @@
       },
     },
     mounted() {
-      this.width = this.$el.clientWidth;
+      // this.width = this.$el.clientWidth;
       this.init();
       // register events
       // bus.$on(SELECT_MODEL, (model) => {
@@ -240,15 +259,15 @@
           // TODO change -1 to something else
           const sentenceRecord = record.getRecords(this.selectedState, -1);
           this.painter.drawSentence(record, sentenceRecord);
-          
+
         })
       });
-      bus.$on(CHANGE_LAYOUT, (layout, compare) => {
-        if (compare)
-          return;
-        console.log("cluster > Changing Layout...");
-        // this.clusterNum = layout.clusterNum;
-      });
+      // bus.$on(CHANGE_LAYOUT, (layout, compare) => {
+      //   if (compare)
+      //     return;
+      //   console.log("cluster > Changing Layout...");
+      //   // this.clusterNum = layout.clusterNum;
+      // });
     }
   }
 
@@ -262,8 +281,8 @@
 
       this.client_width = this.svg.node().getBoundingClientRect().width;
       this.client_height = this.svg.node().getBoundingClientRect().height;
-      this.middle_line_x = 400;
-      this.middle_line_y = 50;
+      this.middle_line_x = params.middleLineX;
+      this.middle_line_y = params.middleLineY;
       this.triangle_height = 5;
       this.triangle_width = 5;
 
@@ -285,7 +304,8 @@
 
     drawSentence(record, sentenceRecord) {
       const sg = this.svg.append('g');
-      const translationX = 100;
+      const translationX = 200;
+      const sentenceTranslate = [30, 0];
       this.translateX(translationX);
       console.log(record);
       // TODO change -1 to something else
@@ -294,25 +314,31 @@
         .sentence(sentenceRecord)
         .coCluster(this.graph.coCluster)
         .words(record.tokens)
+        .transform('translate(' + sentenceTranslate + ')')
         .draw();
-      
-      let links = [];
+
+      const links = [];
       console.log(a.dataList);
       a.dataList.forEach((d, i) => {
-        const wordPos = a.getWordPos(i);
+        let wordPos = a.getWordPos(i);
+        console.log('index is ' + i);
+        console.log('wordPos is ' + wordPos);
+        console.log('node width is ' + a.nodeWidth + ', node height is ' + a.nodeHeight);
         this.graph.state_info.state_cluster_info.forEach((s, j) => {
           let link = {
-            source: {x: a.getWordPos(i)[0] + a.nodeWidth, y: a.getWordPos(i)[1] + a.nodeHeight/2},
+            source: {x: wordPos[0] + a.nodeWidth, y: wordPos[1] + a.nodeHeight/2},
             target: {x: s.top_left[0] + this.middle_line_x, y: s.top_left[1] + this.middle_line_y + s.height / 2},
           };
           links.push(link);
         });
       });
-
+      console.log(links);
+      console.log('there are ' + links.length + ' links');
       sg.selectAll('path')
-        .data(links).enter()
+        .data(links)
+        .enter()
         .append('path')
-        .attr('d', l => this.createLink(l))
+        .attr('d', (l) => {console.log(l); return this.createLink(l)})
         .attr('fill', 'none')
         .attr('stroke-width', 2)
         .attr('stroke', 'blue')

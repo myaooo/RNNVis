@@ -56,6 +56,9 @@
           this.selectedModel2 = null;
           this.selectedState2 = null;
           this.states2 = [];
+          bus.$emit(SELECT_MODEL, null, true);
+          bus.$emit(SELECT_STATE, null, true);
+
         }
       },
       stateName(state) {

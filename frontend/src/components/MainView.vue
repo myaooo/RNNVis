@@ -2,7 +2,9 @@
   <div>
     <h4 class="normal">Interpreter</h4>
     <hr>
-    <cluster-view class="content" :height="height"> </cluster-view>
+    <cluster-view v-if="compare" :width="width/2-5" :height="height" :compare='true'> </cluster-view>
+    <cluster-view :width="compare ? width/2-5 : width" :height="height" :compare='false'> </cluster-view>
+
     <!--<test-view> </test-view>-->
 
   </div>
@@ -37,12 +39,15 @@
   import TestView from 'components/TestView';
   import ArcView from 'components/ArcView';
   import ClusterView from 'components/ClusterView';
+  import { bus } from '../event-bus';
 
   export default {
     name: "MainView",
     data() {
       return {
-        activeTab: 'project'
+        activeTab: 'project',
+        shared: bus.state,
+        width: 800,
       };
     },
     props: {
@@ -57,11 +62,26 @@
         return;
       }
     },
+    computed: {
+      // width: function () {
+      //   if (this.$el) {
+      //     console.log(this.$el.clientWidth);
+      //     return this.$el.clientWidth;
+      //   }
+      //   return 800;
+      // },
+      compare: function () {
+        return this.shared.compare;
+      }
+    },
     components: {
       ProjectView,
       TestView,
       ArcView,
       ClusterView,
+    },
+    mounted() {
+      this.width = this.$el.clientWidth;
     }
   };
 </script>
