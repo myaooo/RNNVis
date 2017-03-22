@@ -38,11 +38,12 @@
         >
         </el-input>
         <el-button v-else class="button-new-tag" size="small" @click="showInput">+ New Sentence</el-button>
-        <br>
-        <el-tag v-for="sentence in sentences" :closable="true" @close="closeSentence(sentence)" :type="colorType">
-          {{sentence}}
-        </el-tag>
       </el-form-item>
+      <div class="sentence-container" v-if="sentences.length">
+        <el-tag v-for="sentence in sentences" :closable="true" @close="closeSentence(sentence)" :type="colorType">
+          <a>{{sentence}}</a>
+        </el-tag>
+      </div>
       <hr v-if="selectedState" class="local-hr">
 
       <!--Controls for the layout-->
@@ -59,6 +60,11 @@
 
   .el-tag {
     margin-right: 5px;
+    display: inline-block;
+    /*width: 90%;*/
+    white-space: normal;
+    height: auto;
+    line-height: 18px;
   }
 
   .local-hr {
@@ -69,6 +75,11 @@
     line-height: 1px;
     margin-top: 8px;
     margin-bottom: 4px;
+  }
+
+  .sentence-container {
+    width: 90%;
+    margin-left: 10px;
   }
 </style>
 <script>
