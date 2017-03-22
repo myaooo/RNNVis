@@ -1,9 +1,9 @@
 model:
-  name: GRU-SMALL
+  name: GRU-PTB-SMALL
   initializer_name: random_uniform
   initializer_args:
-    minval: -0.1
-    maxval: 0.1
+    minval: -0.05
+    maxval: 0.05
   input_dtype: int32
   target_dtype: int32
   vocab_size: 10000
@@ -11,16 +11,16 @@ model:
   cell_type: GRU
   cells:
     - num_units: 200
-    - num_units: 200
   loss_func: sequence_loss
   dataset: ptb
 train:
   epoch_num: 20
-  num_steps: 20
+  num_steps: 40
   batch_size: 20
   keep_prob: 1.0
   gradient_clip: global_norm
   gradient_clip_args:
     clip_norm: 5.0
   optimizer: GradientDescent
-  learning_rate: "lambda epoch: 1.5 if epoch < 4 else 0.5**(epoch-4)"
+  learning_rate: "lambda epoch: 2.0 *(1.0 if epoch < 4 else 0.8**(epoch-4))"
+

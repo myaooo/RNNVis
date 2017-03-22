@@ -22,6 +22,6 @@ train:
   gradient_clip: global_norm
   gradient_clip_args:
     clip_norm: 3.0
-  optimizer: Adam
-  learning_rate: 0.0005 
+  optimizer: GradientDescent
+  learning_rate: "lambda x: 1.0 * (1.0 if x < 7 else (0.9)** (x-7))"
 
