@@ -4,14 +4,13 @@ For example usage, see the main function below
 """
 
 import pickle
+from functools import lru_cache
 
 import numpy as np
 from scipy.spatial.distance import pdist, squareform
-import matplotlib.pyplot as plt
-
 
 from rnnvis.db import get_dataset
-from rnnvis.db.db_helper import query_evals, query_evaluation_records
+from rnnvis.db.db_helper import query_evals, query_evaluation_records, get_datasets_by_name
 from rnnvis.utils.io_utils import file_exists, get_path, dict2json, before_save
 from rnnvis.vendor import tsne, mds
 
@@ -22,6 +21,7 @@ _tmp_dir = '_cached/tmp'
 #############
 
 
+@lru_cache(maxsize=32)
 def get_empirical_strength(data_name, model_name, state_name, layer=-1, top_k=100):
     """
     A helper function that wraps cal_empirical_strength and cached the results in .pkl file for latter use
@@ -67,6 +67,7 @@ def strength2json(strength_list, words, labels=None, path=None):
     return dict2json(points, path)
 
 
+@lru_cache(maxsize=32)
 def get_state_signature(data_name, model_name, state_name, layer=None, sample_size=5000, dim=50):
     """
     A helper function that sampled the states records,
@@ -159,6 +160,7 @@ def solution2json(solution, states_num, labels=None, path=None):
     return dict2json(points, path)
 
 
+@lru_cache(maxsize=32)
 def load_words_and_state(data_name, model_name, state_name, diff=True):
     """
     A wrapper function that wraps fetch_states and cached the results in .pkl file for latter use
@@ -177,6 +179,72 @@ def load_words_and_state(data_name, model_name, state_name, diff=True):
 
     words, states = maybe_calculate(states_file, cal_fn)
     return words, states
+
+
+def get_state_statistics(data_name, model_name, state_name, diff=True, layer=-1, top_k=500, k=None):
+    """
+    Get state statistics, i.e. states mean reaction, 25~75 reaction range, 9~91 reaction range regarding top_k words
+    :param data_name:
+    :param model_name:
+    :param state_name:
+    :param diff:
+    :param layer:
+    :param top_k:
+    :return: a dict containing statistics:
+        {
+            'mean': [top_k, n_states],
+            'low1': [top_k, n_states], 25%
+            'high1': [top_k, n_states], 75%
+            'low2': [top_k, n_states], 9%
+            'high2': [top_k, n_states], 91%
+            'sort_idx': [top_k, n_states], each row represents sorted idx of mean reaction of states w.r.t. a word
+            'freqs': [top_k,] frequency of each of the top_k words,
+            'words': [top_k,], a list of words.
+        }
+    """
+    top = 100 if top_k <= 100 else 500 if top_k <= 500 else 1000
+    if k is not None:
+        top_k = top_k if top_k > k else k
+    tmp_file = '-'.join([data_name, model_name, state_name, 'statistics', str(top)]) \
+               + ('-diff' if diff else '') + '.pkl'
+    tmp_file = get_path(_tmp_dir, tmp_file)
+
+    def cal_fn():
+        _words, states = load_words_and_state(data_name, model_name, state_name, diff)
+        _id_to_states = sort_by_id(_words, states)
+        id_to_states = []
+        words = []
+        _words = get_datasets_by_name(data_name, ['id_to_word'])['id_to_word']
+        for i in range(top):
+            if _id_to_states[i] is not None:  # remove empty ones
+                id_to_states.append(_id_to_states[i])
+                words.append(_words[i])
+        layer_num = states[0].shape[0]
+        stats_list = []
+        for id_to_state in id_to_states:
+            if id_to_state is None:  # some words may be seen in test set
+                states = [np.zeros(states[0].shape, states[0].dtype)]  # use zeros as placeholder
+            else:
+                states = id_to_state
+            stats_list.append(cal_state_statistics(states))
+        stats_layer_wise = []
+        for layer_ in range(layer_num):
+            stats = {}
+            for field in stats_list[0][layer_].keys():
+                value = np.vstack([stats[layer_][field] for stats in stats_list])
+                stats[field] = value
+            stats['freqs'] = np.array([len(id_state) if id_state is not None else 0 for id_state in id_to_states])
+            stats_layer_wise.append(stats)
+        return stats_layer_wise, words
+
+    layer_wise_stats, words = maybe_calculate(tmp_file, cal_fn)
+    stats = layer_wise_stats[layer]
+    if k is None:
+        stats = {key: value[:top_k].tolist() for key, value in stats.items()}
+    else:
+        stats = {key: value[k].tolist() for key, value in stats.items()}
+    stats['words'] = words[:top_k]
+    return stats
 
 
 ##############
@@ -287,6 +355,35 @@ def compute_stats(states, sort_by_mean=True, percent=50):
     return means, stds, errors_l, errors_u, indices
 
 
+def cal_state_statistics(states):
+    """
+    Calculate states statistics with regards to a word
+    :param states: a list of state_mat of size [layer_num, layer_size] (state changes of the same word)
+    :return: a list of length layer_num, each element is a dict of statistics
+    """
+    layer_num = states[0].shape[0]
+    percents = [50, 82]
+    stats = []
+    for layer in range(layer_num):
+        state_list = [state[layer] for state in states]
+        states_mat = np.vstack(state_list)
+        mean = np.mean(states_mat, axis=0)
+        idx = np.argsort(mean)
+        lows = []
+        highs = []
+        for percent in percents:
+            lows.append(np.percentile(states_mat, (100-percent)/2, axis=0))
+            highs.append(np.percentile(states_mat, 50 + percent/2, axis=0))
+        stats.append({'mean': mean,
+                      'low1': lows[0],
+                      'high1': highs[0],
+                      'low2': lows[1],
+                      'high2': highs[1],
+                      'sort_idx': idx
+                      })
+    return stats
+
+
 def cal_empirical_strength(id_states, strength_func):
     """
 
@@ -322,7 +419,8 @@ def tsne_project(data, perplexity, init_dim=50, lr=50, max_iter=1000):
     return _tsne_solver.get_best_solution()
 
 
-def get_co_cluster(data_name, model_name, state_name, n_clusters, layer=-1, top_k=100, mode='positive', seed=0):
+def get_co_cluster(data_name, model_name, state_name, n_clusters, layer=-1, top_k=100,
+                   mode='positive', seed=0, method='cocluster'):
     """
 
     :param data_name:
@@ -332,10 +430,19 @@ def get_co_cluster(data_name, model_name, state_name, n_clusters, layer=-1, top_
     :param layer:
     :param top_k:
     :param mode: 'positive' or 'negative' or 'abs'
+    :param seed: random seed
+    :param method: 'cocluster' or 'bicluster'
     :return:
     """
     strength_list = get_empirical_strength(data_name, model_name, state_name, layer, top_k)
-    raw_data = [strength_mat.reshape(-1) for strength_mat in strength_list]
+    strength_list = [strength_mat.reshape(-1) for strength_mat in strength_list]
+    word_ids = []
+    raw_data = []
+    for i, strength_vec in enumerate(strength_list):
+        if np.max(np.abs(strength_vec)) > 1e-8:
+            word_ids.append(i)
+            raw_data.append(strength_vec)
+
     raw_data = np.array(raw_data)
     if mode == 'positive':
         data = np.zeros(raw_data.shape, dtype=np.float32)
@@ -345,13 +452,20 @@ def get_co_cluster(data_name, model_name, state_name, n_clusters, layer=-1, top_
         data[raw_data <= 0] = np.abs(raw_data[raw_data <= 0])
     elif mode == 'abs':
         data = np.abs(raw_data)
+    elif mode == 'raw':
+        data = raw_data
     else:
         raise ValueError("Unkown mode '{:s}'".format(mode))
     # print(data)
     n_jobs = 1  # parallel num
     random_state = seed
-    row_labels, col_labels = spectral_co_cluster(data, n_clusters, n_jobs, random_state)
-    return raw_data, row_labels, col_labels
+    if method == 'cocluster':
+        row_labels, col_labels = spectral_co_cluster(data, n_clusters, n_jobs, random_state)
+    elif method == 'bicluster':
+        row_labels, col_labels = spectral_bi_cluster(data, n_clusters, n_jobs, random_state)
+    else:
+        raise ValueError('Unknown method type {:s}, should be cocluster or bicluster!'.format(method))
+    return raw_data, row_labels, col_labels, word_ids
 
 
 def spectral_co_cluster(data, n_clusters, para_jobs=1, random_state=None):
@@ -360,9 +474,17 @@ def spectral_co_cluster(data, n_clusters, para_jobs=1, random_state=None):
     model.fit(data)
     row_labels = model.row_labels_
     col_labels = model.column_labels_
-    # sort the mat acoording to the labels
-    # fit_data = data[np.argsort(model.row_labels_)]
-    # fit_data = fit_data[:, np.argsort(model.column_labels_)]
+    return row_labels, col_labels
+
+
+def spectral_bi_cluster(data, n_clusters, para_jobs=1, random_state=None):
+    from sklearn.cluster.bicluster import SpectralBiclustering
+    assert len(n_clusters) == 2, "n_cluster should be a tuple or list that contains 2 integer!"
+    model = SpectralBiclustering(n_clusters, random_state=random_state, n_jobs=para_jobs,
+                                 method='bistochastic', n_best=20, n_components=40)
+    model.fit(data)
+    row_labels = model.row_labels_
+    col_labels = model.column_labels_
     return row_labels, col_labels
 
 ##############

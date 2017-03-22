@@ -1,28 +1,29 @@
 <template>
   <div class="project">
-    <el-tabs v-model="selectedState">
-      <el-tab-pane v-for="state in states" :label="state" :name="state">
-        <project-graph :svg-id="paneId(model, state)" :width="width" :height="height" :graph-data="graphData" :ready="ready" :config="config">
-        </project-graph>
-        <div class="config">
-          <!--<el-form :model="config" :inline="true">-->
-          <el-col :span="4">
-            <span>Cluster No.</span>
-          </el-col>
-          <el-col :span="6">
-            <el-slider v-model="config.clusterNum" :min="1" :max="20" @change="configWatcher"></el-slider>
-          </el-col>
-          <el-col :span="4">
-            <span>Opacity</span>
-          </el-col>
-          <el-col :span="6">
-            <el-slider v-model="config.opacity" :max="1" :step="0.05" @change="configWatcher" :width="100"></el-slider>
-          </el-col>
-          <!--</el-form>-->
-        </div>
-      </el-tab-pane>
+    <!--<div class="header">
+      <el-radio-group v-model="selectedState" size="small">
+        <el-radio-button v-for="state in states" :label="state"></el-radio-button>
+      </el-radio-group>
+    </div>-->
+    <project-graph :svg-id="paneId(model, selectedState)" :width="width" :height="height" :graph-data="graphData" :ready="ready" :config="config">
+    </project-graph>
+    <div class="config">
+      <!--<el-form :model="config" :inline="true">-->
+      <el-col :span="4">
+        <span>Cluster No.</span>
+      </el-col>
+      <el-col :span="6">
+        <el-slider v-model="config.clusterNum" :min="1" :max="20" @change="configWatcher"></el-slider>
+      </el-col>
+      <el-col :span="4">
+        <span>Opacity</span>
+      </el-col>
+      <el-col :span="6">
+        <el-slider v-model="config.opacity" :max="1" :step="0.05" @change="configWatcher" :width="100"></el-slider>
+      </el-col>
+      <!--</el-form>-->
+    </div>
 
-    </el-tabs>
   </div>
 </template>
 <script>
@@ -47,7 +48,7 @@
       const drawConfig = Object.assign({}, ProjectGraph.defaultConfig); // get a copy
       return {
         model: '',
-        selectedState: '',
+        // selectedState: '',
         states: '',
         ready: false,
         graphData: { states: null, strength: null },
@@ -58,7 +59,9 @@
     },
     components: { ProjectGraph },
     computed: {
-
+      selectedState: function () {
+        return this.shared.selectedState;
+      }
     },
     watch: {
       selectedState: function (newState, oldState) {
@@ -85,6 +88,9 @@
         if(this.selectedState === 'state'){ //hack
           this.config.strength_thred = 0.9;
         }
+        if(this.selectedState === 'state_h'){
+          this.config.strength_thred = 0.5;
+        }
         if(this.model === 'IMDB'){
           this.config.strength_thred = 0.0;
           this.config.strengthFn = (v => { return (v * 30) ** 2; });
@@ -96,7 +102,7 @@
           setTimeout(() => { this.ready = true; }, 100);
           return;
         }
-        // const data = {states: null, strength: null};
+        // request for data
         const p1 = dataService.getProjectionData(this.model, this.selectedState, {}, response => {
           this.graphData.states = response.data;
           console.log('states data loaded');
@@ -136,7 +142,9 @@
     },
 
     mounted() {
-      bus.$on(SELECT_MODEL, (modelName) => {
+      bus.$on(SELECT_MODEL, (modelName, compare) => {
+        if (compare)
+          return;
         console.log(`selected model: ${modelName}`);
         this.model = modelName;
         bus.loadModelConfig(modelName).then((_) => {
@@ -161,8 +169,11 @@
   };
 
 </script>
-<style>
+<style scope>
   .config span {
     line-height: 34px;
+  }
+  .header {
+    text-align: left;
   }
 </style>

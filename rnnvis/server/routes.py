@@ -1,8 +1,11 @@
 import yaml
+from functools import lru_cache
+
 from flask import jsonify, send_file, request
 from rnnvis.server import app
 from rnnvis.server import _manager
 
+# TODO: add exception handles
 
 @app.route("/")
 def hello():
@@ -42,26 +45,27 @@ def model_evaluate():
         # print('entering post')
         data = request.json
         model = data['model']
-        state_name = data['state']
+        # state_name = data['state']
         text = data['text']
         print(text)
-        try:
-            layer = int(request.form['layer'])  # default to -1
-        except:
-            layer = -1
+
         result = _manager.model_evaluate_sequence(model, text)
         if result is None:
             return 'Cannot find model with name {:s}'.format(model), 404
         tokens, records = result
-        try:
-            records = [[record[state_name][layer].tolist() for record in sublist] for sublist in records]
-            return jsonify({'tokens': tokens, 'records': records})
-        except:
-            return 'Model with name {:s} contains no state: {:s}'.format(model, state_name), 404
+        # records = [[record[state_name][layer].tolist() for record in sublist] for sublist in records]
+        records = [[{state_name: state_record.tolist()
+                     for state_name, state_record in record.items()
+                     if state_name == 'state' or state_name == 'state_c' or state_name == 'state_h'}
+                    for record in sublist] for sublist in records]
+        return jsonify({'tokens': tokens, 'records': records})
+        # except:
+        #     return 'Model with name {:s} contains no state: {:s}'.format(model), 404
     return "Not Found", 404
 
 
 @app.route('/models/config/<string:model>')
+@lru_cache(maxsize=8)
 def model_config(model):
     result = _manager.get_config_filename(model)
     if result is None:
@@ -124,15 +128,69 @@ def state_projection():
 def co_cluster():
     model = request.args.get('model', '')
     state_name = request.args.get('state', '')
-    n_cluster = int(request.args.get('n_cluster', 2))
     layer = int(request.args.get('layer', -1))
     top_k = int(request.args.get('top_k', 100))
     mode = request.args.get('mode', 'positive')
     seed = int(request.args.get('seed', 0))
+    method = request.args.get('method', 'cocluster')
+    n_cluster = request.args.get('n_cluster', '2').split(',')
+    n_cluster = [int(e) for e in n_cluster]
+    if method == 'cocluster':
+        if len(n_cluster) > 1:
+            return 'When using cocluster, you can only set n_clsuter to ONE integer', 500
+        n_cluster = n_cluster[0]
+    elif method == 'bicluster':
+        if len(n_cluster) == 1:  # set cluster num of column of the same as the rows
+            n_cluster.append(n_cluster[0])
     try:
-        results = _manager.model_co_cluster(model, state_name, n_cluster, layer, top_k, mode, seed)
+        results = _manager.model_co_cluster(model, state_name, n_cluster, layer, top_k,
+                                            mode=mode, seed=seed, method=method)
         if results is None:
             return 'Cannot find model with name {:s}'.format(model), 404
-        return jsonify({'data': results[0], 'row': results[1], 'col': results[2]})
+        return jsonify({'data': results[0],
+                        'row': results[1],
+                        'col': results[2],
+                        'ids': results[3],
+                        'words': results[4]})
+    except:
+        raise
+
+
+@app.route('/vocab')
+def model_vocab():
+    model = request.args.get('model', '')
+    top_k = int(request.args.get('top_k', 100))
+    results = _manager.model_vocab(model, top_k)
+    if results is None:
+        return 'Cannot find model with name {:s}'.format(model), 404
+    return jsonify(results)
+
+
+@app.route('/state_statistics')
+def state_statistics():
+    model = request.args.get('model', '')
+    state_name = request.args.get('state', '')
+    layer = int(request.args.get('layer', -1))
+    top_k = int(request.args.get('top_k', 200))
+    try:
+        results = _manager.state_statistics(model, state_name, True, layer, top_k)
+        if results is None:
+            return 'Cannot find model with name {:s}'.format(model), 404
+        return jsonify(results)
+    except:
+        raise
+
+
+@app.route('/word_statistics')
+def word_statistics():
+    model = request.args.get('model', '')
+    state_name = request.args.get('state', '')
+    layer = int(request.args.get('layer', -1))
+    word = request.args.get('word')  # required
+    try:
+        results = _manager.state_statistics(model, state_name, True, layer, 100, word)
+        if results is None:
+            return 'Cannot find model with name {:s}'.format(model), 404
+        return jsonify(results)
     except:
         raise

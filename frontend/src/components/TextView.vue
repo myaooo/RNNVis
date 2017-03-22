@@ -74,21 +74,12 @@
 </style>
 <script>
   import dataService from '../services/dataService';
-  import { bus, SELECT_MODEL } from '../event-bus'
+  import { bus, SELECT_MODEL } from '../event-bus';
 
   let activeColorScheme = ["88, 126, 182", "201, 90, 95"];
-  export default{
+  export default {
     name: 'TextView',
     data() {
-      const texts = dataService.getTextData('1', '2');
-      // const sentences = Array.from(texts,
-      //   function(words, i) {
-      //     return Array.from( words,
-      //       word => { return {text: word[0], value: word[1]}; }
-      //     )
-      //   }
-      // );
-      // console.log(sentences);
       return {
         // sentences: sentences,
         inputs: null,
@@ -121,7 +112,7 @@
         if(this.records){
           return this.tokens.map((sentence, i) => {
             return sentence.map((token, j) => {
-              return {text: token, value: this.records[i][j][this.selectedDim]};
+              return {text: token, value: this.records[i][j][this.selectedState][this.selectedLayer][this.selectedDim]};
             })
           });
         }
@@ -144,7 +135,7 @@
         const selectedModel = this.shared.selectedModel;
         if(this.inputs === this.oldInputs) return true;
         // const splitted = this.inputs.split('.')
-        dataService.getTextEvaluation(selectedModel, this.selectedState, this.selectedLayer, this.inputs,
+        dataService.getTextEvaluation(selectedModel, this.inputs,
           (response) => {
             const data = response.data;
             this.tokens = data.tokens;

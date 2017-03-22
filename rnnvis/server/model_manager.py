@@ -4,6 +4,7 @@ The backend manager for handling the models
 
 import hashlib
 import os
+from functools import lru_cache
 
 from rnnvis.datasets.data_utils import Feeder, SentenceProducer
 from rnnvis.utils.io_utils import get_path, assert_path_exists
@@ -11,7 +12,7 @@ from rnnvis.procedures import build_model, pour_data
 # from rnnvis.db import language_model
 from rnnvis.rnn.eval_recorder import BufferRecorder, StateRecorder
 from rnnvis.state_processor import get_state_signature, get_empirical_strength, strength2json, \
-    get_tsne_projection, solution2json, get_co_cluster
+    get_tsne_projection, solution2json, get_co_cluster, get_state_statistics
 from rnnvis.datasets.text_processor import tokenize
 
 _config_dir = 'config'
@@ -195,15 +196,38 @@ class ModelManager(object):
         else:
             return None
 
-    def model_co_cluster(self, name, state_name, n_cluster=2, layer=-1, top_k=100, mode='positive', seed=0):
+    @lru_cache(maxsize=32)
+    def model_co_cluster(self, name, state_name, n_cluster=2, layer=-1, top_k=100,
+                         mode='positive', seed=0, method='cocluster'):
         model = self._get_model(name)
         if model is None:
             return None
         config = self._train_configs[name]
-        layer_num = len(model.cell_list)
-        strength_mat, row_cluster, col_cluster = get_co_cluster(config.dataset, model.name, state_name, n_cluster,
-                                                                layer, top_k, mode, seed)
-        return strength_mat.tolist(), row_cluster.tolist(), col_cluster.tolist()
+        # layer_num = len(model.cell_list)
+        results = get_co_cluster(config.dataset, model.name, state_name, n_cluster, layer, top_k,
+                                 mode=mode, seed=seed, method=method)
+        strength_mat, row_cluster, col_cluster, word_ids = results
+        words = model.get_word_from_id(word_ids)
+        return strength_mat.tolist(), row_cluster.tolist(), col_cluster.tolist(), word_ids, words
+
+    def model_vocab(self, name, top_k=None):
+        model = self._get_model(name)
+        if model is None:
+            return None
+        if top_k is None:
+            return model.id_to_word
+        return model.id_to_word[:top_k]
+
+    @lru_cache(maxsize=32)
+    def state_statistics(self, name, state_name, diff=True, layer=-1, top_k=500, k=None):
+        model = self._get_model(name)
+        if model is None:
+            return None
+        config = self._train_configs[name]
+        if isinstance(k, str):
+            k = model.get_id_from_word(k.lower())[0]
+        stats = get_state_statistics(config.dataset, model.name, state_name, diff, layer, top_k, k)
+        return stats
 
 
 def hash_tag_str(text_list):
