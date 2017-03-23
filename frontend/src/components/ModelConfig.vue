@@ -21,6 +21,10 @@
           <el-radio-button v-for="state in states" :label="state">{{stateName(state)}}</el-radio-button>
         </el-radio-group>
       </el-form-item>
+      <el-form-item label="POS Tag" v-if="states.length">
+        <el-switch v-model="posSwitch" on-text="" off-text="">
+        </el-switch>
+      </el-form-item>
       <el-form-item label="Layer" v-if="layerNum">
         <el-input-number size="small" v-model="selectedLayer" :max="layerNum-1" style="width: 100px; margin-top: 10px"></el-input-number>
       </el-form-item>
@@ -100,6 +104,7 @@
         selectedState: null,
         selectedModel: null,
         selectedLayer: null,
+        posSwitch: false,
         config: null,
         layout: { clusterNum: 10 },
         sentences: [],
@@ -144,6 +149,7 @@
                 LayerNum: config.model.cells.length,
                 LayerSize: config.model.cells[0].num_units,
               };
+              this.posSwitch = false;
               this.selectedLayer = this.config.LayerNum - 1;
               bus.$emit(SELECT_MODEL, this.selectedModel, this.compare);
               bus.$emit(CHANGE_LAYOUT, this.layout, this.compare);
@@ -158,6 +164,10 @@
       selectedLayer: function (newLayer) {
         bus.$emit(SELECT_LAYER, newLayer, this.compare);
       },
+      posSwitch: function(pos) {
+        if (this.compare) this.shared.renderPos2 = pos;
+        else this.shared.renderPos = pos;
+      }
       // layout: function (newLayout) {
       //   console.log('layout changed.')
       //   bus.$emit(CHANGE_LAYOUT, newLayout, this.compare);

@@ -1,7 +1,8 @@
-import yaml
 from functools import lru_cache
 
+import yaml
 from flask import jsonify, send_file, request
+
 from rnnvis.server import app
 from rnnvis.server import _manager
 
@@ -36,6 +37,17 @@ def model_generate():
                                      min_cond, min_prob, step, neg_words)
     if result is None:
         return 'Cannot generate using the given url!', 404
+    return result
+
+
+@app.route('/models/record_default/<string:model>', methods=['POST', 'GET'])
+def model_record_default(model):
+    dataset = request.args.get('set', 'test')
+    force = bool(request.args.get('force', False))
+    result = _manager.model_record_default(model, dataset, force)
+
+    if result is None:
+        return 'Cannot find model with name {:s}'.format(model), 404
     return result
 
 
@@ -189,6 +201,19 @@ def word_statistics():
     word = request.args.get('word')  # required
     try:
         results = _manager.state_statistics(model, state_name, True, layer, 100, word)
+        if results is None:
+            return 'Cannot find model with name {:s}'.format(model), 404
+        return jsonify(results)
+    except:
+        raise
+
+
+@app.route('/pos_statistics')
+def pos_statistics():
+    model = request.args.get('model', '')
+    top_k = int(request.args.get('top_k', 200))
+    try:
+        results = _manager.model_pos_statistics(model, top_k)
         if results is None:
             return 'Cannot find model with name {:s}'.format(model), 404
         return jsonify(results)
