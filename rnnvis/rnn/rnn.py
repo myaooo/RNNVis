@@ -495,7 +495,7 @@ class RNN(object):
             self.validator = Evaluator(self, batch_size, num_steps, 1, False, False, False)
 
     def add_evaluator(self, batch_size=1, num_steps=1, record_every=1, log_state=True, log_input=False, log_output=False,
-                      log_gradients=False, log_gates=False, cal_salience=False):
+                      log_gradients=False, log_gates=False, log_pos=False):
         """
         Explicitly add evaluator instead of using the default one. You must call compile(evaluate=False)
             before calling this function
@@ -511,7 +511,7 @@ class RNN(object):
         with self.graph.as_default():
             # with tf.device("/cpu:0"):
             self.evaluator = Evaluator(self, batch_size, num_steps, record_every, log_state,
-                                       log_input, log_output, log_gradients, log_gates, False)
+                                       log_input, log_output, log_gradients, log_gates, log_pos, dynamic=False)
 
     def add_generator(self, word_to_id=None):
         assert self.generator is None

@@ -13,6 +13,7 @@ const SELECT_WORD = 'SELECT_WORD';
 const DESELECT_UNIT = 'DESELECT_UNIT';
 const DESELECT_WORD = 'DESELECT_WORD';
 const SELECT_LAYER = 'SELECT_LAYER';
+const CLOSE_SENTENCE = 'CLOSE_SENTENCE';
 
 const state = {
   selectedModel: null,
@@ -35,6 +36,8 @@ const state = {
   selectedWords2: [],
   compare: false,
   color: d3.scaleOrdinal(d3.schemeCategory10),
+  renderPos: false,
+  renderPos2:false,
 };
 
 const bus = new Vue({
@@ -180,6 +183,12 @@ const bus = new Vue({
       }
       console.log(`bus > unable to get statistics for ${modelName}, ${stateName}, ${layer}`);
       return undefined;
+    },
+    loadPosStatistics(modelName = state.selectedModel, top_k = 300, callback) {
+      if (this.state.modelConfigs.hasOwnProperty(modelName)) {
+        return dataService.getPosStatistics(modelName, top_k, callback);
+      }
+      return Promise.reject(`No model with name ${modelName} available!`);
     }
   },
   created() {
@@ -248,10 +257,10 @@ const bus = new Vue({
       let words;
       if (compare) words = this.state.selectedWords2.slice();
       else words = this.state.selectedWords.slice();
-      words.splice(0, 0, word);
+      words.push(word);
       if (words.length > maxSelected) {
-        deactivateText(words[maxSelected]);
-        words.splice(maxSelected, 1);
+        deactivateText(words[0]);
+        words.splice(0, 1);
       }
       afterChangeWords(words);
       if (compare) this.state.selectedWords2 = words;
@@ -284,12 +293,16 @@ const bus = new Vue({
       console.log(`bus > deselected word: ${word.text}`);
     });
 
+    this.$on(CLOSE_SENTENCE, (sentence, compare) => {
+      console.log(`bus > close sentence: ${sentence}`);
+    });
+
   }
 });
 
 function afterChangeWords(words) {
   words.forEach((word, i) => {
-    word.color = state.color(words.length-i);
+    word.color = state.color(i);
     activateText(word);
   });
   if (words.length)
@@ -324,11 +337,14 @@ function focusText(data) {
   // console.log(box);
   // d3.select(data.el)
   //   .style('stroke', '#000').style('stroke-width', 0.5); //.style('stroke-opacity', 0.5);
-  data.bound = d3.select(data.el.parentNode).insert('rect')
-    .attr('x', data.x - box.width/2 -1.5).attr('y', data.y - box.height*0.78)
-    .attr('width', box.width + 3).attr('height', box.height*0.9)
-    .style('stroke', 'black').style('stroke-opacity', 0.3)
-    .style('fill', 'none');
+  data.bound = d3.select(data.el.parentNode).insert('path')
+    .attr('d', 'M ' + (data.x - box.width/2 -1.5) + ' ' + (data.y + 2)
+      + ' H ' + (data.x + box.width/2 + 1.5))
+    // .attr('x', data.x - box.width/2 -1.5).attr('y', data.y - box.height*0.78)
+    // .attr('width', box.width + 3).attr('height', box.height*0.9)
+    .style('stroke', data.color);
+    // .style('stroke-opacity', 0.6);
+    // .style('fill', 'none');
 
 }
 
@@ -347,4 +363,5 @@ export {
   SELECT_LAYER,
   DESELECT_UNIT,
   DESELECT_WORD,
+  CLOSE_SENTENCE,
 }

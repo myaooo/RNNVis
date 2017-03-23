@@ -21,8 +21,12 @@
           <el-radio-button v-for="state in states" :label="state">{{stateName(state)}}</el-radio-button>
         </el-radio-group>
       </el-form-item>
+      <el-form-item label="POS Tag" v-if="states.length">
+        <el-switch v-model="posSwitch" on-text="" off-text="">
+        </el-switch>
+      </el-form-item>
       <el-form-item label="Layer" v-if="layerNum">
-        <el-input-number size="small" v-model="selectedLayer" :max="layerNum-1" style="width: 60%; margin-top: 10px"></el-input-number>
+        <el-input-number size="small" v-model="selectedLayer" :max="layerNum-1" style="width: 100px; margin-top: 10px"></el-input-number>
       </el-form-item>
 
       <!--Sentence Editor-->
@@ -38,11 +42,12 @@
         >
         </el-input>
         <el-button v-else class="button-new-tag" size="small" @click="showInput">+ New Sentence</el-button>
-        <br>
-        <el-tag v-for="sentence in sentences" :closable="true" @close="closeSentence(sentence)" :type="colorType">
-          {{sentence}}
-        </el-tag>
       </el-form-item>
+      <div class="sentence-container" v-if="sentences.length">
+        <el-tag v-for="sentence in sentences" :closable="true" @close="closeSentence(sentence)" :type="colorType">
+          <a>{{sentence}}</a>
+        </el-tag>
+      </div>
       <hr v-if="selectedState" class="local-hr">
 
       <!--Controls for the layout-->
@@ -52,13 +57,24 @@
     </el-form>
   </div>
 </template>
-<style scoped>
+<style>
   .el-form-item {
-    margin-bottom: 4px;
+    margin-bottom: 5px;
+    margin-top: -5px;
+    font-size: 12px;
+  }
+
+  label {
+    font-size: 12px !important;
   }
 
   .el-tag {
     margin-right: 5px;
+    display: inline-block;
+    /*width: 90%;*/
+    white-space: normal;
+    height: auto;
+    line-height: 18px;
   }
 
   .local-hr {
@@ -70,9 +86,14 @@
     margin-top: 8px;
     margin-bottom: 4px;
   }
+
+  .sentence-container {
+    width: 90%;
+    margin-left: 10px;
+  }
 </style>
 <script>
-  import { bus, SELECT_MODEL, SELECT_STATE, SELECT_LAYER, CHANGE_LAYOUT, EVALUATE_SENTENCE } from '../event-bus';
+  import { bus, SELECT_MODEL, SELECT_STATE, SELECT_LAYER, CHANGE_LAYOUT, EVALUATE_SENTENCE, CLOSE_SENTENCE } from '../event-bus';
 
   export default {
     name: 'ModelConfig',
@@ -83,6 +104,7 @@
         selectedState: null,
         selectedModel: null,
         selectedLayer: null,
+        posSwitch: false,
         config: null,
         layout: { clusterNum: 10 },
         sentences: [],
@@ -127,11 +149,12 @@
                 LayerNum: config.model.cells.length,
                 LayerSize: config.model.cells[0].num_units,
               };
+              this.posSwitch = false;
               this.selectedLayer = this.config.LayerNum - 1;
               bus.$emit(SELECT_MODEL, this.selectedModel, this.compare);
               bus.$emit(CHANGE_LAYOUT, this.layout, this.compare);
             }
-          });
+          }).catch((v) => console.log(v));
       },
       selectedState: function (newState) {
         if (newState === 'state' || newState === 'state_c' || newState === 'state_h') {
@@ -141,6 +164,10 @@
       selectedLayer: function (newLayer) {
         bus.$emit(SELECT_LAYER, newLayer, this.compare);
       },
+      posSwitch: function(pos) {
+        if (this.compare) this.shared.renderPos2 = pos;
+        else this.shared.renderPos = pos;
+      }
       // layout: function (newLayout) {
       //   console.log('layout changed.')
       //   bus.$emit(CHANGE_LAYOUT, newLayout, this.compare);
@@ -162,7 +189,11 @@
         bus.$emit(CHANGE_LAYOUT, layout, this.compare);
       },
       closeSentence(sentence) {
-        this.sentences.splice(this.sentences.indexOf(sentence), 1);
+        const idx = this.sentences.indexOf(sentence);
+        if (idx !== -1){
+          bus.$emit(CLOSE_SENTENCE, sentence, this.compare);
+          this.sentences.splice(idx, 1);
+        }
       },
       showInput() {
         this.inputVisible = true;

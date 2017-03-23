@@ -20,7 +20,11 @@ class Artist {
   }
   clean() {
     this.handles.forEach((handle) => {
-      handle.remove();
+      handle
+        .transition()
+        .duration(200)
+        .style('opacity', 0)
+        .remove();
     });
     this.handles = [];
     this.drawHooks = [];
@@ -97,9 +101,9 @@ export class Chart {
       const ry = x / y;
       Object.keys(this.artists).forEach((artist) => {
         this.artists[artist].handles.forEach((handle) => {
-          const scale = `scale(${rx}, ${ry}) `;
-          const rotate = 'rotate(-90) ';
-          const translate = `translate(${-(this.height - this.marginBottom - this.marginTop)}, 0)`;
+          const scale = ''; //`scale(${rx}, ${ry}) `;
+          const rotate = 'rotate(-90, 0, 0)';
+          const translate = `translate(${-(this.width - this.marginLeft - this.marginRight)}, 0)`;
           handle.attr('transform', rotate + translate + scale);
         });
       });
@@ -110,15 +114,30 @@ export class Chart {
     this.rotateFlag = !this.rotateFlag;
     if (this.rotateFlag) {
       this.drawTmp = this.draw;
+      const tmpSize = [this.width, this.height];
+      const tmpMargin = this.marginAll;
       this.draw = () => {
+        // placeholder for axis to prevent draw Axis
         this.axisHandles.x = this.axisHandles.y = 1;
+        // reverse size
+        this.width = tmpSize[1];
+        this.height = tmpSize[0];
+        this.marginAll = [tmpMargin[1], tmpMargin[2], tmpMargin[3], tmpMargin[0]];
+
+        this.updateScale();
         this.drawTmp();
+        // remove placeholder
         this.axisHandles.x = this.axisHandles.y = null;
+        // reverse size back
+        this.width = tmpSize[0];
+        this.height = tmpSize[1];
+
+        this.marginAll = tmpMargin;
         this.extents.reverse();
         this.updateScale();
         this.drawAxis();
         this.extents.reverse();
-        this.updateScale();
+
       };
     } else {
       this.draw = this.drawTmp;
@@ -163,8 +182,13 @@ export class Chart {
   // update a extent for one dimension, i=0 -> x, i=1 -> y
   updateExtentI(extent, i) {
     const range = extent[1] - extent[0];
-    this.extents[i][0] = Math.min(extent[0] - (range * 0.05), this.extents[i][0]);
-    this.extents[i][1] = Math.max(extent[1] + (range * 0.05), this.extents[i][1]);
+    // const timer = 10;
+    // console.log(extent);
+    // const maxRange = Math.max(range, this.extents[i][1] - this.extents[i][0]);
+    const timer = range === 0 ? 1 : (10 < range ? 1 : Math.round(10 / range));
+    this.extents[i][0] = Math.min(Math.floor(timer*(extent[0] - range * 0.02))/timer, this.extents[i][0]);
+    this.extents[i][1] = Math.max(Math.ceil(timer*(extent[1] + range * 0.02))/timer, this.extents[i][1]);
+    // console.log(`${i} > ${this.extents[i]}`)
     return this;
   }
   // update both extent

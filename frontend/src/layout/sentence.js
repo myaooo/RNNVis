@@ -8,8 +8,10 @@ const layoutParams = {
   widthScale: 1.5,
   avgValueRange: [-0.5, 0.5],
   rulerWidth: 2,
-  markerWidth: 4,
+  markerWidth: 5,
   markerHeight: 2,
+  wordSize: 12,
+  labelSize: 10,
 };
 
 // example usage:
@@ -161,8 +163,8 @@ class SentenceLayout{
     let maxValue = 0.1;
     this.dataList.forEach((data) => {
       data.data.forEach((clst) => {
-        const clstMaxP =  clst.currents[0] + (clst.updateds[0] < 0 ? clst.updateds[0] : 0);
-        const clstMaxN =  clst.currents[1] + (clst.updateds[1] < 0 ? clst.updateds[1] : 0);
+        const clstMaxP =  clst.currents[0] - (clst.updateds[0] < 0 ? clst.updateds[0] : 0);
+        const clstMaxN =  clst.currents[1] - (clst.updateds[1] < 0 ? clst.updateds[1] : 0);
         const clstMax = Math.max(clstMaxP/clst.size, clstMaxN/clst.size);
         maxValue = maxValue < clstMax ? clstMax : maxValue;
       })
@@ -331,19 +333,23 @@ class SentenceLayout{
       .style('stroke', 'black').style('stroke-width', 0.5);
 
     // append labels
+    const fontSize = this.params.wordSize;
+    const labelSize = this.params.labelSize;
     el.selectAll('text')
       .data(this.params.avgValueRange).enter()
       .append('text')
       .attr('x', -2)
       .attr('y', (d, i) => i*(height-4)+5)
       .attr('text-anchor', 'end')
-      .attr('font-size', 8)
+      .attr('font-size', labelSize)
       .text((d) => d);
+
     el.append('text')
-      .attr('x', -2)
-      .attr('y', (height/2)+4)
-      .attr('text-anchor', 'end')
-      .attr('font-size', 10)
+      .attr('x', -2-fontSize)
+      .attr('y', (height/2))
+      .attr('text-anchor', 'middle')
+      .attr('transform', 'rotate(' + [90, -2-fontSize, (height/2)] + ')')
+      .attr('font-size', fontSize)
       .text(data.word);
 
     cur.each(function(d) {

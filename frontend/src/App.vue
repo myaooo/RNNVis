@@ -100,11 +100,13 @@ export default {
   font-weight: normal;
 }
 h4 {
-  line-height: 20px;
-  margin-top: 5px;
+  font-size: 14px;
+  color: #555;
+  line-height: 18px;
+  margin-top: 0px;
   padding-left: 10px;
-  padding-top: 10px;
-  padding-bottom: 10px;
+  padding-top: 5px;
+  padding-bottom: 5px;
   margin-bottom: -10px;
   text-align: left;
   background-color: rgba(128, 128, 128, 0.1);
