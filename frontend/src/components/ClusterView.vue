@@ -35,8 +35,17 @@
 .state_unit .active {
 
 }
-.active-word {
+.wordcloud {
+  stroke: 'gray';
+  stroke-width: 0.5;
+  fill: 'white';
+  fill-opacity: 0.0;
+  stroke-opacity: 0.8;
+}
 
+.wordcloud-active {
+  stroke: 'black';
+  stroke-width: 1.5;
 }
 
 </style>
@@ -73,7 +82,7 @@
       this.wordCloudChord2ClusterDistance = 50;
       this.wordCloudChordLength2ClientHeightRatio = 0.9;
       this.wordCloudChord2stateClusterHeightRatio = 1.1;
-      this.wordCloudWidth2HeightRatio = 1.2;
+      this.wordCloudWidth2HeightRatio = 1 / 0.618;
       this.littleTriangleWidth = 5;
       this.littleTriangleHeight = 5;
       this.strengthThresholdPercent = 0.2;
@@ -776,17 +785,32 @@
         } else {
           let tmp_g = g.append('g')
             .on('mouseover', function () {
-              self.graph.link_info.forEach((ls) => {
-                d3.select(ls[i]['el'])
-                  .classed('active', true);
-              })
+              if(!wclst['wordCloud'].selected){
+                self.graph.link_info.forEach((ls) => {
+                  d3.select(ls[i]['el'])
+                    .classed('active', true);
+                });
+                wclst['wordCloud'].bgHandle.classed('wordcloud-active', true);
+              }
             })
             .on('mouseleave', function () {
-              self.graph.link_info.forEach((ls) => {
-                d3.select(ls[i]['el'])
-                  .classed('active', false);
-              })
+              if(!wclst['wordCloud'].selected){
+                self.graph.link_info.forEach((ls) => {
+                  d3.select(ls[i]['el'])
+                    .classed('active', false);
+                });
+                wclst['wordCloud'].bgHandle.classed('wordcloud-active', false);
+              }
             })
+            .on('click', function () {
+              if(!wclst['wordCloud'].selected){
+                wclst['wordCloud'].selected = true;
+                wclst['wordCloud'].bgHandle.classed('wordcloud-active', true);
+              } else {
+                wclst['wordCloud'].selected = false;
+                wclst['wordCloud'].bgHandle.classed('wordcloud-active', false);
+              }
+            });
           let myWordCloud = new WordCloud(tmp_g, wclst.width/2, wclst.height/2, 'rect', this.compare)
             .transform( 'translate(' + [wclst.top_left[0] + wclst.width/2, wclst.top_left[1] + wclst.height/2] + ')')
             .color(this.params.posColor);

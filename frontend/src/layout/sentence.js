@@ -7,9 +7,9 @@ const layoutParams = {
   radiusScale: 1.5,
   widthScale: 1.5,
   avgValueRange: [-0.5, 0.5],
-  rulerWidth: 2,
-  markerWidth: 5,
-  markerHeight: 2,
+  rulerScale: 0.3,
+  markerScale: 0.8,
+  markerScale: 0.4,
   wordSize: 12,
   labelSize: 10,
 };
@@ -322,12 +322,12 @@ class SentenceLayout{
     const height = this.nodeInterval;
     // const width = this.nodeWidth;
     const color = this.params.color;
-    const rulerWidth = this.params.rulerWidth;
-    const markerWidth = this.params.markerWidth;
-    const markerHeight = this.params.markerHeight;
     // console.log(data);
     // const scaleHeight = this.scaleHeight;
     const unitWidth = this.nodeWidth / data.data.length;
+    const rulerWidth = this.params.rulerScale * this.unitWidth;
+    const markerWidth = this.params.markerScale * this.unitWidth;
+    const markerHeight = this.params.markerScale * this.unitWidth;
     const gs = el.selectAll('g')
       .data(data.data).enter()
       .append('g');

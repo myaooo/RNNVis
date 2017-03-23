@@ -225,13 +225,13 @@ export class Chart {
     }
   }
   // set the x Axis draw function
-  xAxis(pos = 'bottom') {
+  xAxis(label = 'x', pos = 'bottom') {
     let translateStr;
     if (pos === 'bottom') {
-      translateStr = () => `translate(0, ${this.scale.y(this.extents[1][0])})`;
+      translateStr = () => [0, this.scale.y(this.extents[1][0])];
       this.axis.x = d3.axisBottom();
     } else if (pos === 'top') {
-      translateStr = () => `translate(0, ${this.scale.y(this.extents[1][1])})`;
+      translateStr = () => [0, this.scale.y(this.extents[1][1])];
       this.axis.x = d3.axisTop();
     } else {
       // eslint-disable-next-line
@@ -240,19 +240,29 @@ export class Chart {
     }
     this.drawHooks.xAxis = () => {
       this.axis.x.scale(this.scale.x);
-      this.axisHandles.x = this.group.append('g')
-        .attr('transform', translateStr())
+      this.axisHandles.x = this.group.append('g');
+      this.axisHandles.x
+        .attr('transform', 'translate(' + translateStr() + ')')
         .call(this.axis.x);
+      if (label){
+        const labelSize = 13;
+        this.axisHandles.x.append('text')
+          .attr('transform', 'translate(' + [this.scale.x(this.extents[0][1]), 0] + ')')
+          .attr('dx', labelSize/2).attr('dy', labelSize/2)
+          .attr('text-anchor', 'start')
+          .attr('font-size', labelSize).style('fill', '#000')
+          .text(label);
+      }
     };
     return this;
   }
-  yAxis(pos = 'left') {
+  yAxis(label='y', pos = 'left') {
     let translateStr;
     if (pos === 'left') {
-      translateStr = () => `translate(${this.scale.x(this.extents[0][0])}, 0)`;
+      translateStr = () => [this.scale.x(this.extents[0][0]), 0];
       this.axis.y = d3.axisLeft();
     } else if (pos === 'right') {
-      translateStr = () => `translate(${this.scale.x(this.extents[0][1])}, 0)`;
+      translateStr = () => [this.scale.x(this.extents[0][1]), 0];
       this.axis.y = d3.axisRight();
     } else {
       // eslint-disable-next-line
@@ -262,8 +272,17 @@ export class Chart {
     this.drawHooks.yAxis = () => {
       this.axis.y.scale(this.scale.y);
       this.axisHandles.y = this.group.append('g')
-        .attr('transform', translateStr())
+        .attr('transform', 'translate(' + translateStr() + ')')
         .call(this.axis.y);
+      if (label){
+        const labelSize = 13;
+        this.axisHandles.y.append('text')
+          .attr('transform', 'translate(' + [0, this.scale.y(this.extents[1][1])] + ')')
+          .attr('dx', 0).attr('dy', -labelSize/2)
+          .attr('text-anchor', 'middle')
+          .attr('font-size', labelSize).style('fill', '#000')
+          .text(label);
+      }
     };
     return this;
   }
@@ -441,18 +460,21 @@ export class BoxArtist extends Artist{
       .attr('x1', xs[0])
       .attr('y1', mean)
       .attr('x2', xs[1])
-      .attr('y2', mean);
+      .attr('y2', mean)
+      .attr('stroke-width', 0.5);
     for (let i = 0; i < 2; i += 1) {
       box.append('line')
         .attr('x1', mid)
         .attr('y1', range1[i])
         .attr('x2', mid)
-        .attr('y2', range2[i]);
+        .attr('y2', range2[i])
+        .attr('stroke-width', 0.5);
       box.append('line')
         .attr('x1', xs[0])
         .attr('y1', range2[i])
         .attr('x2', xs[1])
-        .attr('y2', range2[i]);
+        .attr('y2', range2[i])
+        .attr('stroke-width', 0.5);
     }
     return box;
   }
