@@ -434,24 +434,19 @@
           const strength = clst.reduce((acc, val) => {return acc + d[val]} , 0);
           const s = this.graph.state_info.state_cluster_info[j];
           links[i][j] = {
-            source: {x: wordPos[0] + sent.nodeWidth, y: wordPos[1] + sent.nodeHeight/2},
-            target: {x: s.top_left[0] + this.middle_line_x - sentenceTranslate[0], y: s.top_left[1] + this.middle_line_y + s.height / 2 - sentenceTranslate[1]},
-            source_init: {x: wordPos[0] + sent.nodeWidth, y: wordPos[1] + sent.nodeHeight/2},
-            target_init: {x: s.top_left[0] + this.middle_line_x - sentenceTranslate[0], y: s.top_left[1] + this.middle_line_y + s.height / 2 - sentenceTranslate[1]},
+            source: {x: wordPos[0] + sent.nodeWidth + sentenceTranslate[0], y: wordPos[1] + sent.nodeHeight/2 + sentenceTranslate[1]},
+            source_init: {x: wordPos[0] + sent.nodeWidth + sentenceTranslate[0], y: wordPos[1] + sent.nodeHeight/2 + sentenceTranslate[1]},
+            target: {x: s.top_left[0] + this.middle_line_x, y: s.top_left[1] + this.middle_line_y + s.height / 2},
+            // source_init: {x: wordPos[0] + sent.nodeWidth, y: wordPos[1] + sent.nodeHeight/2},
+            // target_init: {x: s.top_left[0] + this.middle_line_x - sentenceTranslate[0], y: s.top_left[1] + this.middle_line_y + s.height / 2 - sentenceTranslate[1]},
             strength: strength,
           };
         });
       });
-      console.log(links);
-      const lsg = spg.append('g');
+      // console.log(links);
       links.forEach(function(ls) {
         const strength_extent = d3.extent(ls.map(l => l.strength));
-        console.log('strength extent ');
-        console.log(strength_extent);
         ls.forEach((l) => {
-          console.log(l.strength);
-          console.log(strength_extent[1] * self.sentenceWordThreshold);
-          console.log(strength_extent[0] * self.sentenceWordThreshold);
           if (l.strength > 0 && l.strength < strength_extent[1] * self.sentenceWordThreshold) {
             l.strength = 0;
           }
@@ -461,18 +456,17 @@
         });
       });
 
-      console.log('after normalize, links is ');
-      console.log(links);
-
       const strengthes = flatten(links).filter(d => {return d.strength > 0}).map(d => {return Math.abs(d.strength)});
       const scale = d3.scaleLinear()
         .domain(d3.extent(strengthes))
         .range(this.linkWidthRanage)
       
+      const lsg = sg.append('g');
       links.forEach(function(ls) {
         ls.forEach(function(l) {
-          l.lineStrokeWidthInit = l.strength === 0 ? 0 : scale(Math.abs(l.strength));
           l['el'] = lsg.append('path')
+                      .classed('active', false)
+                      .classed('link', true)
                       .attr('d', self.createLink(l))
                       .attr('stroke-width', l.strength === 0 ? 0 : scale(Math.abs(l.strength)))
                       .attr('stroke', l.strength > 0 ? self.linkColor[1] : self.linkColor[0])
@@ -480,10 +474,9 @@
                       .attr('fill', 'none')
         });
       });
-      
-      
 
-
+      self.graph.sentence_link = links;
+      
       function updateSentence(extent_) {
         console.log(`extent_ is ${extent_}`);
         const words = record.tokens.slice(...extent_);
@@ -495,16 +488,16 @@
         sent.transform('scale('  + scaleFactor + ')translate(' + [sentenceTranslate[0]/scaleFactor, -translateY + self.client_height/2/scaleFactor] + ')');
         links.forEach((ls) => {
           ls.forEach((l) => {
-            l.target.x = l.target_init.x / scaleFactor;
-            l.target.y = l.target_init.y / scaleFactor + translateY - self.client_height/2/scaleFactor;
-            l['el'].transition()
+            const actualY = (l.source_init.y - translateY) * scaleFactor + self.client_height / 2;
+            if (actualY < self.client_height && actualY > 0) {
+              l.source.x = (l.source_init.x - sentenceTranslate[0]) * scaleFactor + sentenceTranslate[0];
+              l.source.y = actualY;
+              l['el']
+              .attr('display', '')
+              .transition()
               .attr('d', self.createLink(l))
-              .attr('stroke-width', l.lineStrokeWidthInit / scaleFactor)
-            const actualY = (l.source.y - translateY) * scaleFactor + self.client_height / 2;
-            if (actualY < 0 || actualY > self.client_height) {
-              l['el'].attr('display', 'none');
             } else {
-              l['el'].attr('display', '');
+              l['el'].attr('display', 'none');
             }
           })
         })
@@ -788,6 +781,9 @@
           // const selectedIdx = clusterSelected.indexOf(1);
           d3.select(this).select('rect').classed('cluster-selected', true);
           graph.link_info[i].forEach((l) => {d3.select(l['el']).classed('active', true);})
+          graph.sentence_link.forEach((ls) => {
+            ls[i].el.classed('active', true);
+          });
         })
         .on('mouseleave', function(clst, i) {
           if (clusterSelected[i]) return;
@@ -797,6 +793,9 @@
           }
           d3.select(this).select('rect').classed('cluster-selected', false);
           graph.link_info[i].forEach((l) => {d3.select(l['el']).classed('active', false);})
+          graph.sentence_link.forEach((ls) => {
+            ls[i].el.classed('active', false);
+          });
         })
         .on('click', selectCluster)
         .attr('id', (clst, i) => (String(clst.length) + String(i)));
