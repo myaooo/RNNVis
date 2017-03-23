@@ -19,16 +19,21 @@ class SentenceLayout{
   constructor(selector, params = layoutParams){
     this.group = selector;
     this._size = [50, 600];
+    this._rectSize = [20, 50];
     this._sentence;
     this._coCluster;
     this.params = params;
     // this.handles = [];
     this._dataList = [];
     this.type = 'bar2';
+    this._extentChangeCallback = function(_) {console.log(_)};
     // each data in data list has 3 handles after drawing:
     // el: the group holding all elements of a word
     // els: 3 groups, each holds a pie chart
     // handles: 3 selector, each holds all paths in a pie chart
+  }
+  extentChangeCallback(func) {
+    return arguments.length ? (this._extentChangeCallback = func, this) : this._extentChangeCallback;
   }
   size(size){
     return arguments.length ? (this._size = size, this) : this._size;
@@ -79,7 +84,7 @@ class SentenceLayout{
     return arguments.length ? (this._words = words, this) : this._words;
   }
   // start to layout words
-  draw(type=this.type) {
+  draw(type=this.type, ) {
     this.type = type;
     // prepare
     this.prepareDraw(type);
@@ -105,8 +110,48 @@ class SentenceLayout{
           .attr('transform', 'translate(' + pos + ')');
       });
     }
+    // const rectGroup = this.group.append('g');
+    // this.drawWordRect(rectGroup, this._dataList, this._rectSize, this.extentChangeCallback())
+    //   .attr('transform', 'translate(-50, 50)');
+    
     return this;
   }
+
+  drawWordRect(g, data, rectSize, func) {
+    data.forEach((d, i) => {
+      g.append('text')
+        .text(d.word)
+        .style('text-anchor', 'middle')
+        .attr('transform', 'rotate(90)translate(' + [rectSize[1] * i + rectSize[1] / 2, -rectSize[0]/4] + ')');
+      
+      g.append('rect')
+      .attr('x', 0)
+      .attr('y', i * rectSize[1])
+      .attr('width', rectSize[0])
+      .attr('height', rectSize[1])
+      .attr('fill', 'lightgray')
+      .attr('stroke-width', 2)
+      .attr('stroke', 'blue')
+      .attr('opacity', 0.2);
+    });
+    g.append('g').call(
+      d3.brushY()
+        .extent([[0, 0], [rectSize[0], rectSize[1] * data.length]])
+        .on('end', function() {
+          if (!d3.event.sourceEvent) return;
+          if (!d3.event.selection) return;
+          let extent = d3.event.selection;
+          extent[0] = Math.round(extent[0] / rectSize[1]) * rectSize[1];
+          extent[1] = Math.round(extent[1] / rectSize[1]) * rectSize[1];
+          d3.select(this).transition().call(d3.event.target.move, extent);
+          func([Math.round(extent[0] / rectSize[1]), Math.round(extent[1] / rectSize[1])])
+          // console.log(d3.event.selection);
+        })
+    );
+    
+    return g;
+  }
+
   prepareDraw(type = this.type) {
     if (this._dataList.length !== this._sentence.length || this._dataList[0].data[0].current.length != this._coCluster.labels.length)
       this._dataList = this.preprocess(this._sentence, this._coCluster, this._words);
@@ -373,7 +418,6 @@ class SentenceLayout{
       .attr('fill-opacity', 0.6);
     return el;
   }
-
   // draw one word
   drawOneWordPie(el, data, i) {
     const radius = this.radius;
