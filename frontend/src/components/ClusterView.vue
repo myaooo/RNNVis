@@ -52,11 +52,13 @@
 </template>
 
 <script>
-  import * as d3 from 'd3'
-  import { bus, SELECT_MODEL, SELECT_STATE, CHANGE_LAYOUT, SELECT_WORD, EVALUATE_SENTENCE} from '../event-bus'
+  import * as d3 from 'd3';
+  import { bus, SELECT_MODEL, SELECT_STATE, CHANGE_LAYOUT, SELECT_WORD, EVALUATE_SENTENCE} from '../event-bus';
   import { WordCloud } from '../layout/cloud.js';
   import { sentence } from '../layout/sentence.js';
 
+  const colorHex = ['#a6cee3','#1f78b4','#b2df8a','#33a02c','#fb9a99','#e31a1c','#fdbf6f','#ff7f00','#cab2d6','#6a3d9a','#ffff99','#b15928'];
+  const colorScheme = (i) => colorHex[i];
 
   class LayoutParamsConstructor {
     constructor(){
@@ -79,11 +81,12 @@
       this.wordSize2StrengthRatio = 3;
       this.middleLineX = 300;
       this.middleLineY = 100;
+      this.posColor = colorScheme;
     }
 
     computeParams (clientHeight, clusterNum, clusterInterval2HeightRatio) {
       this.wordCloudChordLength = clientHeight * this.wordCloudChordLength2ClientHeightRatio;
-      this.clusterHeight = (this.wordCloudChordLength / this.wordCloudChord2stateClusterHeightRatio) / 
+      this.clusterHeight = (this.wordCloudChordLength / this.wordCloudChord2stateClusterHeightRatio) /
         (clusterNum + clusterNum * clusterInterval2HeightRatio - clusterInterval2HeightRatio);
       this.clusterInterval = this.clusterHeight * clusterInterval2HeightRatio;
       this.packNum = ~~(this.clusterHeight / (this.unitHeight + this.unitMargin));
@@ -102,6 +105,28 @@
   // layoutParams.clusterHeight = layoutParams.unitHeight*layoutParams.packNum + layoutParams.unitMargin * (layoutParams.packNum + 1);
   // layoutParams.clusterWidth = layoutParams.clusterHeight / (layoutParams.packNum);
 
+  const pos2tag = {
+    "VERB": 0,
+    "NOUN": 1,
+    "PRON": 2,
+    "ADJ" : 3,
+    "ADV" : 4,
+    "ADP" : 5,
+    "CONJ": 6,
+    "DET" : 7,
+    "NUM" : 8,
+    "PRT" : 9,
+    "X" : 10,
+    "." : 11,
+  };
+
+  const labelParams = {
+    colorScheme: colorScheme,
+    radius: 4,
+    fontSize: 11,
+    interval: 8
+  }
+
   export default {
     name: 'ClusterView',
     data() {
@@ -115,6 +140,7 @@
         shared: bus.state,
         // width: 800,
         changingFlag: false,
+        posLabel: null,
       }
     },
     props: {
@@ -156,6 +182,9 @@
       selectedUnits: function() {
         return this.compare ? this.shared.selectedUnits2 : this.shared.selectedUnits;
       },
+      renderPos: function() {
+        return this.compare ? this.shared.renderPos2 : this.shared.renderPos;
+      }
     },
     watch: {
       selectedState: function (state) {
@@ -191,10 +220,37 @@
             this.painter.render_state(wordsStatistics);
           });
       },
+      renderPos: function(renderPos) {
+        const data = {};
+        if (renderPos) {
+          bus.loadPosStatistics(this.selectedModel, undefined, (response) => {
+            console.log(response);
+            if (response.status === 200) {
+              const posStatistics = response.data;
+              posStatistics.forEach((word, i) => {
+                const posRatio = Object.keys(word.ratio).map((key, i) => {
+                  return {index: i, pos: key, value: word.ratio[key]};
+                });
+                posRatio.sort((a, b) => b.value - a.value);
+                data[word.word] = pos2tag[posRatio[0].pos];
+              });
+              this.posLabel.draw(pos2tag).transform('translate(' + [this.width-40, 10] + ')');
+            }
+            this.painter.renderWord(data);
+          });
+        } else {
+          this.painter.renderWord(data);
+          this.posLabel.clean();
+        }
+      },
       width: function (newWidth, oldWidth) {
         console.log("width ${newWidth}");
         if (this.painter && typeof newWidth === 'number') {
           this.painter.translateX(newWidth/3 - this.painter.middle_line_x);
+        }
+        if (this.renderPos) {
+          this.posLabel.clean();
+          this.posLabel.draw(pos2tag).transform('translate(' + [this.width-40, 10] + ')');
         }
       },
     },
@@ -225,6 +281,7 @@
       },
       init() {
         this.painter = new Painter(`#${this.svgId}`, this.params, this.compare);
+        this.posLabel = new PosLabel(d3.select(`#${this.svgId}`), labelParams, this.compare);
       },
       reload(model, state, layer, clusterNum) {
         const params = {
@@ -268,6 +325,45 @@
       //   console.log("cluster > Changing Layout...");
       //   // this.clusterNum = layout.clusterNum;
       // });
+    }
+  }
+
+  class PosLabel {
+    constructor(selector, params, compare=False) {
+      this.g = selector.append('g');
+      this.params = params;
+      this.compare = compare;
+    }
+    draw(tags) {
+      const params = this.params;
+      const color = params.colorScheme;
+      const fontSize = params.fontSize;
+      const radius = params.radius;
+      const interval = params.interval;
+      const labels = [];
+      Object.keys(tags).forEach((key) => { labels[tags[key]] = key; });
+      const gs = this.g.selectAll('g')
+        .data(labels).enter()
+        .append('g');
+      gs.append('circle')
+        .attr('cx', 0).attr('cy', (d, i) => i*(interval + 2*radius))
+        .attr('r', radius)
+        .style('fill', (d, i) => color(i));
+      gs.append('text')
+        .attr('x', radius*2).attr('y', (d, i) => i*(interval + 2*radius) + fontSize/2)
+        .attr('text-anchor', 'start').style('font-size', fontSize)
+        .text((d)=> d);
+      return this;
+      // pos = this.g.selectAll
+    }
+    transform(transStr){
+      if (this.compare)
+        transStr = transStr + 'scale(-1, 1)';
+      this.g.attr('transform', transStr);
+      return this;
+    }
+    clean(){
+      this.g.selectAll('g').remove();
     }
   }
 
@@ -499,6 +595,7 @@
 
     render_state(data) {
       if (data.length) {
+        // console.log(this.graph.word_info);
         this.graph.state_info.state_info.forEach((s, i) => {
           d3.select(s['el'])
             .transition()
@@ -514,6 +611,17 @@
             .attr('fill', this.unitNormalColor)
         });
       }
+    }
+
+    renderWord(data = {}) {
+      // console.log(data);
+      this.graph.word_info.forEach((wordCluster, i) => {
+        wordCluster.words_data.forEach((word, j) => {
+          word.type = data[word.text];
+        })
+      });
+      // console.log(this.graph.word_info);
+      this.draw_word(this.wg, this.graph);
     }
 
     redraw_word_link(selected_state_cluster_index = -1) {
@@ -681,6 +789,7 @@
             })
           let myWordCloud = new WordCloud(tmp_g, wclst.width/2, wclst.height/2, 'rect', this.compare)
             .transform( 'translate(' + [wclst.top_left[0] + wclst.width/2, wclst.top_left[1] + wclst.height/2] + ')')
+            .color(this.params.posColor);
           myWordCloud.update(word_info[i].words_data);
 
           // wclst['el'] = tmp_g.node();
@@ -705,7 +814,7 @@
     erase_word () {
       this.graph.word_info.forEach((w) => {
         w['wordCloud'].destroy();
-          
+
       });
     }
 

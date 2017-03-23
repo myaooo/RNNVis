@@ -36,6 +36,8 @@ const state = {
   selectedWords2: [],
   compare: false,
   color: d3.scaleOrdinal(d3.schemeCategory10),
+  renderPos: false,
+  renderPos2:false,
 };
 
 const bus = new Vue({
@@ -181,6 +183,12 @@ const bus = new Vue({
       }
       console.log(`bus > unable to get statistics for ${modelName}, ${stateName}, ${layer}`);
       return undefined;
+    },
+    loadPosStatistics(modelName = state.selectedModel, top_k = 300, callback) {
+      if (this.state.modelConfigs.hasOwnProperty(modelName)) {
+        return dataService.getPosStatistics(modelName, top_k, callback);
+      }
+      return Promise.reject(`No model with name ${modelName} available!`);
     }
   },
   created() {

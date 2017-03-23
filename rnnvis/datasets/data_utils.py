@@ -353,6 +353,26 @@ def load_data_as_ids(data_paths, word_to_id_path=None):
     return data_list, word_to_id, id_to_word
 
 
+def file_to_tags(filename):
+    data = read_words(filename)
+    for i, word in enumerate(data):
+        if word == '<eos>':
+            data[i] = '.'
+        if word == 'N':
+            data[i] = '1'
+    import nltk
+    tokens_tags = nltk.pos_tag(data, tagset='universal')
+    _, tags = zip(*tokens_tags)
+    return tags
+
+
+def load_data_as_pos_tags(data_paths):
+    pos_tags = []
+    for path in data_paths:
+        pos_tags.append(file_to_tags(path))
+    return pos_tags
+
+
 def get_lm_data_producer(data, batch_size, num_steps, transpose=False):
     # train_data = valid_data
     producer = InputProducer(data, batch_size)

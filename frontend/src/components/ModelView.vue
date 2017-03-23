@@ -3,7 +3,7 @@
     <h4 class="normal">Models</h4>
     <hr>
     <div class="content model-view">
-      <model-config> </model-config>
+      <model-config :compare="false"> </model-config>
       <hr v-if="compare">
       <model-config v-if="compare" :compare="true" :toggle="toggleCompare"> </model-config>
       <hr>

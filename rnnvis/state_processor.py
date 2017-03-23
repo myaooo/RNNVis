@@ -5,6 +5,7 @@ For example usage, see the main function below
 
 import pickle
 from functools import lru_cache
+from collections import Counter
 
 import numpy as np
 from scipy.spatial.distance import pdist, squareform
@@ -247,6 +248,80 @@ def get_state_statistics(data_name, model_name, state_name, diff=True, layer=-1,
     return stats
 
 
+def get_co_cluster(data_name, model_name, state_name, n_clusters, layer=-1, top_k=100,
+                   mode='positive', seed=0, method='cocluster'):
+    """
+
+    :param data_name:
+    :param model_name:
+    :param state_name:
+    :param n_clusters:
+    :param layer:
+    :param top_k:
+    :param mode: 'positive' or 'negative' or 'abs'
+    :param seed: random seed
+    :param method: 'cocluster' or 'bicluster'
+    :return:
+    """
+    strength_list = get_empirical_strength(data_name, model_name, state_name, layer, top_k)
+    strength_list = [strength_mat.reshape(-1) for strength_mat in strength_list]
+    word_ids = []
+    raw_data = []
+    for i, strength_vec in enumerate(strength_list):
+        if np.max(np.abs(strength_vec)) > 1e-8:
+            word_ids.append(i)
+            raw_data.append(strength_vec)
+
+    raw_data = np.array(raw_data)
+    if mode == 'positive':
+        data = np.zeros(raw_data.shape, dtype=np.float32)
+        data[raw_data >= 0] = raw_data[raw_data >= 0]
+    elif mode == 'negative':
+        data = np.zeros(raw_data.shape, dtype=np.float32)
+        data[raw_data <= 0] = np.abs(raw_data[raw_data <= 0])
+    elif mode == 'abs':
+        data = np.abs(raw_data)
+    elif mode == 'raw':
+        data = raw_data
+    else:
+        raise ValueError("Unkown mode '{:s}'".format(mode))
+    # print(data)
+    n_jobs = 1  # parallel num
+    random_state = seed
+    if method == 'cocluster':
+        row_labels, col_labels = spectral_co_cluster(data, n_clusters, n_jobs, random_state)
+    elif method == 'bicluster':
+        row_labels, col_labels = spectral_bi_cluster(data, n_clusters, n_jobs, random_state)
+    else:
+        raise ValueError('Unknown method type {:s}, should be cocluster or bicluster!'.format(method))
+    return raw_data, row_labels, col_labels, word_ids
+
+
+@lru_cache(maxsize=32)
+def get_pos_statistics(data_name, model_name, top_k=500):
+    top = 100 if top_k <= 100 else 500 if top_k <= 500 else 1000
+
+    tmp_file = '-'.join([data_name, model_name, 'pos_ratio', str(top)]) + '.pkl'
+    tmp_file = get_path(_tmp_dir, tmp_file)
+
+    def cal_fn():
+        word_ids, tags = load_words_and_state(data_name, model_name, 'pos', diff=False)
+        ids_tags = sort_by_id(word_ids, tags)
+        tags_counters = []
+        for i, tags in enumerate(ids_tags):
+            if tags is None:
+                continue
+            counter = Counter(tags)
+            total = len(tags)
+            for key, count in counter.items():
+                counter[key] = count / total
+            tags_counters.append({'id': i, 'ratio': counter})
+        return tags_counters
+
+    return maybe_calculate(tmp_file, cal_fn)[:top_k]
+
+
+
 ##############
 # Functions that used in backends
 ##############
@@ -417,55 +492,6 @@ def tsne_project(data, perplexity, init_dim=50, lr=50, max_iter=1000):
     _tsne_solver.set_inputs(data, init_dim)
     _tsne_solver.run(max_iter)
     return _tsne_solver.get_best_solution()
-
-
-def get_co_cluster(data_name, model_name, state_name, n_clusters, layer=-1, top_k=100,
-                   mode='positive', seed=0, method='cocluster'):
-    """
-
-    :param data_name:
-    :param model_name:
-    :param state_name:
-    :param n_clusters:
-    :param layer:
-    :param top_k:
-    :param mode: 'positive' or 'negative' or 'abs'
-    :param seed: random seed
-    :param method: 'cocluster' or 'bicluster'
-    :return:
-    """
-    strength_list = get_empirical_strength(data_name, model_name, state_name, layer, top_k)
-    strength_list = [strength_mat.reshape(-1) for strength_mat in strength_list]
-    word_ids = []
-    raw_data = []
-    for i, strength_vec in enumerate(strength_list):
-        if np.max(np.abs(strength_vec)) > 1e-8:
-            word_ids.append(i)
-            raw_data.append(strength_vec)
-
-    raw_data = np.array(raw_data)
-    if mode == 'positive':
-        data = np.zeros(raw_data.shape, dtype=np.float32)
-        data[raw_data >= 0] = raw_data[raw_data >= 0]
-    elif mode == 'negative':
-        data = np.zeros(raw_data.shape, dtype=np.float32)
-        data[raw_data <= 0] = np.abs(raw_data[raw_data <= 0])
-    elif mode == 'abs':
-        data = np.abs(raw_data)
-    elif mode == 'raw':
-        data = raw_data
-    else:
-        raise ValueError("Unkown mode '{:s}'".format(mode))
-    # print(data)
-    n_jobs = 1  # parallel num
-    random_state = seed
-    if method == 'cocluster':
-        row_labels, col_labels = spectral_co_cluster(data, n_clusters, n_jobs, random_state)
-    elif method == 'bicluster':
-        row_labels, col_labels = spectral_bi_cluster(data, n_clusters, n_jobs, random_state)
-    else:
-        raise ValueError('Unknown method type {:s}, should be cocluster or bicluster!'.format(method))
-    return raw_data, row_labels, col_labels, word_ids
 
 
 def spectral_co_cluster(data, n_clusters, para_jobs=1, random_state=None):

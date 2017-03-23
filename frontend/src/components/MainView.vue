@@ -2,8 +2,8 @@
   <div>
     <h4 class="normal">Interpreter</h4>
     <hr>
-    <cluster-view v-if="compare" :width="width/2-5" :height="height" :compare='true'> </cluster-view>
-    <cluster-view :width="compare ? width/2-5 : width" :height="height" :compare='false'> </cluster-view>
+    <cluster-view v-if="compare" :width="width/2-10" :height="height" :compare='true'> </cluster-view>
+    <cluster-view :width="compare ? width/2-10 : width" :height="height" :compare='false'> </cluster-view>
 
     <!--<test-view> </test-view>-->
 

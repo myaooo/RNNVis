@@ -16,7 +16,7 @@ const bgLayout = {
 
 const wordLayout = {
   'font': 'Arial',
-  'fontSize': [6, 17],
+  'fontSize': [7, 14],
   'fontWeight': [200, 300, 400, 500, 600],
   'padding': 0,
   'opacity': 0.7,
@@ -120,6 +120,7 @@ export class WordCloud{
   }
   color(colorScheme) {
     this.colorScheme = colorScheme;
+    return this;
   }
   draw(size = [this.width/2, this.height/2], data = this.data) {
     // console.log(this.cloud);
@@ -151,11 +152,16 @@ export class WordCloud{
     const text = this.cloud.enter()
       .append('text')
       .style('font-family', wordLayout.font)
-      .style('fill', (d, i) => { return d.hasOwnProperty('type') ? self.colorScheme(d.type) : wordLayout.baseColor; })
       .attr('text-anchor', 'middle')
-      // .attr('font-size', 1);
+      .style('fill', (d, i) => { return d.type ? self.colorScheme(d.type) : wordLayout.baseColor; });
     text
       .text(function (d) { return d.text; });
+
+    this.cloud
+      .style('fill', (d, i) => { return d.type ? self.colorScheme(d.type) : wordLayout.baseColor; });
+
+      // .attr('font-size', 1);
+
     text
       .attr('transform', function (d) {
         return 'translate(' + [d.x, d.y] + ')';
