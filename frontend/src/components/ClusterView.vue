@@ -80,7 +80,8 @@
       this.linkWidth2StrengthRatio = 0.01;
       this.wordSize2StrengthRatio = 3;
       this.middleLineX = 300;
-      this.middleLineY = 100;
+      this.middleLineY = 50;
+      this.sentenceWordThreshold = 0.2;
       this.posColor = colorScheme;
     }
 
@@ -400,12 +401,19 @@
 
     drawSentence(record, sentenceRecord) {
       const sg = this.svg.append('g');
-      const translationX = 200;
-      const sentenceTranslate = [30, 0];
+      const spg = sg.append('g');
+      const translationX = 300;
+      const sentenceTranslate = [100, 0];
+      const self = this;
       this.translateX(translationX);
+
       console.log(record);
+
+      const rectGroup = sg.append('g');
+      this.drawRect(rectGroup, record.tokens.length, updateSentence);
+
       // TODO change -1 to something else
-      const a = sentence(sg)
+      const sent = sentence(spg)
         .size([translationX, this.client_height])
         .sentence(sentenceRecord)
         .coCluster(this.graph.coCluster)
@@ -414,31 +422,77 @@
         .draw();
 
       const links = [];
-      console.log(a.dataList);
-      a.dataList.forEach((d, i) => {
-        let wordPos = a.getWordPos(i);
-        console.log('index is ' + i);
-        console.log('wordPos is ' + wordPos);
-        console.log('node width is ' + a.nodeWidth + ', node height is ' + a.nodeHeight);
+      console.log(sent.dataList);
+      sent.dataList.forEach((d, i) => {
+        const wordPos = sent.getWordPos(i);
         this.graph.state_info.state_cluster_info.forEach((s, j) => {
+
           let link = {
-            source: {x: wordPos[0] + a.nodeWidth, y: wordPos[1] + a.nodeHeight/2},
-            target: {x: s.top_left[0] + this.middle_line_x, y: s.top_left[1] + this.middle_line_y + s.height / 2},
+            source: {x: wordPos[0] + sent.nodeWidth, y: wordPos[1] + sent.nodeHeight/2},
+            target: {x: s.top_left[0] + this.middle_line_x - sentenceTranslate[0], y: s.top_left[1] + this.middle_line_y + s.height / 2 - sentenceTranslate[1]},
           };
           links.push(link);
         });
       });
       console.log(links);
       console.log('there are ' + links.length + ' links');
-      sg.selectAll('path')
-        .data(links)
-        .enter()
+      
+      sg.append('g')
+        .selectAll('.sentenceLink')
+        .data(links).enter()
         .append('path')
-        .attr('d', (l) => {console.log(l); return this.createLink(l)})
+        .attr('d', l => this.createLink(l))
+        .attr('stroke', 'blue')
+        .attr('stroke-width', 2)
+        .attr('opacity', 0.2)
         .attr('fill', 'none')
+
+      function updateSentence(extent_) {
+        console.log(`extent_ is ${extent_}`);
+        const words = record.tokens.slice(...extent_);
+        console.log(`words is ${words}`);
+        let scaleFactor = record.tokens.length / words.length;
+        scaleFactor = Math.min(scaleFactor, 2);
+        const newHeight = scaleFactor * self.client_height;
+        let translateY = sent.getWordPos(~~((extent_[0] + extent_[1])/2))[1];
+        sent.transform('scale('  + scaleFactor + ')translate(' + [sentenceTranslate[0]/scaleFactor, -translateY + self.client_height/2/scaleFactor] + ')');
+        const links = [];
+
+      }
+    }
+
+    drawRect(g, dataLength, func) {
+      const self = this;
+      const rectSize = [20, 50];
+      const minBrushLength = 3;
+      g.selectAll('.wordRect')
+        .data(d3.range(dataLength)).enter()
+        .append('rect')
+        .attr('x', 0)
+        .attr('y', d => d * rectSize[1])
+        .attr('width', rectSize[0])
+        .attr('height', rectSize[1])
+        .attr('fill', 'lightgray')
         .attr('stroke-width', 2)
         .attr('stroke', 'blue')
-        .attr('opacity', 0.2)
+        .attr('opacity', 0.2);
+      let brush = d3.brushY()
+        .extent([[0, 0], [rectSize[0], rectSize[1] * dataLength]])
+        .on('end', function() {
+          if (!d3.event.sourceEvent) return;
+          if (!d3.event.selection) return;
+          let extent = d3.event.selection;
+          let lower = Math.round(extent[0] / rectSize[1]);
+          let upper = Math.round(extent[1] / rectSize[1]);
+          extent[0] = lower * rectSize[1];
+          extent[1] = upper * rectSize[1];
+          d3.select(this).transition().call(d3.event.target.move, extent);
+          console.log(d3.event.selection);
+          func([lower, upper]);
+        });
+      g.append('g')
+        .call(brush)
+        .call(brush.move, [0, rectSize[1] * dataLength])
     }
 
     calculate_state_info(coCluster) {
@@ -725,6 +779,7 @@
           if (d3.select(this.parentNode.parentNode).property('selected') === 'true') {
             d3.select(this).attr('fill-opacity', 1)
             console.log(d + 'is selected');
+            bus.$emit(SELECT_UNIT, d);
             // fisheye in
           }
         })
@@ -732,6 +787,7 @@
           if (d3.select(this.parentNode.parentNode).property('selected') === 'true') {
             d3.select(this).attr('fill-opacity', 0.5)
             console.log(d + 'is deselected');
+            bus.$emit(DESELECT_UNIT, d);
             // fisheye out
           }
         })
@@ -747,7 +803,6 @@
       tmp_units.each(function(d) {
         graph.state_info.state_info[d]['el'] = this;
       })
-
 
       // add
       hiddenClusters.exit()
@@ -884,11 +939,11 @@
 
       let maxClusterWidth = Math.ceil(maxClusterSize / this.params.packNum) * (this.params.unitWidth + this.params.unitMargin);
       while (maxClusterWidth > 500) {
-        clusterInterval2HeightRatio -= 0.01;
+        clusterInterval2HeightRatio -= 0.05;
         maxClusterSize = coCluster.colClusters.reduce((a, b) => Math.max(Array.isArray(a) ? a.length : a, b.length));
         this.params.computeParams(this.client_height, coCluster.labels.length, clusterInterval2HeightRatio);
         maxClusterWidth = Math.ceil(maxClusterSize / this.params.packNum) * (this.params.unitWidth + this.params.unitMargin);
-        console.log(maxClusterWidth);
+        // console.log(maxClusterWidth);
       }
       this.dx = this.params.wordCloudChord2ClusterDistance - (this.params.wordCloudChord2CenterDistance - maxClusterWidth / 2);
       this.dy = this.params.wordCloudChordLength / 2;
@@ -921,10 +976,12 @@
       this.translateX(0);
     }
 
+    
+
     translateX(x) {
       this.middle_line_x += x;
-      this.hg.attr('transform', 'translate(' + [this.middle_line_x, 50] + ')');
-      this.wg.attr('transform', 'translate(' + [this.middle_line_x + this.dx, 50 + this.dy] + ')');
+      this.hg.attr('transform', 'translate(' + [this.middle_line_x, this.middle_line_y] + ')');
+      this.wg.attr('transform', 'translate(' + [this.middle_line_x + this.dx, this.middle_line_y + this.dy] + ')');
     }
 
     adjustdx(newdx) {
