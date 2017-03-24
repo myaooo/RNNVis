@@ -57,7 +57,7 @@
         <el-radio-button v-for="state in states" :label="state"></el-radio-button>
       </el-radio-group>
     </div>-->
-    <svg :id='svgId' :width='width' :height='height' :transform='compare ? "scale(-1,1)" : ""'> </svg>
+    <svg :id='svgId' :width='width' :height='height'> </svg>
   <!--</div>-->
 </template>
 
@@ -110,16 +110,16 @@
       return this.unitHeight * this.clusterMarginRatio;
     }
     get maxClusterWidth() {
-      const width = Math.max(this.width, 500);
+      // const width = Math.max(this.width, 500);
       return Math.min(this.width/3, 400);
-    }
+    }ß
     get middleLineX() {
-      const width = Math.max(this.width, 500);
-      return width/3 + this.middleLineOffset;
+      // const width = Math.max(this.width, 500);
+      return this.width/3 + this.middleLineOffset;
     }
     computeUnitParams() {
       const unitHeight = this.clusterHeight / (this.packNum + (this.packNum - 1 ) * this.unitMarginRatio + 2 * this.clusterMarginRatio );
-      this.unitHeight = unitHeight;
+      // this.unitHeight = unitHeight;
     }
     computeParams (clientHeight, clusterNum, clusterInterval2HeightRatio) {
       this.wordCloudChordLength = clientHeight * this.wordCloudChordLength2ClientHeightRatio;
@@ -130,17 +130,8 @@
       // this.unitMargin = this.clusterHeight / this.packNum - this.unitHeight;
       this.wordCloudChord2CenterDistance = this.wordCloudChordLength / 2 / Math.tan(this.wordCloudArcDegree / 2 * Math.PI / 180);
     }
-    // clusterRectStyle: {
-    //   'fill': '#eee',
-    //   'fill-opacity': 0.5,
-    //   'stroke': '#555',
-    //   'stroke-width': 0.5,
-    //   'stroke-opacity': 0.5,
-    // },
+
   }
-  // const layoutParams = new LayoutParamsConstructor();
-  // layoutParams.clusterHeight = layoutParams.unitHeight*layoutParams.packNum + layoutParams.unitMargin * (layoutParams.packNum + 1);
-  // layoutParams.clusterWidth = layoutParams.clusterHeight / (layoutParams.packNum);
 
   const pos2tag = {
     "VERB": 0,
@@ -178,6 +169,7 @@
         // width: 800,
         changingFlag: false,
         posLabel: null,
+        rootGroup: null,
       }
     },
     props: {
@@ -321,8 +313,11 @@
       },
       init() {
         this.params.updateWidth(this.width);
-        this.painter = new Painter(`#${this.svgId}`, this.params, this.compare);
-        this.posLabel = new PosLabel(d3.select(`#${this.svgId}`), labelParams, this.compare);
+        this.rootGroup = d3.select(`#${this.svgId}`).append('g');
+        this.painter = new Painter(this.rootGroup, this.params, this.compare);
+      // this.client_width = this.svg.node().getBoundingClientRect().width;
+        this.painter.size([this.width, this.height]);
+        this.posLabel = new PosLabel(this.rootGroup.append('g'), labelParams, this.compare);
       },
       reload(model, state, layer, clusterNum) {
         const params = {
@@ -334,6 +329,7 @@
           .then(() => {
             this.clusterData = bus.getCoCluster(model, state, clusterNum, params);
             console.log(this.clusterData.colClusters.length);
+            this.rootGroup.attr('transform', this.compare ? 'scale(-1,1)translate(' + [-this.width, 0] + ')' : '')
             this.painter.destroy();
             this.painter.draw(this.clusterData);
           });
@@ -360,7 +356,7 @@
 
   class PosLabel {
     constructor(selector, params, compare=False) {
-      this.g = selector.append('g');
+      this.g = selector;
       this.params = params;
       this.compare = compare;
     }
@@ -399,14 +395,17 @@
 
   class Painter {
     constructor(selector, params, compare=false) {
-      this.svg = d3.select(selector);
+      this.svg = selector;
+      // if (compare) {
+      //   this.svg.attr('transform', 'scale(-1, 1)');
+      // }
       this.params = params;
       this.hwg = this.svg.append('g');
       this.hg = this.hwg.append('g');
       this.wg = this.hwg.append('g');
 
-      this.client_width = this.svg.node().getBoundingClientRect().width;
-      this.client_height = this.svg.node().getBoundingClientRect().height;
+      // this.client_width = this.svg.node().getBoundingClientRect().width;
+      // this.client_height = this.svg.node().getBoundingClientRect().height;
       // this.middle_line_x = params.middleLineX;
       this.middle_line_y = params.middleLineY;
       this.triangle_height = 5;
@@ -426,6 +425,13 @@
       this.linkColor = ['#09adff', '#ff5b09'];
       this.compare = compare;
 
+    }
+    transform(trans) {
+      this.svg.attr('transform', trans);
+    }
+    size(size) {
+      this.client_width = size[0];
+      this.client_height = size[1];
     }
 
     get middle_line_x() {
@@ -931,7 +937,7 @@
           d3.select(l['el'])
           .transition()
           .duration(500)
-          .attr('opacity', 0)
+          .style('opacity', 0)
           .remove()
         });
       });
@@ -949,8 +955,8 @@
         d3.select(s['el'])
           .transition()
           .duration(500)
-          .attr('fill-opacity', 1e-6)
-          .attr('opacity', 1e-6)
+          .style('fill-opacity', 1e-6)
+          .style('opacity', 1e-6)
           .remove()
       });
     }
@@ -1070,6 +1076,13 @@
       this.erase_state();
       this.erase_link();
       this.erase_word();
+      this.hwg.transition()
+        .duration(300)
+        .style('opacity', 0)
+        .remove();
+      this.hwg = this.svg.append('g');
+      this.hg = this.hwg.append('g');
+      this.wg = this.hwg.append('g');
       // console.log(`destroy, cluster n: ${this.graph.coCluster.colClusters.length}`);
 
       // self.graph.state_info.forEach(())
