@@ -277,7 +277,8 @@ class SentenceLayout{
     const unitWidth = this.nodeWidth / data.data.length;
 
     el.on('mouseover', function() {self._mouseoverCallback(t, true)})
-      .on('mouseleave', function() {self._mouseoverCallback(t, false)});
+      .on('mouseleave', function() {self._mouseoverCallback(t, false)})
+      .on('click', function() {self._mouseoverCallback(t, false, true)});
     // bounding box
     const bg = el.append('rect')
       .attr('x', 0)
@@ -286,7 +287,8 @@ class SentenceLayout{
       .attr('height', height)
       .attr('stroke', 'gray')
       .attr('stroke-width', 1)
-      .attr('fill', 'none')
+      .attr('fill', 'white')
+      .attr('fill-opacity', 0);
 
     const gSelector = el.selectAll('g')
       .data(data.data);

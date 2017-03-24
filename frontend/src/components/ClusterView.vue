@@ -90,6 +90,10 @@
       this.strengthThresholdPercent = 0.2;
       this.linkWidth2StrengthRatio = 0.01;
       this.wordSize2StrengthRatio = 3;
+      this.dxShrinkFactor = 0.05;
+      this.spacePerSentence = 2/15;
+      this.sentenceNodeWidth = 100;
+      this.sentenceInitTranslate = [50, 10]
       // this.middleLineX = 300;
       this.middleLineY = 50;
       this.middleLineTranslationXAfterSentence = 200;
@@ -125,7 +129,7 @@
     }ß
     get middleLineX() {
       // const width = Math.max(this.width, 500);
-      return this.width/3 + this.middleLineOffset;
+      return this.width * 0.3 + this.middleLineOffset;
     }
     computeUnitParams() {
       const unitHeight = this.clusterHeight / (this.packNum + (this.packNum - 1 ) * this.unitMarginRatio + 2 * this.clusterMarginRatio );
@@ -346,20 +350,17 @@
       },
     },
     mounted() {
-      // this.width = this.$el.clientWidth;
       this.init();
 
       bus.$on(EVALUATE_SENTENCE, (value, compare) => {
-        // const p1 = bus.loadCoCluster(this.selectedModel, this.selectedState, this.clusterNum, {top_k: 300, mode: 'raw'});
         if (compare !== this.compare)
           return;
         const record = bus.evalSentence(value, this.selectedModel);
         const p2 = record.evaluate();
         Promise.all([p2]).then((values) => {
-          // const coCluster = bus.getCoCluster(this.selectedModel, this.selectedState, this.clusterNum, {top_k: 300, mode: 'raw'});
           // TODO change -1 to something else
           const sentenceRecord = record.getRecords(this.selectedState, -1);
-          this.painter.drawSentence(value, record, sentenceRecord);
+          this.painter.addSentence(value, record, sentenceRecord);
         })
       });
 
@@ -418,16 +419,17 @@
       this.hg = this.topg.append('g');
       this.wg = this.topg.append('g');
 
-      this.client_width = this.svg.node().getBoundingClientRect().width;
-      this.client_height = this.svg.node().getBoundingClientRect().height;
+      // this.client_width = this.svg.node().getBoundingClientRect().width;
+      // this.client_height = this.svg.node().getBoundingClientRect().height;
       // this.middle_line_x = params.middleLineX;
-      this.middle_line_y = params.middleLineY;
+      // this.middle_line_y = params.middleLineY;
       this.hwg = this.svg.append('g');
       this.hg = this.hwg.append('g');
       this.wg = this.hwg.append('g');
       this.sentenceWordThreshold = params.sentenceWordThreshold;
 
       this.dx = 0, this.dy = 0;
+      this.dxOffset = 0;
       this.graph = null;
       this.clusterSelected = [];
 
@@ -440,9 +442,14 @@
       this.linkWidthRanage = [1, 5];
       this.linkColor = ['#09adff', '#ff5b09'];
       this.compare = compare;
-      this.translationStack = [];
+      this.stateTranslateHis = [];
+      this.sentenceTranslateHis = [this.params.sentenceInitTranslate[0],];
       this.sentences = [];
 
+    }
+
+    get stateClusterWordCloudDX () {
+      return this.client_width * (0.2 - this.params.dxShrinkFactor * this.sentences.length);
     }
     transform(trans) {
       this.svg.attr('transform', trans);
@@ -460,41 +467,182 @@
       return this.params.middleLineY;
     }
 
-    addSentence(sentence, record, sentenceRecord) {
-      const self = this;
-      this.sentences.push(sentence);
-      const newTopGroup = this.svg.append('g');
-      newTopGroup.select(function() {
-        return this.appendChild(d3.select(`svg > .${self.topGroupClass}`).node());
-      });
-      newTopGroup.attr('class', self.topGroupClass);
-      //translate the original top group to new position
-      newTopGroup.select(`.${self.topGroupClass}`).enter()
-        .transition()
-        .attr('transform', 'translate(' + [self.params.middleLineTranslationXAfterSentence, 0] + ')');
-
-      const sg = newTopGroup.append('g')
-        .attr('class', 'sentence');
-      self.drawBrushRect(rectGroup, record.tokens.length, updateSentence);
-
+    addSentence1(value, record, sentenceRecord) {
+      const shrinkSpace = this.params.dxShrinkFactor * this.client_width;
+      this.sentences.push('1');
+      this.adjustdx(this.stateClusterWordCloudDX);
     }
 
-    drawSentence(record, sentenceRecord) {
-      const sg = this.svg.append('g');
+    addSentence(value, record, sentenceRecord) {
+      const self = this;
+      const needTranslate = (this.params.spacePerSentence + this.params.dxShrinkFactor) * this.client_width;
+      const translationForEachSentence = needTranslate;
+      const translationForState = needTranslate * 0.5;
+      const sentenceInitTranslate = this.params.sentenceInitTranslate;
+      // const translationX = ;
+      this.stateTranslateHis.push(translationForState);
+      if (this.sentences.length) {
+        this.sentenceTranslateHis.push(translationForEachSentence);
+      }
+      // const sentenceTranslationX = this.client_width * 0.01;
+      const sg = this.svg.append('g')
+                      .attr('transform', `translate(${sentenceInitTranslate[0]}, ${sentenceInitTranslate[1]})`)
+      this.sentences.push(value);
       const spg = sg.append('g');
+      const sentenceTranslate = [50, 10];
+      this.translateX(d3.sum(this.stateTranslateHis));
+      this.adjustdx(this.stateClusterWordCloudDX);
+
+      this.graph.sentence_info.forEach((s, k) => {
+        s.group.attr('transform', 'translate(' + [d3.sum(this.sentenceTranslateHis), sentenceInitTranslate[1]] + ')');
+        // s.sentence.transform('translate(' + [d3.sum(this.sentenceTranslateHis), sentenceInitTranslate[1]] + ')')
+        s.links.forEach((ls, i) => {
+          ls.forEach((l, j) => {
+            // l.target.x = this.graph.state_info.state_cluster_info[j].top_left[0] + this.middle_line_x - k * sentenceTranslationX;
+            
+          })
+        })
+      });
+
+      const rectGroup = sg.append('g').attr('transform', 'translate(' + [-this.params.sentenceNodeWidth/2, this.client_height/4] + ')');
+      this.drawBrushRect(rectGroup, record.tokens.length, updateSentence);
+
+      const sent = sentence(spg)
+        .size([this.params.sentenceNodeWidth, this.params.sentenceNodeWidth * sentenceRecord.length])
+        .sentence(sentenceRecord)
+        .coCluster(this.graph.coCluster)
+        .words(record.tokens)
+        .mouseoverCallback(highlightSentenceLinkByNodeIndex)
+        .draw();
+
+      const links = [];
+
+      sentenceRecord.forEach((d, i) => {
+        links[i] = [];
+        const wordPos = sent.getWordPos(i);
+        this.graph.coCluster.colClusters.forEach((clst, j) => {
+          const strength = clst.reduce((acc, val) => {return acc + d[val]} , 0);
+          const s = this.graph.state_info.state_cluster_info[j];
+          links[i][j] = {
+            source: {x: wordPos[0] + sent.nodeWidth, y: wordPos[1] + sent.nodeHeight/2},
+            source_init: {x: wordPos[0] + sent.nodeWidth, y: wordPos[1] + sent.nodeHeight/2},
+            // source_init: {x: wordPos[0] + sent.nodeWidth + sentenceTranslate[0], y: wordPos[1] + sent.nodeHeight/2 + sentenceTranslate[1]},
+            target: {x: s.top_left[0] + this.middle_line_x - sentenceInitTranslate[0] , y: s.top_left[1] + this.middle_line_y + s.height / 2 - sentenceInitTranslate[1]},
+            strength: strength,
+          };
+        });
+      });
+      links.forEach(function(ls) {
+        const strengthExtent = d3.extent(ls.map(l => Math.abs(l.strength)));
+        const filterStrength = strengthExtent[1] * self.sentenceWordThreshold;
+        ls.forEach((l) => {
+          l.strength = Math.abs(l.strength) < filterStrength ? 0 : l.strength;
+        });
+      });
+
+      const strengthes = flatten(links).map(d => {return Math.abs(d.strength)});
+      const scale = d3.scaleLinear()
+        .domain([0, d3.extent(strengthes)[1]])
+        .range([0, this.linkWidthRanage[1]])
+
+      const lsg = sg.append('g');
+      links.forEach(function(ls) {
+        ls.forEach(function(l) {
+          l['el'] = lsg.append('path')
+                      .classed('active', false)
+                      .classed('link', true)
+                      .attr('d', self.createLink(l))
+                      .attr('stroke-width', l.strength === 0 ? 0 : scale(Math.abs(l.strength)))
+                      .attr('stroke', l.strength > 0 ? self.linkColor[1] : self.linkColor[0])
+                      .attr('opacity', 0.2)
+                      .attr('fill', 'none')
+                      .attr('display', 'none')
+                      .attr('hold', 'false')
+        });
+      });
+      self.graph.sentence_info.push({sentence: sent, links: links, value: value, group: sg});
+
+      function updateSentence(extent_) {
+        console.log(`extent_ is ${extent_}`);
+        const words = record.tokens.slice(...extent_);
+        console.log(`words is ${words}`);
+        let scaleFactor = self.client_height / words.length / self.params.sentenceNodeWidth;
+        console.log(`scaleFactor is ${scaleFactor}`);
+        scaleFactor = Math.min(scaleFactor, 1.5);
+        const newHeight = scaleFactor * self.client_height;
+        let translateY = (sent.getWordPos(extent_[0])[1] + sent.getWordPos(extent_[1])[1]) / 2;
+        // let translateY = sent.getWordPos(~~((extent_[0] + extent_[1])/2))[1];
+        sent.transform('scale('  + scaleFactor + ')translate(' + [0, -translateY + self.client_height/2/scaleFactor] + ')');
+        // sent.transform('scale('  + scaleFactor + ')translate(' + [d3.sum(self.sentenceTranslateHis)/scaleFactor, -translateY + self.client_height/2/scaleFactor] + ')');
+        links.forEach((ls) => {
+          ls.forEach((l) => {
+            const actualY = (l.source_init.y - translateY) * scaleFactor + self.client_height / 2;
+            console.log(`client height is ${self.client_height}`);
+            console.log(`actualY is ${actualY}`);
+            // const actualY = (l.source_init.y - translateY) * scaleFactor + self.client_height / 2;
+            l.source.x = l.source_init.x * scaleFactor;
+            l.source.y = actualY;
+            l['el']
+              .transition()
+              .attr('d', self.createLink(l))
+            // if (actualY < self.client_height && actualY > 0) {
+            //   l.source.x = l.source_init.x * scaleFactor;
+            //   // l.source.x = (l.source_init.x - sentenceTranslate[0]) * scaleFactor + sentenceTranslate[0];
+            //   l.source.y = actualY;
+            //   l['el']
+            //   // .attr('display', 'none')
+            //   // .attr('display', '')
+            //   .transition()
+            //   .attr('d', self.createLink(l))
+            // } else {
+            //   // l['el'].attr('display', 'none');
+            // }
+          })
+        })
+      }
+
+      function highlightSentenceLinkByNodeIndex (t, highlight, changeCheckStatus=false) {
+        links[t].forEach((l) => {
+          if (changeCheckStatus) {
+            l['el'].attr('hold', l['el'].attr('hold') === 'false' ? 'true' : 'false');
+          }
+          if (l['el'].attr('hold') !== 'true') {
+            l['el'].classed('active', highlight)
+            .attr('display', highlight ? '' : 'none');
+          } else {
+            l['el'].classed('active', true)
+            .attr('display', '');
+          }
+          
+        })
+      }
+
+      function flatten(arr) {
+        return arr.reduce((acc, val) => {
+          return acc.concat(Array.isArray(val) ? flatten(val) : val);
+        }, []);
+      }
+    }
+
+    drawSentence(value, record, sentenceRecord) {
       const defaultWidth = 100;
       const translationX = defaultWidth/2;
+      const sg = this.svg.append('g')
+                      .attr('transform', `translate(100, 0)`)
+      
+      const spg = sg.append('g');
+      
       const sentenceTranslate = [50, 10];
       const self = this;
       this.translateX(translationX);
-      this.adjustdx(this.dx - translationX/2);
+      this.adjustdx(this.stateClusterWordCloudDX - translationX/2);
 
       console.log(record);
       console.log('sentence record is ');
       console.log(sentenceRecord);
 
       const rectGroup = sg.append('g').attr('transform', 'translate(' + [0, this.client_height/4] + ')');
-      this.drawRect(rectGroup, record.tokens.length, updateSentence);
+      this.drawBrushRect(rectGroup, record.tokens.length, updateSentence);
 
       // TODO change -1 to something else
       const sent = sentence(spg)
@@ -593,8 +741,11 @@
 
     drawBrushRect(g, dataLength, func) {
       const self = this;
-      const unitHeight = Math.min(this.params.height / 2 / dataLength, 50);
-      const rectSize = [self.sentenceBrushRectWidth, unitHeight];
+      const maxHeight = this.params.height / 2;
+      const unitHeight = Math.min( maxHeight / dataLength, 50);
+      console.log(`unitHeight is ${unitHeight}`);
+      const rectSize = [self.params.sentenceBrushRectWidth, unitHeight];
+      console.log(`rect size is ${rectSize}`);
       const minBrushLength = 3;
       g.selectAll('.wordRect')
         .data(d3.range(dataLength)).enter()
@@ -820,7 +971,7 @@
 
     redraw_word_link(selected_state_cluster_index = -1) {
       this.graph.word_info = this.calculate_word_info(this.graph.coCluster, selected_state_cluster_index);
-      this.graph.link_info = this.calculate_link_info(this.graph.state_info, this.graph.word_info, this.graph.coCluster, this.dx, this.dy);
+      this.graph.link_info = this.calculate_link_info(this.graph.state_info, this.graph.word_info, this.graph.coCluster, this.stateClusterWordCloudDX, this.dy);
       this.draw_word(this.wg, this.graph);
       this.draw_link(this.hg, this.graph);
     }
@@ -872,9 +1023,9 @@
           // const selectedIdx = clusterSelected.indexOf(1);
           d3.select(this).select('rect').classed('cluster-selected', true);
           graph.link_info[i].forEach((l) => {d3.select(l['el']).classed('active', true);})
-          graph.sentence_link.forEach((ls) => {
-            ls[i].el.classed('active', true);
-          });
+          // graph.sentence_link.forEach((ls) => {
+          //   ls[i].el.classed('active', true);
+          // });
         })
         .on('mouseleave', function(clst, i) {
           if (clusterSelected[i]) return;
@@ -884,9 +1035,9 @@
           }
           d3.select(this).select('rect').classed('cluster-selected', false);
           graph.link_info[i].forEach((l) => {d3.select(l['el']).classed('active', false);})
-          graph.sentence_link.forEach((ls) => {
-            ls[i].el.classed('active', false);
-          });
+          // graph.sentence_link.forEach((ls) => {
+          //   ls[i].el.classed('active', false);
+          // });
         })
         .on('click', selectCluster)
         .attr('id', (clst, i) => (String(clst.length) + String(i)));
@@ -1116,38 +1267,29 @@
       let maxClusterWidth = Math.ceil(maxClusterSize / this.params.packNum) * (this.params.unitWidth + this.params.unitMargin);
       while (maxClusterWidth > this.params.maxClusterWidth) {
         clusterInterval2HeightRatio -= 0.05;
-        // maxClusterSize = coCluster.colClusters.reduce((a, b) => Math.max(Array.isArray(a) ? a.length : a, b.length));
         this.params.computeParams(coCluster.labels.length, clusterInterval2HeightRatio);
         maxClusterWidth = Math.ceil(maxClusterSize / this.params.packNum) * (this.params.unitWidth + this.params.unitMargin);
         // console.log(maxClusterWidth);
       }
-      this.dx = this.params.wordCloudChord2ClusterDistance - (this.params.wordCloudChord2CenterDistance - maxClusterWidth / 2);
+      // this.dx = this.params.wordCloudChord2ClusterDistance - (this.params.wordCloudChord2CenterDistance - maxClusterWidth / 2);
+      this.dx = this.stateClusterWordCloudDX;
       this.dy = this.params.wordCloudChordLength / 2;
       console.log(`maxClusterWidth is ${maxClusterWidth}`);
       console.log(`wordCloudChord2CenterDistance is ${this.params.wordCloudChord2CenterDistance}`);
       console.log(`dx is ${this.dx}, dy is ${this.dy}`);
 
-      // const clusterHeight = this.params.clusterHeight;
-      // this.params.clusterInterval = (this.client_height / nCluster - clusterHeight) * 0.7;
-      // const clusterInterval = this.params.clusterInterval;
-      // let chordLength = nCluster * (clusterHeight + clusterInterval);
       // this.dx = 0, this.dy = chordLength / 2;
       const coClusterAggregation = coCluster.aggregation_info;
       let state_info = this.calculate_state_info(coCluster);
 
-      // let word_info = this.calculate_word_info(coCluster);
-      // let link_info = this.calculate_link_info(state_info, word_info, coCluster, this.dx, this.dy);
       self.graph = {
         state_info: state_info,
-        // word_info: word_info,
-        // link_info: link_info,
         coCluster: coCluster,
+        sentence_info: [],
       }
-      // }
       this.draw_state(this.hg, self.graph);
 
       this.redraw_word_link();
-      // this.adjustdx(-10);
 
       this.translateX(0);
     }
