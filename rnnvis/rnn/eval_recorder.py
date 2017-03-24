@@ -9,11 +9,12 @@ from rnnvis.db.db_helper import insert_evaluation, push_evaluation_records
 
 class Recorder(object):
 
-    def start(self, inputs, targets):
+    def start(self, inputs, targets, pos_tagger=None):
         """
         prepare the recording
         :param inputs: should be an instance of data_utils.Feeder
         :param targets: should be an instance of data_utils.Feeder or None
+        :param pos_tagger: Part-of-Speech Tagger of type lambda list(int): list(str)
         :return: None
         """
         raise NotImplementedError("This is the Recorder base class")
@@ -43,31 +44,39 @@ class Recorder(object):
 
 class StateRecorder(Recorder):
 
-    def __init__(self, data_name, model_name, flush_every=100):
+    def __init__(self, data_name, model_name, set_name=None, flush_every=100):
         self.data_name = data_name
         self.model_name = model_name
+        self.set_name = set_name
         self.eval_doc_id = []
         self.buffer = defaultdict(list)
         self.batch_size = 1
         self.input_data = None
         self.input_length = None
         self.flush_every = flush_every
+        self.pos_tagger = None
+        self.pos_tags = None
         self.step = 0
 
-    def start(self, inputs, targets):
+    def start(self, inputs, targets, pos_tagger=None):
         """
         prepare the recording
         :param inputs: should be an instance of data_utils.Feeder
         :param targets: should be an instance of data_utils.Feeder or None
+        :param pos_tagger: Part-of-Speech Tagger of type lambda list(int): list(str) convert word_ids to pos tags
         :return: None
         """
+        self.pos_tagger = pos_tagger
         self.batch_size = inputs.shape[0]
         self.input_data = inputs.full_data
         self.input_length = self.input_data.shape[1]
         # for i in range(self.inputs.shape[0]):
         sentence_num = self.input_data.shape[0]
         sentence_lengths = [count_length(self.input_data[i]) for i in range(sentence_num)]
-        self.write_evaluation([self.input_data[i, :sentence_lengths[i]].tolist() for i in range(sentence_num)])
+        sentences = [self.input_data[i, :sentence_lengths[i]].tolist() for i in range(sentence_num)]
+        self.write_evaluation(sentences)
+        if self.pos_tagger is not None:
+            self.pos_tags = [self.pos_tagger(sentence) for sentence in sentences]
 
     def record(self, record_message):
         """
@@ -86,6 +95,8 @@ class StateRecorder(Recorder):
             word_id = int(self.input_data[start_x + i, start_y])
             record['word_id'] = word_id
             if word_id >= 0:
+                if self.pos_tags is not None:
+                    record['pos'] = self.pos_tags[start_x + i][start_y]
                 good_records.append(record)
                 eval_ids.append(self.eval_doc_id[start_x + i])
         self.buffer['records'] += good_records
@@ -98,7 +109,7 @@ class StateRecorder(Recorder):
         push_evaluation_records(self.buffer.pop('eval_ids'), self.buffer.pop('records'))
 
     def write_evaluation(self, sentences):
-        self.eval_doc_id = insert_evaluation(self.data_name, self.model_name, sentences, replace=True)
+        self.eval_doc_id = insert_evaluation(self.data_name, self.model_name, self.set_name, sentences, replace=True)
 
     def close(self):
         pass
@@ -115,7 +126,7 @@ class BufferRecorder(StateRecorder):
         :param max_buffer: the max number of records that can be stored in the recorder,
             since this recorder store all the data in the memory, it's better to set this value small.
         """
-        super(BufferRecorder, self).__init__(data_name, model_name, 100)
+        super(BufferRecorder, self).__init__(data_name, model_name, 'buffer', 100)
         self.max_buffer = max_buffer
         self.eval_docs = None
 

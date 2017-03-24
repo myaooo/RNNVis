@@ -45,11 +45,22 @@ class PlainTextProcessor(object):
         self._id_to_word = None
         self._word_freq = None
         self._sorted = False
+        self._tokens = None
+        self._pos_tags = None
 
-    @lazy_property
+    @property
     def tokens(self):
-        with open(self.file_path) as f:
-            return tokenize(f.read(), self.eos, self.remove_punct)
+        if self._tokens is None:
+            with open(self.file_path) as f:
+                self._tokens, self._pos_tags = tokenize(f.read(), self.eos, self.remove_punct)
+        return self._tokens
+
+    @property
+    def pos_tags(self):
+        if self._pos_tags is None:
+            with open(self.file_path) as f:
+                self._tokens, self._pos_tags = tokenize(f.read(), self.eos, self.remove_punct)
+        return self._pos_tags
 
     @lazy_property
     def flat_tokens(self):
@@ -83,6 +94,10 @@ class PlainTextProcessor(object):
     @lazy_property
     def flat_ids(self):
         return [items for sublist in self.ids for items in sublist]
+
+    @lazy_property
+    def flat_pos_tags(self):
+        return [tag for sublist in self.pos_tags for tag in sublist]
 
     def tag_rare_word(self, min_freq=3, max_vocab=10000):
         """
@@ -189,6 +204,12 @@ def tokenize(str_stream, eos=True, remove_punct=False):
         print('punct resource not found, using nltk.download("punkt") to download resource data...')
         nltk.download('punkt')
     tokens = [nltk.word_tokenize(t) for t in nltk.sent_tokenize(str_stream.lower())]
+    # get POS Tags
+    tokens_tags = nltk.pos_tag_sents(tokens, tagset='universal')
+    pos_tags = []
+    for token_tags in tokens_tags:
+        _, tags = zip(*token_tags)
+        pos_tags.append(tags)
     # tag number
     tokens = [['N' if isfloat(t) else t for t in sublist] for sublist in tokens]
     if eos:
@@ -196,7 +217,7 @@ def tokenize(str_stream, eos=True, remove_punct=False):
             token[-1] = '<eos>'
     if remove_punct:
         tokens = [[t for t in sublist if t not in __punct_set] for sublist in tokens]
-    return tokens
+    return tokens, pos_tags
 
 
 def tokens2vocab(tokens, sort=True):

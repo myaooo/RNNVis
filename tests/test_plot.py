@@ -41,7 +41,7 @@ if __name__ == '__main__':
 
     data_name = 'ptb'
     model_name = 'LSTM-PTB'
-    state_name = 'state_c'
+    state_name = 'gate_i'
     diff = False
     words, state_diff = load_words_and_state(data_name, model_name, state_name, diff)
 
@@ -112,9 +112,25 @@ if __name__ == '__main__':
     if state_name == 'state_c' or state_name == 'state_h':
 
         state_name2 = 'state_h' if state_name == 'state_c' else 'state_c'
-        _, state2_diff = load_words_and_state(data_name, model_name, state_name2, diff)
+        state_name2 = 'nondiff' if diff else 'diff'
+        _, state2_diff = load_words_and_state(data_name, model_name, state_name, not diff)
         id_to_state2 = sort_by_id(words, state2_diff)
 
+        plot_words_states([id_to_state[he], id_to_state2[he]], 60, [state_name, state_name2], save_path='he-he.png')
+
+        plot_words_states([id_to_state[for_], id_to_state2[for_]], 60, [state_name, state_name2],
+                          save_path='for-for.png')
+
+        plot_words_states([id_to_state[it], id_to_state2[it]], 60, [state_name, state_name2],
+                          save_path='it-it.png')
+
+        plot_words_states([id_to_state[good], id_to_state2[good]], 60, [state_name, state_name2],
+                          save_path='good-good.png')
+
+    if state_name == 'gate' or state_name == 'gate_i' or state_name == 'gate_f':
+        state_name2 = 'state' if state_name == 'gate' else 'state_c'
+        _, state2 = load_words_and_state(data_name, model_name, state_name2, diff=True)
+        id_to_state2 = sort_by_id(words, state2)
         plot_words_states([id_to_state[he], id_to_state2[he]], 60, [state_name, state_name2], save_path='he-he.png')
 
         plot_words_states([id_to_state[for_], id_to_state2[for_]], 60, [state_name, state_name2],

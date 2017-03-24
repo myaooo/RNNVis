@@ -9,7 +9,9 @@ _str2optimizers = {
     "Adam": tf.train.AdamOptimizer,
     "Adagrad": tf.train.AdagradOptimizer,
     "Momentum": tf.train.MomentumOptimizer,
-    "GradientDescent": tf.train.GradientDescentOptimizer
+    "GradientDescent": tf.train.GradientDescentOptimizer,
+    "RMSProp": tf.train.RMSPropOptimizer,
+    "Adadelta": tf.train.AdadeltaOptimizer
 }
 
 

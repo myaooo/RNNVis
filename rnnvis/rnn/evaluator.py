@@ -23,14 +23,17 @@ class Evaluator(object):
     This class also provides several utilities for recording hidden states
     """
 
-    def __init__(self, rnn_, batch_size=1, num_steps=1, record_every=1, log_state=True, log_input=True, log_output=True,
-                 log_gradients=False, log_gates=False, dynamic=True):
+    def __init__(self, rnn_, batch_size=1, num_steps=1, record_every=1, log_state=True, log_input=False, log_output=True,
+                 log_gradients=False, log_gates=False, log_pos=False, dynamic=True):
         assert isinstance(rnn_, rnn.RNN)
         self._rnn = rnn_
         self._record_every = record_every
         self.log_state = log_state
         self.log_input = log_input
         self.log_output = log_output
+        self.log_gradients = log_gradients
+        self.log_gates = log_gates
+        self.log_pos = log_pos
         self.model = rnn_.unroll(batch_size, num_steps, name='EvaluateModel{:d}'.format(len(rnn_.models)),
                                  dynamic=dynamic)
         summary_ops = defaultdict(list)
@@ -64,9 +67,9 @@ class Evaluator(object):
                 gate_ops = defaultdict(list)
                 for gate in gates:
                     if isinstance(gate, tuple):  # LSTM gates are a tuple of (i, f, o)
-                        gate_ops['gate_i'].append(gate[0])
-                        gate_ops['gate_f'].append(gate[1])
-                        gate_ops['gate_o'].append(gate[2])
+                        gate_ops['gate_i'].append(tf.sigmoid(gate[0]))
+                        gate_ops['gate_f'].append(tf.sigmoid(gate[1]))
+                        gate_ops['gate_o'].append(tf.sigmoid(gate[2]))
                     else: # GRU only got one gate z
                         gate_ops['gate'].append(gate)
                 for name, gate in gate_ops.items():
@@ -75,6 +78,21 @@ class Evaluator(object):
                     summary_ops[name] = tf.stack(gate, axis=1)
                 # summary_ops.update(gate_ops)
         self.summary_ops = summary_ops
+        self.pos_tagger = None
+        if log_pos:
+            if self._rnn.id_to_word is None:
+                raise ValueError('Evaluator: RNN instance needs to have id_to_word property in order to log_pos!')
+            import nltk  # lazy import
+
+            def tagger(ids):
+                tokens = self._rnn.get_word_from_id(ids)
+                if len(tokens) != len(ids):
+                    raise ValueError('Evaluator: tokens length {:d} and ids length {:d} mismatch'
+                                     .format(len(tokens), len(ids)))
+                tokens_tags = nltk.pos_tag(tokens, tagset='universal', lang='eng')
+                _, tags = zip(*tokens_tags)
+                return tags
+            self.pos_tagger = tagger
 
     @property
     def record_every(self):
@@ -127,19 +145,21 @@ class Evaluator(object):
         :return:
         """
 
-        assert isinstance(inputs, Feeder)
+        assert isinstance(inputs, Feeder), 'expect inputs type Feeder but got type {:s}'.format(str(type(inputs)))
         assert isinstance(targets, Feeder) or targets is None
         assert isinstance(recorder, Recorder), "recorder should be an instance of rnn.eval_recorder.Recorder!"
-        recorder.start(inputs, targets)
+        recorder.start(inputs, targets, self.pos_tagger)
         input_size = inputs.epoch_size
         print("input size: {:d}".format(input_size))
         eval_ops = self.summary_ops
         self.model.reset_state()
         for i in range(0, input_size, self.record_every):
+            if refresh_state:
+                self.model.reset_state()
             n_steps = input_size - i if i + self.record_every > input_size else self.record_every
 
             evals, _ = self.model.run(inputs, targets, n_steps, sess, eval_ops=eval_ops,
-                                      verbose=False, refresh_state=refresh_state)
+                                      verbose=False, refresh_state=False)
             messages = [{name: value[i] for name, value in evals.items()} for i in range(n_steps)]
             for message in messages:
                 recorder.record(message)

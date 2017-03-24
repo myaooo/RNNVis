@@ -7,10 +7,10 @@ import os
 import yaml
 
 from rnnvis.utils.io_utils import dict2json, get_path
-from rnnvis.datasets.data_utils import load_data_as_ids, split
+from rnnvis.datasets.data_utils import load_data_as_ids, split, load_data_as_pos_tags
 from rnnvis.datasets.text_processor import PlainTextProcessor
 from rnnvis.db.db_helper import replace_one_if_exists, insert_one_if_not_exists, \
-    store_dataset_by_default, dataset_inserted
+    store_dataset_by_default, dataset_inserted, get_datasets_by_name
 
 # db_name = 'language_model'
 # # db definition
@@ -50,12 +50,20 @@ def store_ptb(data_path, name='ptb', upsert=False):
     :param upsert:
     :return:
     """
+    if upsert:
+        if get_datasets_by_name(name, ['word_to_id']) is not None:
+            print('dataset {:s} already exists. overwriting...'.format(name))
+    elif get_datasets_by_name(name, ['word_to_id']) is not None:
+        print('dataset {:s} already exists. skipped. If you want to overwrite, use force!'.format(name))
+        return
     train_path = os.path.join(data_path, "ptb.train.txt")
     valid_path = os.path.join(data_path, "ptb.valid.txt")
     test_path = os.path.join(data_path, "ptb.test.txt")
     paths = [train_path, valid_path, test_path]
 
     data_list, word_to_id, id_to_word = load_data_as_ids(paths)
+    tag_list = load_data_as_pos_tags(paths)
+    train_tags, valid_tags, test_tags = tag_list
     train, valid, test = data_list
     word_to_id_json = dict2json(word_to_id)
     if upsert:
@@ -68,7 +76,16 @@ def store_ptb(data_path, name='ptb', upsert=False):
     data_dict = {'train': {'data': train},
                  'valid': {'data': valid},
                  'test': {'data': test}}
+    tags_dict = {'train_pos': {'data': train_tags},
+                 'valid_pos': {'data': valid_tags},
+                 'test_pos': {'data': test_tags}}
+    id_to_pos = []
+    for i, data in enumerate(data_list):
+        tags = tag_list[i]
+        arr = [None] * len(id_to_word)
+        id_to_pos.append(data)
     store_dataset_by_default(name, data_dict, upsert)
+    store_dataset_by_default(name, tags_dict, upsert)
 
 
 def store_plain_text(data_path, name, split_scheme, min_freq=1, max_vocab=10000, remove_punct=False, upsert=False):
@@ -83,20 +100,38 @@ def store_plain_text(data_path, name, split_scheme, min_freq=1, max_vocab=10000,
     :return:
     """
     if upsert:
+        if get_datasets_by_name(name, ['word_to_id']) is not None:
+            print('dataset {:s} already exists. overwriting...'.format(name))
+    elif get_datasets_by_name(name, ['word_to_id']) is not None:
+        print('dataset {:s} already exists. skipped. If you want to overwrite, use force!'.format(name))
+        return
+    if upsert:
         insertion = replace_one_if_exists
     else:
         insertion = insert_one_if_not_exists
     processor = PlainTextProcessor(data_path, remove_punct=remove_punct)
     processor.tag_rare_word(min_freq, max_vocab)
-    split_ids = split(processor.flat_ids, split_scheme.values())
+    split_ids_tags = split(list(zip(processor.flat_ids, processor.flat_pos_tags)), split_scheme.values())
+    split_ids = []
+    split_tags = []
+    for split_id_tag in split_ids_tags:
+        ids, tags = zip(*split_id_tag)
+        split_ids.append(ids)
+        split_tags.append(tags)
     split_data = dict(zip(split_scheme.keys(), split_ids))
+    split_tags = dict(zip(split_scheme.keys(), split_tags))
     if 'train' not in split_data:
         print('WARN: there is no train data in the split data!')
     data_dict = {}
     for set_name in ['train', 'valid', 'test']:
         if set_name in split_data:
             data_dict[set_name] = {'data': split_data[set_name]}
+    tags_dict = {}
+    for set_name in ['train', 'valid', 'test']:
+        if set_name in split_tags:
+            tags_dict[set_name + '_pos'] = {'data': split_tags[set_name]}
     store_dataset_by_default(name, data_dict, upsert)
+    store_dataset_by_default(name, tags_dict, upsert)
     insertion('word_to_id', {'name': name}, {'name': name, 'data': dict2json(processor.word_to_id)})
     insertion('id_to_word', {'name': name}, {'name': name, 'data': processor.id_to_word})
 
@@ -120,7 +155,7 @@ def seed_db(force=False):
         else:
             print('cannot find corresponding seed functions')
             continue
-        dataset_inserted(seed['name'], 'lm')
+        dataset_inserted(seed['name'], 'lm', force)
 
 
 if __name__ == '__main__':

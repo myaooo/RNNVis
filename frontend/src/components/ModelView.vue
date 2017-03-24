@@ -1,82 +1,118 @@
 <template>
-  <div class="model-view">
-    <h3>Models</h3>
-    <div class="grid-content bg-purple-light model-view">
-      <el-form label-position="top" :model="params">
-        <el-form-item label="Model">
-          <el-select v-model="selected" placeholder="Select">
-            <el-option v-for="(model, idx) in models" :value="idx" :label="model"></el-option>
-          </el-select>
-        </el-form-item>
-        <el-form-item label="Config"></el-form-item>
-        <el-tree :data="configTree" :props="configProps" class="config-tree" :indent="10"></el-tree>
-      </el-form>
+  <div>
+    <h4 class="normal">Models</h4>
+    <hr>
+    <div class="content model-view">
+      <model-config :compare="false"> </model-config>
+      <hr v-if="compare">
+      <model-config v-if="compare" :compare="true" :toggle="toggleCompare"> </model-config>
+      <hr>
+      <el-button @click="toggleCompare" size="small">Compare Model</el-button>
     </div>
   </div>
 </template>
-<style>
+<style scoped>
   .model-view {
     text-align: left;
-    padding: 14px;
+    /*padding: 5px;*/
   }
 
-  .model-config {
-    padding: 14px;
+  .content {
+    padding-left: 5px;
+    padding-right: 5px;
   }
-
-  el-form-item .model-view {
-    margin: 10px;
-  }
-
-  /*.config-tree {
-    margin-top: 10px;
-  }*/
 </style>
 <script>
-  import { bus, SELECT_MODEL } from '../event-bus.js'
+  import { bus, SELECT_MODEL, SELECT_STATE } from '../event-bus.js';
+  import ModelConfig from './ModelConfig';
 
   export default{
     name: 'ModelView',
+    components: { ModelConfig },
     data() {
       return {
-        params: {
-          selected: null,
-        },
-        selected: null,
+        compare: false,
         shared: bus.state,
-        // models: bus.availableModels,
-        configTree: null,
-        // config: null,
-        configProps: {
-          children: 'children',
-          label: 'label'
-        },
-        configs: {}
       };
     },
     mounted() {
       this.getModels();
     },
     computed: {
-      models: function() { // model list
-        return bus.state.availableModels;
-      }
+      availableModels: function() { // model list
+        return this.shared.availableModels;
+      },
     },
     methods: {
       getModels() {
         bus.loadAvailableModels();
+      },
+      modelColor(i) {
+        return i === 1 ? 'primary' : 'success';
+      },
+      toggleCompare() {
+        this.compare = !this.compare;
+        if (!this.compare) {
+          this.selectedModel2 = null;
+          this.selectedState2 = null;
+          this.states2 = [];
+          bus.$emit(SELECT_MODEL, null, true);
+          bus.$emit(SELECT_STATE, null, true);
+
+        }
+      },
+      stateName(state) {
+        switch(state) {
+          case 'state_c': return 'c_state';
+          case 'state_h': return 'h_state';
+          case 'state': return 'h_state';
+          default: return 'Unknown';
+        }
       }
     },
     watch: {
-      selected: function(selected){
-        const selectedModel = this.models[selected];
-        bus.loadModelConfig(selectedModel) // make sure the bus has got the config data
-          .then( value => {
-            const config = bus.state.modelConfigs[selectedModel];
-            this.configTree = json2tree(config).children;
-            bus.$emit(SELECT_MODEL, selectedModel);
-          });
-      }
+      // selectedModel: function(selectedModel){
+      //   bus.loadModelConfig(selectedModel) // make sure the bus has got the config data
+      //     .then(() => {
+      //       const states = bus.availableStates(selectedModel);
+      //       if (states){
+      //         this.states = states;
+      //         this.selectedState = null; // reset
+      //         const config = bus.state.modelConfigs[selectedModel];
+      //         this.config = {
+      //           Cell: config.model.cell_type,
+      //           LayerNum: config.model.cells.length,
+      //           LayerSize: config.model.cells[0].num_units,
+      //         };
+      //       // this.configTree = json2tree(config).children;
+      //         bus.$emit(SELECT_MODEL, this.selectedModel, this.selectedModel2);
+      //       }
+      //     });
+      // },
+      // selectedModels: function(selectedModels){
+      //   if (!selectedModel) return;
+      //   bus.loadModelConfig(selectedModel) // make sure the bus has got the config data
+      //     .then(() => {
+      //       const states = bus.availableStates(selectedModel);
+      //       if (states){
+      //         this.states2 = states;
+      //         this.selectedState2 = null; // reset
+      //       // const config = bus.state.modelConfigs[selectedModel];
+      //       // this.configTree = json2tree(config).children;
+      //         bus.$emit(SELECT_MODEL, this.selectedModel, this.selectedModel2);
+      //       }
+      //     });
+      // },
+      // selectedState: function (newState) {
+      //   if (newState === 'state' || newState === 'state_c' || newState === 'state_h') {
+      //     bus.$emit(SELECT_STATE, this.selectedState, this.selectedState2);
+      //   }
+      // },
+      // selectedState2: function (newState) {
+      //   if (newState === 'state' || newState === 'state_c' || newState === 'state_h') {
+      //     bus.$emit(SELECT_STATE, this.selectedState, this.selectedState2);
+      //   }
+      // },
     }
   }
 

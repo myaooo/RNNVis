@@ -2,8 +2,8 @@ model:
   name: GRU-PTB
   initializer_name: random_uniform
   initializer_args:
-    minval: -0.05
-    maxval: 0.05
+    minval: -0.04
+    maxval: 0.04
   input_dtype: int32
   target_dtype: int32
   vocab_size: 10000
@@ -21,7 +21,7 @@ train:
   keep_prob: 0.5
   gradient_clip: global_norm
   gradient_clip_args:
-    clip_norm: 5.0
+    clip_norm: 10.0
   optimizer: GradientDescent
-  learning_rate: "lambda epoch: 1.0 *(1.0 if epoch < 6 else 0.84**(epoch-6))"
+  learning_rate: "lambda epoch: 1.0 *(1.0 if epoch < 6 else 0.82**(epoch-6))"
 

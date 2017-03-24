@@ -53,7 +53,7 @@ class RNNModel(object):
         self.batch_size = batch_size
         self.num_steps = num_steps
         self.name = name or "UnRolled"
-        self.dynamic =dynamic
+        self.dynamic = dynamic
         self.current_state = None
         # Ugly hacks for DropoutWrapper
         if keep_prob is not None and keep_prob < 1.0:
@@ -405,9 +405,9 @@ class RNN(object):
         :param ids: a numpy.ndarray or a list or a python int
         :return: a list of words
         """
-        if isinstance(ids, int) and ids in self.id_to_word:
-            return self.id_to_word[ids]
-        words = [self.id_to_word[i] for i in ids if i in self.id_to_word]
+        if isinstance(ids, int):
+            ids = [ids]
+        words = [self.id_to_word[i] for i in ids if 0 <= i < len(self.id_to_word)]
         return words
 
     def get_id_from_word(self, words):
@@ -416,8 +416,8 @@ class RNN(object):
         :param words: a list of words
         :return: a list of corresponding ids
         """
-        if isinstance(words, str) and words in self.word_to_id:
-            return self.word_to_id[words]
+        if isinstance(words, str):
+            words = [words]
         words = [w for w in words]
         ids = [self.word_to_id[w] if w in self.word_to_id else self.word_to_id['<unk>'] for w in words ]
         return ids
@@ -495,7 +495,7 @@ class RNN(object):
             self.validator = Evaluator(self, batch_size, num_steps, 1, False, False, False)
 
     def add_evaluator(self, batch_size=1, num_steps=1, record_every=1, log_state=True, log_input=False, log_output=False,
-                      log_gradients=False, log_gates=False, cal_salience=False):
+                      log_gradients=False, log_gates=False, log_pos=False):
         """
         Explicitly add evaluator instead of using the default one. You must call compile(evaluate=False)
             before calling this function
@@ -511,7 +511,7 @@ class RNN(object):
         with self.graph.as_default():
             # with tf.device("/cpu:0"):
             self.evaluator = Evaluator(self, batch_size, num_steps, record_every, log_state,
-                                       log_input, log_output, log_gradients, log_gates, False)
+                                       log_input, log_output, log_gradients, log_gates, log_pos, dynamic=False)
 
     def add_generator(self, word_to_id=None):
         assert self.generator is None
@@ -553,14 +553,14 @@ class RNN(object):
                     if verbose:
                         print("Epoch {}:".format(i))
                     loss, acc = self.trainer.train_one_epoch(self.sess, inputs, targets, epoch_size, verbose=verbose,
-                                                             refresh_state=refresh_state)
+                                                             refresh_state=self.use_last_output)
                     self.validator.evaluate(self.sess, valid_inputs, valid_targets, valid_epoch_size,
-                                            verbose=verbose, refresh_state=refresh_state)
+                                            verbose=verbose, refresh_state=self.use_last_output)
                     losses.append(loss)
                     accs.append(accs)
                     if i > early_stop:
                         threshold = 5e-5
-                        abs_diff = [abs(losses[j] - losses[i-early_stop]) for j in range(i-early_stop, i)]
+                        abs_diff = [abs(losses[j] - losses[i-early_stop]) for j in range(i+1-early_stop, i+1)]
                         if max(abs_diff) < threshold:
                             print("{:d} consecutive epochs with loss difference less than {:f}, early stopped!"
                                   .format(early_stop, threshold))
