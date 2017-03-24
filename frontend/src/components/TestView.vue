@@ -322,7 +322,6 @@
         scaleFactor = Math.min(scaleFactor, 2);
         const newHeight = scaleFactor * clientHeight;
         let translateY = sent.getWordPos(extent_[0])[1];
-
         sent.transform('scale('  + scaleFactor + ')translate(' + [100/scaleFactor, -translateY] + ')');
       }
     },
