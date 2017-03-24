@@ -41,7 +41,10 @@ class SentenceLayout{
     return arguments.length ? (this._size = size, this) : this._size;
   }
   transform(transformStr) {
-    this.group.attr('transform', transformStr);
+    this.group
+      .transition()
+      .duration(200)
+      .attr('transform', transformStr);
     return this;
   }
   get radius() {

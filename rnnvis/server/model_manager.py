@@ -42,6 +42,7 @@ class ModelManager(object):
         # self._data = {}
 
     @property
+    @lru_cache(maxsize=2)
     def available_models(self):
         return list(self._available_models.keys())
 
