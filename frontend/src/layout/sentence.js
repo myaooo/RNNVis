@@ -28,14 +28,14 @@ class SentenceLayout{
     // this.handles = [];
     this._dataList = [];
     this.type = 'bar2';
-    this._extentChangeCallback = function(_) {console.log(_)};
+    this._mouseoverCallback = function(_) {console.log(_)};
     // each data in data list has 3 handles after drawing:
     // el: the group holding all elements of a word
     // els: 3 groups, each holds a pie chart
     // handles: 3 selector, each holds all paths in a pie chart
   }
-  extentChangeCallback(func) {
-    return arguments.length ? (this._extentChangeCallback = func, this) : this._extentChangeCallback;
+  mouseoverCallback(func) {
+    return arguments.length ? (this._mouseoverCallback = func, this) : this._mouseoverCallback;
   }
   size(size){
     return arguments.length ? (this._size = size, this) : this._size;
@@ -265,6 +265,7 @@ class SentenceLayout{
   }
 
   drawOneWordBar2(el, data, t) {
+    const self = this;
     const height = this.nodeHeight;
     const width = this.nodeWidth;
     const color = this.params.color;
@@ -280,7 +281,9 @@ class SentenceLayout{
       .attr('height', height)
       .attr('stroke', 'gray')
       .attr('stroke-width', 1)
-      .attr('fill', 'none');
+      .attr('fill', 'none')
+      // .on('mouseover', function() {console.log(`mourseover on ${t}`)})
+      .on('mouseover', function() {self._mouseoverCallback(t)})
 
     const gSelector = el.selectAll('g')
       .data(data.data);

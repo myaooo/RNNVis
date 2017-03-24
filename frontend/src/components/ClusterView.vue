@@ -92,7 +92,7 @@
       this.wordSize2StrengthRatio = 3;
       // this.middleLineX = 300;
       this.middleLineY = 50;
-      this.sentenceWordThreshold = 0.2;
+      this.sentenceWordThreshold = 0.5;
       this.posColor = colorScheme;
       this.middleLineOffset = 0;
       this.width = width;
@@ -409,6 +409,7 @@
       this.client_height = this.svg.node().getBoundingClientRect().height;
       // this.middle_line_x = params.middleLineX;
       this.middle_line_y = params.middleLineY;
+      this.sentenceWordThreshold = params.sentenceWordThreshold;
       this.triangle_height = 5;
       this.triangle_width = 5;
 
@@ -441,6 +442,8 @@
       this.translateX(translationX);
 
       console.log(record);
+      console.log('sentence record is ');
+      console.log(sentenceRecord);
 
       const rectGroup = sg.append('g');
       this.drawRect(rectGroup, record.tokens.length, updateSentence);
@@ -455,31 +458,57 @@
         .draw();
 
       const links = [];
-      console.log(sent.dataList);
-      sent.dataList.forEach((d, i) => {
+      // console.log(sent.dataList);
+      
+      sentenceRecord.forEach((d, i) => {
+        links[i] = [];
         const wordPos = sent.getWordPos(i);
-        this.graph.state_info.state_cluster_info.forEach((s, j) => {
-
-          let link = {
-            source: {x: wordPos[0] + sent.nodeWidth, y: wordPos[1] + sent.nodeHeight/2},
-            target: {x: s.top_left[0] + this.middle_line_x - sentenceTranslate[0], y: s.top_left[1] + this.middle_line_y + s.height / 2 - sentenceTranslate[1]},
+        this.graph.coCluster.colClusters.forEach((clst, j) => {
+          const strength = clst.reduce((acc, val) => {return acc + d[val]} , 0);
+          const s = this.graph.state_info.state_cluster_info[j];
+          links[i][j] = {
+            source: {x: wordPos[0] + sent.nodeWidth + sentenceTranslate[0], y: wordPos[1] + sent.nodeHeight/2 + sentenceTranslate[1]},
+            source_init: {x: wordPos[0] + sent.nodeWidth + sentenceTranslate[0], y: wordPos[1] + sent.nodeHeight/2 + sentenceTranslate[1]},
+            target: {x: s.top_left[0] + this.middle_line_x, y: s.top_left[1] + this.middle_line_y + s.height / 2},
+            // source_init: {x: wordPos[0] + sent.nodeWidth, y: wordPos[1] + sent.nodeHeight/2},
+            // target_init: {x: s.top_left[0] + this.middle_line_x - sentenceTranslate[0], y: s.top_left[1] + this.middle_line_y + s.height / 2 - sentenceTranslate[1]},
+            strength: strength,
           };
-          links.push(link);
         });
       });
-      console.log(links);
-      console.log('there are ' + links.length + ' links');
+      links.forEach(function(ls) {
+        const strength_extent = d3.extent(ls.map(l => l.strength));
+        ls.forEach((l) => {
+          if (l.strength > 0 && l.strength < strength_extent[1] * self.sentenceWordThreshold) {
+            l.strength = 0;
+          }
+          if (l.strength < 0 && l.strength > strength_extent[0] * self.sentenceWordThreshold) {
+            l.strength = 0;
+          }
+        });
+      });
 
-      sg.append('g')
-        .selectAll('.sentenceLink')
-        .data(links).enter()
-        .append('path')
-        .attr('d', l => this.createLink(l))
-        .attr('stroke', 'blue')
-        .attr('stroke-width', 2)
-        .attr('opacity', 0.2)
-        .attr('fill', 'none')
+      const strengthes = flatten(links).filter(d => {return d.strength > 0}).map(d => {return Math.abs(d.strength)});
+      const scale = d3.scaleLinear()
+        .domain(d3.extent(strengthes))
+        .range(this.linkWidthRanage)
+      
+      const lsg = sg.append('g');
+      links.forEach(function(ls) {
+        ls.forEach(function(l) {
+          l['el'] = lsg.append('path')
+                      .classed('active', false)
+                      .classed('link', true)
+                      .attr('d', self.createLink(l))
+                      .attr('stroke-width', l.strength === 0 ? 0 : scale(Math.abs(l.strength)))
+                      .attr('stroke', l.strength > 0 ? self.linkColor[1] : self.linkColor[0])
+                      .attr('opacity', 0.2)
+                      .attr('fill', 'none')
+        });
+      });
 
+      self.graph.sentence_link = links;
+      
       function updateSentence(extent_) {
         console.log(`extent_ is ${extent_}`);
         const words = record.tokens.slice(...extent_);
@@ -489,8 +518,28 @@
         const newHeight = scaleFactor * self.client_height;
         let translateY = sent.getWordPos(~~((extent_[0] + extent_[1])/2))[1];
         sent.transform('scale('  + scaleFactor + ')translate(' + [sentenceTranslate[0]/scaleFactor, -translateY + self.client_height/2/scaleFactor] + ')');
-        const links = [];
+        links.forEach((ls) => {
+          ls.forEach((l) => {
+            const actualY = (l.source_init.y - translateY) * scaleFactor + self.client_height / 2;
+            if (actualY < self.client_height && actualY > 0) {
+              l.source.x = (l.source_init.x - sentenceTranslate[0]) * scaleFactor + sentenceTranslate[0];
+              l.source.y = actualY;
+              l['el']
+              .attr('display', '')
+              .transition()
+              .attr('d', self.createLink(l))
+            } else {
+              l['el'].attr('display', 'none');
+            }
+          })
+        })
 
+      }
+
+      function flatten(arr) {
+        return arr.reduce((acc, val) => {
+          return acc.concat(Array.isArray(val) ? flatten(val) : val);
+        }, []);
       }
     }
 
@@ -775,6 +824,9 @@
           // const selectedIdx = clusterSelected.indexOf(1);
           d3.select(this).select('rect').classed('cluster-selected', true);
           graph.link_info[i].forEach((l) => {d3.select(l['el']).classed('active', true);})
+          graph.sentence_link.forEach((ls) => {
+            ls[i].el.classed('active', true);
+          });
         })
         .on('mouseleave', function(clst, i) {
           if (clusterSelected[i]) return;
@@ -784,6 +836,9 @@
           }
           d3.select(this).select('rect').classed('cluster-selected', false);
           graph.link_info[i].forEach((l) => {d3.select(l['el']).classed('active', false);})
+          graph.sentence_link.forEach((ls) => {
+            ls[i].el.classed('active', false);
+          });
         })
         .on('click', selectCluster)
         .attr('id', (clst, i) => (String(clst.length) + String(i)));
