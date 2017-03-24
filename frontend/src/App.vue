@@ -7,15 +7,15 @@
       </el-menu>
     <!--</el-row>-->
     <el-row :gutter="10">
-      <el-col :span="4" class="col-bg" :gutter="15">
+      <el-col :span="6" class="col-bg" :gutter="15">
         <model-view></model-view>
       </el-col>
-      <el-col :span="20" class="col-bg" :gutter="15">
+      <el-col :span="18" class="col-bg" :gutter="15">
         <!--<router-view></router-view>-->
         <el-row>
           <main-view :height="height * 0.6"> </main-view>
         </el-row>
-        <el-row>
+        <el-row :gutter="10">
           <el-col :span="12" class="col-bg" :gutter="15">
             <info-board :type="'state'" :id="'state-info'" :height="height * 0.2"> </info-board>
           </el-col>
@@ -71,13 +71,13 @@ export default {
   border-radius: 4px;
 }
 .bg-purple-dark {
-  background: #99a9bf;
+  background: #abc;
 }
 .bg-purple {
-  background: #d3dce6;
+  background: white;
 }
 .bg-purple-light {
-  background: #e5e9f2;
+  background: #fff;
 }
 .grid-content {
   border-radius: 4px;
@@ -85,11 +85,11 @@ export default {
 }
 .col-bg {
   padding: 5px 0;
-  background-color: #f9fafc;
+  background-color: white;
 }
 .row-bg {
   padding: 10px 0;
-  background-color: #f9fafc;
+  background-color: white;
 }
 .border {
   border-style: solid;

@@ -7,9 +7,9 @@ const layoutParams = {
   radiusScale: 1.5,
   widthScale: 1.5,
   avgValueRange: [-0.5, 0.5],
-  rulerWidth: 2,
-  markerWidth: 5,
-  markerHeight: 2,
+  rulerScale: 0.3,
+  markerWidthScale: 0.8,
+  markerHeightScale: 0.4,
   wordSize: 12,
   labelSize: 10,
 };
@@ -115,7 +115,7 @@ class SentenceLayout{
     // const rectGroup = this.group.append('g');
     // this.drawWordRect(rectGroup, this._dataList, this._rectSize, this.extentChangeCallback())
     //   .attr('transform', 'translate(-50, 50)');
-    
+
     return this;
   }
 
@@ -125,7 +125,7 @@ class SentenceLayout{
         .text(d.word)
         .style('text-anchor', 'middle')
         .attr('transform', 'rotate(90)translate(' + [rectSize[1] * i + rectSize[1] / 2, -rectSize[0]/4] + ')');
-      
+
       g.append('rect')
       .attr('x', 0)
       .attr('y', i * rectSize[1])
@@ -150,7 +150,7 @@ class SentenceLayout{
           // console.log(d3.event.selection);
         })
     );
-    
+
     return g;
   }
 
@@ -370,12 +370,12 @@ class SentenceLayout{
     const height = this.nodeInterval;
     // const width = this.nodeWidth;
     const color = this.params.color;
-    const rulerWidth = this.params.rulerWidth;
-    const markerWidth = this.params.markerWidth;
-    const markerHeight = this.params.markerHeight;
     // console.log(data);
     // const scaleHeight = this.scaleHeight;
     const unitWidth = this.nodeWidth / data.data.length;
+    const rulerWidth = this.params.rulerScale * unitWidth;
+    const markerWidth = this.params.markerWidthScale * unitWidth;
+    const markerHeight = this.params.markerHeightScale * unitWidth;
     const gs = el.selectAll('g')
       .data(data.data).enter()
       .append('g');

@@ -88,7 +88,9 @@ export class WordCloud{
   }
   drawBackground() {
     // console.log("Redrawing backgrounds")
-    this.bgHandle = this.bg.append(this.bgshape)
+    if(this.bgHandle)
+      this.bgHandle.remove();
+    this.bgHandle = this.bg.append(this.bgshape);
     if (this.bgshape === 'rect') {
       this.bgHandle
         .attr('x', -this.radius[0])
@@ -124,15 +126,13 @@ export class WordCloud{
   }
   draw(size = [this.width/2, this.height/2], data = this.data) {
     // console.log(this.cloud);
-    if (size[0] !== this.width || size[1] !== this.height) {
-      this.bgHandle.remove();
-      this.bgHandle = null;
+    if (size[0] !== this.width/2 || size[1] !== this.height/2) {
       // this.size(size);
+      this.drawBackground();
       this.radius = size;
     }
-    if (!this.bgHandle) {
+    if (!this.bgHandle)
       this.drawBackground();
-    }
     if (!this.data)
       this.data = data;
     // if (this.compare) this.group
@@ -142,7 +142,7 @@ export class WordCloud{
     const wordLayout = this.wordLayout;
     // this.group.attr('transform', 'translate(' + [-radiusX, -radiusY] + ')');
     const filterData = data.filter((d) => {
-      return -radiusX < d.x - d.width / 4 && -radiusY < d.y - d.size && d.x + d.width/4 < radiusX && d.y < radiusY;
+      return -radiusX < d.x - d.width / 4 && -radiusY < d.y - d.size/2 && d.x + d.width/4 < radiusX && d.y -d.size/2 < radiusY;
     });
     const self = this;
     this.cloud = this.group.selectAll('text')
@@ -236,7 +236,7 @@ export class WordCloud{
     });
     // d3.cloud()
     cloud()
-      .size([this.width*1.2, this.height*1.2]) // when layout, first give a larger region
+      .size([this.width*1.2, this.height*1.05]) // when layout, first give a larger region
       .words(words)
       .padding(this.wordLayout.padding)
       .rotate(0)
@@ -244,7 +244,7 @@ export class WordCloud{
       .text(d => d.text)
       .fontSize(d => d.size)
       .fontWeight(d => d.weight)
-      .on('end', (words) => self.draw([self.width, self.height], words))
+      .on('end', (words) => self.draw([self.width/2, self.height/2], words))
       .random(()=> 0.5)
       .spiral('rectangular')
       .start();

@@ -22,8 +22,8 @@ const state = {
   selectedModel2: null,
   selectedState2: null,
   selectedLayer2: null,
-  layout: null,
-  layout2: null,
+  layout: {},
+  layout2: {},
   modelConfigs: {},
   coClusters: {},
   availableModels: null,
@@ -224,10 +224,10 @@ const bus = new Vue({
 
     this.$on(CHANGE_LAYOUT, (newLayout, compare) => {
       if(compare)
-        this.state.layout2 = newLayout;
+        this.state.layout2 = Object.assign({}, newLayout);
       else
-        this.state.layout = newLayout;
-      console.log(`bus > clusterNum: ${newLayout.clusterNum}`);
+        this.state.layout = Object.assign({}, newLayout);
+      console.log(`bus > ${compare ? 'compare': ''} clusterNum: ${newLayout.clusterNum}`);
     });
 
     this.$on(EVALUATE_SENTENCE, (sentence, compare) => {

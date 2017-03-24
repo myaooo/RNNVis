@@ -108,8 +108,9 @@ class ModelManager(object):
         if model is None:
             return None
         if isinstance(sequences, str):
-            tokenized_sequences = tokenize(sequences, eos=True, remove_punct=True)
+            tokenized_sequences, tags = tokenize(sequences, eos=True, remove_punct=True)
             flat_sequence = [items for sublist in tokenized_sequences for items in sublist]
+            print(flat_sequence)
             sequences = [model.get_id_from_word(flat_sequence)]
             # sequences = [model.get_id_from_word(sequence) for sequence in tokenized_sequences]
         config = self._train_configs[name]
