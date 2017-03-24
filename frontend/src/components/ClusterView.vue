@@ -129,7 +129,7 @@
     }ß
     get middleLineX() {
       // const width = Math.max(this.width, 500);
-      return this.width * 0.3 + this.middleLineOffset;
+      return this.width * 0.2 + this.middleLineOffset;
     }
     computeUnitParams() {
       const unitHeight = this.clusterHeight / (this.packNum + (this.packNum - 1 ) * this.unitMarginRatio + 2 * this.clusterMarginRatio );
@@ -367,6 +367,7 @@
       bus.$on(CLOSE_SENTENCE, (sentence, compare) => {
         if(compare !== this.compare)
           return;
+          this.painter.deleteSentence(sentence);
       });
     }
   }
@@ -467,10 +468,23 @@
       return this.params.middleLineY;
     }
 
-    addSentence1(value, record, sentenceRecord) {
-      const shrinkSpace = this.params.dxShrinkFactor * this.client_width;
-      this.sentences.push('1');
+    deleteSentence(value) {
+      const sentence_to_add = this.sentences.filter((s) => {return s !== value});
+      this.sentences = [];
+      this.translateX(-d3.sum(this.stateTranslateHis));
       this.adjustdx(this.stateClusterWordCloudDX);
+      this.stateTranslateHis = [];
+      this.sentenceTranslateHis = [this.params.sentenceInitTranslate[0],];
+
+      const tmpSentenceInfo = {};
+      this.graph.sentence_info.forEach((s) => {
+        tmpSentenceInfo[s.value] = s;
+        s['group'].remove();
+      });
+      this.graph.sentence_info = [];
+      sentence_to_add.forEach((s) => {
+        this.addSentence(s, tmpSentenceInfo[s].record, tmpSentenceInfo[s].sentenceRecord)
+      });
     }
 
     addSentence(value, record, sentenceRecord) {
@@ -494,14 +508,16 @@
       this.adjustdx(this.stateClusterWordCloudDX);
 
       this.graph.sentence_info.forEach((s, k) => {
-        s.group.attr('transform', 'translate(' + [d3.sum(this.sentenceTranslateHis), sentenceInitTranslate[1]] + ')');
+        s.group
+        .transition()
+        .attr('transform', 'translate(' + [d3.sum(this.sentenceTranslateHis), sentenceInitTranslate[1]] + ')');
         // s.sentence.transform('translate(' + [d3.sum(this.sentenceTranslateHis), sentenceInitTranslate[1]] + ')')
-        s.links.forEach((ls, i) => {
-          ls.forEach((l, j) => {
-            // l.target.x = this.graph.state_info.state_cluster_info[j].top_left[0] + this.middle_line_x - k * sentenceTranslationX;
+        // s.links.forEach((ls, i) => {
+        //   ls.forEach((l, j) => {
+        //     // l.target.x = this.graph.state_info.state_cluster_info[j].top_left[0] + this.middle_line_x - k * sentenceTranslationX;
             
-          })
-        })
+        //   })
+        // })
       });
 
       const rectGroup = sg.append('g').attr('transform', 'translate(' + [-this.params.sentenceNodeWidth/2, this.client_height/4] + ')');
@@ -560,7 +576,7 @@
                       .attr('hold', 'false')
         });
       });
-      self.graph.sentence_info.push({sentence: sent, links: links, value: value, group: sg});
+      self.graph.sentence_info.push({sentence: sent, links: links, value: value, group: sg, record: record, sentenceRecord: sentenceRecord});
 
       function updateSentence(extent_) {
         console.log(`extent_ is ${extent_}`);
