@@ -129,7 +129,7 @@
     }ß
     get middleLineX() {
       // const width = Math.max(this.width, 500);
-      return this.width * 0.2 + this.middleLineOffset;
+      return this.width * 0.25 + this.middleLineOffset;
     }
     computeUnitParams() {
       const unitHeight = this.clusterHeight / (this.packNum + (this.packNum - 1 ) * this.unitMarginRatio + 2 * this.clusterMarginRatio );
@@ -450,7 +450,7 @@
     }
 
     get stateClusterWordCloudDX () {
-      return this.client_width * (0.2 - this.params.dxShrinkFactor * this.sentences.length);
+      return this.client_width * (0.25 - this.params.dxShrinkFactor * this.sentences.length);
     }
     transform(trans) {
       this.svg.attr('transform', trans);
@@ -582,7 +582,7 @@
         console.log(`extent_ is ${extent_}`);
         const words = record.tokens.slice(...extent_);
         console.log(`words is ${words}`);
-        let scaleFactor = self.client_height / words.length / self.params.sentenceNodeWidth;
+        let scaleFactor = self.client_height / words.length / self.params.sentenceNodeWidth / 1.05;
         console.log(`scaleFactor is ${scaleFactor}`);
         scaleFactor = Math.min(scaleFactor, 1.5);
         const newHeight = scaleFactor * self.client_height;
@@ -640,121 +640,6 @@
       }
     }
 
-    drawSentence(value, record, sentenceRecord) {
-      const defaultWidth = 100;
-      const translationX = defaultWidth/2;
-      const sg = this.svg.append('g')
-                      .attr('transform', `translate(100, 0)`)
-      
-      const spg = sg.append('g');
-      
-      const sentenceTranslate = [50, 10];
-      const self = this;
-      this.translateX(translationX);
-      this.adjustdx(this.stateClusterWordCloudDX - translationX/2);
-
-      console.log(record);
-      console.log('sentence record is ');
-      console.log(sentenceRecord);
-
-      const rectGroup = sg.append('g').attr('transform', 'translate(' + [0, this.client_height/4] + ')');
-      this.drawBrushRect(rectGroup, record.tokens.length, updateSentence);
-
-      // TODO change -1 to something else
-      const sent = sentence(spg)
-        .size([defaultWidth, defaultWidth * sentenceRecord.length])
-        .sentence(sentenceRecord)
-        .coCluster(this.graph.coCluster)
-        .words(record.tokens)
-        .mouseoverCallback(highlightSentenceLinkByNodeIndex)
-        .transform('translate(' + sentenceTranslate + ')')
-        .draw();
-
-      const links = [];
-      // console.log(sent.dataList);
-
-      sentenceRecord.forEach((d, i) => {
-        links[i] = [];
-        const wordPos = sent.getWordPos(i);
-        this.graph.coCluster.colClusters.forEach((clst, j) => {
-          const strength = clst.reduce((acc, val) => {return acc + d[val]} , 0);
-          const s = this.graph.state_info.state_cluster_info[j];
-          links[i][j] = {
-            source: {x: wordPos[0] + sent.nodeWidth + sentenceTranslate[0], y: wordPos[1] + sent.nodeHeight/2 + sentenceTranslate[1]},
-            source_init: {x: wordPos[0] + sent.nodeWidth + sentenceTranslate[0], y: wordPos[1] + sent.nodeHeight/2 + sentenceTranslate[1]},
-            target: {x: s.top_left[0] + this.middle_line_x, y: s.top_left[1] + this.middle_line_y + s.height / 2},
-            strength: strength,
-          };
-        });
-      });
-      links.forEach(function(ls) {
-        const strengthExtent = d3.extent(ls.map(l => Math.abs(l.strength)));
-        const filterStrength = strengthExtent[1] * self.sentenceWordThreshold;
-        ls.forEach((l) => {
-          l.strength = Math.abs(l.strength) < filterStrength ? 0 : l.strength;
-        });
-      });
-
-      const strengthes = flatten(links).map(d => {return Math.abs(d.strength)});
-      const scale = d3.scaleLinear()
-        .domain([0, d3.extent(strengthes)[1]])
-        .range([0, this.linkWidthRanage[1]])
-
-      const lsg = sg.append('g');
-      links.forEach(function(ls) {
-        ls.forEach(function(l) {
-          l['el'] = lsg.append('path')
-                      .classed('active', false)
-                      .classed('link', true)
-                      .attr('d', self.createLink(l))
-                      .attr('stroke-width', l.strength === 0 ? 0 : scale(Math.abs(l.strength)))
-                      .attr('stroke', l.strength > 0 ? self.linkColor[1] : self.linkColor[0])
-                      .attr('opacity', 0.2)
-                      .attr('fill', 'none')
-        });
-      });
-
-      self.graph.sentence_link = links;
-
-      function updateSentence(extent_) {
-        console.log(`extent_ is ${extent_}`);
-        const words = record.tokens.slice(...extent_);
-        console.log(`words is ${words}`);
-        let scaleFactor = record.tokens.length / words.length;
-        scaleFactor = Math.min(scaleFactor, 1.5);
-        const newHeight = scaleFactor * self.client_height;
-        let translateY = sent.getWordPos(~~((extent_[0] + extent_[1])/2))[1];
-        sent.transform('scale('  + scaleFactor + ')translate(' + [sentenceTranslate[0]/scaleFactor, -translateY + self.client_height/2/scaleFactor] + ')');
-        links.forEach((ls) => {
-          ls.forEach((l) => {
-            const actualY = (l.source_init.y - translateY) * scaleFactor + self.client_height / 2;
-            if (actualY < self.client_height && actualY > 0) {
-              l.source.x = (l.source_init.x - sentenceTranslate[0]) * scaleFactor + sentenceTranslate[0];
-              l.source.y = actualY;
-              l['el']
-              .attr('display', '')
-              .transition()
-              .attr('d', self.createLink(l))
-            } else {
-              l['el'].attr('display', 'none');
-            }
-          })
-        })
-      }
-
-      function highlightSentenceLinkByNodeIndex (t, highlight) {
-        links[t].forEach((l) => {
-          l['el'].classed('active', highlight);
-        })
-      }
-
-      function flatten(arr) {
-        return arr.reduce((acc, val) => {
-          return acc.concat(Array.isArray(val) ? flatten(val) : val);
-        }, []);
-      }
-    }
-
     drawBrushRect(g, dataLength, func) {
       const self = this;
       const maxHeight = this.params.height / 2;
@@ -770,8 +655,8 @@
         .attr('y', d => d * rectSize[1])
         .attr('width', rectSize[0])
         .attr('height', rectSize[1])
-        .attr('fill', 'lightgray')
-        .attr('stroke-width', 2)
+        .attr('fill', 'black')
+        .attr('stroke-width', 1)
         .attr('stroke', 'blue')
         .attr('opacity', 0.2);
       let brush = d3.brushY()
@@ -876,7 +761,7 @@
         return acc + val;
       }, 0);
 
-      let offset = -chordLength / 2;
+      let offset = -chordLength / 2 ;
       wordClusters.forEach((wdst, i) => {
         // let angle = wd_radius[i] / wd_radius_sum * availableDegree / 2;
         // let actual_radius = wordCloudArcRadius * angle * Math.PI / 180;
@@ -1289,7 +1174,7 @@
       }
       // this.dx = this.params.wordCloudChord2ClusterDistance - (this.params.wordCloudChord2CenterDistance - maxClusterWidth / 2);
       this.dx = this.stateClusterWordCloudDX;
-      this.dy = this.params.wordCloudChordLength / 2;
+      this.dy = this.params.wordCloudChordLength / 2.1;
       console.log(`maxClusterWidth is ${maxClusterWidth}`);
       console.log(`wordCloudChord2CenterDistance is ${this.params.wordCloudChord2CenterDistance}`);
       console.log(`dx is ${this.dx}, dy is ${this.dy}`);
