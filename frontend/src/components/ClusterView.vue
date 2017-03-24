@@ -359,20 +359,10 @@
           // const coCluster = bus.getCoCluster(this.selectedModel, this.selectedState, this.clusterNum, {top_k: 300, mode: 'raw'});
           // TODO change -1 to something else
           const sentenceRecord = record.getRecords(this.selectedState, -1);
-          this.painter.addSentence(value, record, sentenceRecord);
-        })
-      });
-      bus.$on(CLOSE_SENTENCE, (value, compare) => {
-        // const p1 = bus.loadCoCluster(this.selectedModel, this.selectedState, this.clusterNum, {top_k: 300, mode: 'raw'});
-        const record = bus.evalSentence(value, this.selectedModel);
-        const p2 = record.evaluate();
-        Promise.all([p2]).then((values) => {
-          // const coCluster = bus.getCoCluster(this.selectedModel, this.selectedState, this.clusterNum, {top_k: 300, mode: 'raw'});
-          // TODO change -1 to something else
-          const sentenceRecord = record.getRecords(this.selectedState, -1);
           this.painter.drawSentence(value, record, sentenceRecord);
         })
       });
+
       bus.$on(CLOSE_SENTENCE, (sentence, compare) => {
         if(compare !== this.compare)
           return;
