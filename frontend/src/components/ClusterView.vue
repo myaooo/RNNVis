@@ -373,6 +373,7 @@
           this.painter.drawSentence(record, sentenceRecord);
         })
       });
+
       bus.$on(CLOSE_SENTENCE, (sentence, compare) => {
         if(compare !== this.compare)
           return;

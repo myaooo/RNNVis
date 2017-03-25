@@ -128,7 +128,7 @@ class Evaluator(object):
         acc = sums['acc-1'] / input_size
 
         if verbose:
-            print("Evaluate Summary: acc-1: {:.4f}, avg loss:{:.4f}".format(acc, loss), flush=True)
+            print("Evaluate Summary [{:d}] > acc-1: {:.4f}, avg loss:{:.4f}".format(input_size, acc, loss), flush=True)
         return loss, acc
 
     def evaluate_and_record(self, sess, inputs, targets, recorder, verbose=True, refresh_state=False):

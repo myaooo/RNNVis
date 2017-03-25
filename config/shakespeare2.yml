@@ -1,5 +1,5 @@
 model:
-  name: SHAKESPEARE-2
+  name: SHAKESPEARE-LARGE
   initializer_name: random_uniform
   initializer_args:
     minval: -0.04
