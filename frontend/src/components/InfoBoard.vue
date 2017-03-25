@@ -1,6 +1,6 @@
 <template>
   <div>
-    <h4 class="normal">{{type === 'state' ? 'Hidden State' : 'Word'}}</h4>
+    <h4 class="normal">{{ header }}</h4>
     <hr>
     <svg :id='svgId' :width='width' :height='height'> </svg>
     <svg :id='svgId+"2"' :width='width' :height='30'> </svg>
@@ -57,6 +57,10 @@
       },
     },
     computed: {
+      header: function() {
+        const typeStr = this.type === 'state' ? 'Hidden State' : 'Word';
+        return this.shared.compare ? (this.selectedModel + ': ' + typeStr) : typeStr;
+      },
       svgId: function () {
         return this.id + '-svg';
       },
@@ -73,7 +77,7 @@
         return this.type === 'state' ? (this.compare ? this.shared.selectedUnits2 : this.shared.selectedUnits) : 0;
       },
       selectedWords: function () {
-        return this.type === 'word' ? (this.comapre ? this.shared.selectedWords2 : this.shared.selectedWords) : 0;
+        return this.type === 'word' ? (this.compare ? this.shared.selectedWords2 : this.shared.selectedWords) : 0;
       },
     },
     watch: {
@@ -108,16 +112,29 @@
               // const wordsStatistics = this.statistics.statOfWord(this.selectedWords[0]).mean;
             });
         }
+      },
+      compare: function () {
+        this.init();
+      },
+      type: function () {
+        this.init();
       }
     },
     methods: {
       init() {
+        if (this.chart) {
+          this.chart.clean();
+        }
+        if (this.labelBoard) {
+          this.labelBoard.selectAll('rect, text, path').remove();
+        }
         this.chart = new Chart(d3.select(`#${this.svgId}`), this.width, this.height)
           .background('lightgray', 0.0);
         this.labelBoard = d3.select(`#${this.svgId}2`);
       },
       repaintWord() {
-        this.chart.clean();
+        this.chart.clean()
+          .resize(this.width, this.height);
         this.labelBoard.selectAll('rect, text, path').remove();
         // console.log(this.statistics);
         if (!this.selectedWords.length){
@@ -174,9 +191,11 @@
 
       },
       repaintState() {
-        this.chart.clean();
+        this.chart.clean()
+          .resize(this.width, this.height);
+        this.labelBoard.selectAll('path, text').remove();
         if (!this.selectedUnits.length){
-          console.log('Painting no words');
+          console.log('Painting no states');
           return;
         }
         const top_k = 4;
@@ -199,7 +218,7 @@
         // console.log(unitsStatistics);
         const subChartWidth = this.width/3;
 
-        this.labelBoard.selectAll('path, text').remove();
+
         unitsStatistics.forEach((unitData, i) => {
           const xLabel = i === unitsStatistics.length - 1 ? 'response' : ' '
           const subchart = this.chart.subChart(subChartWidth, this.height)

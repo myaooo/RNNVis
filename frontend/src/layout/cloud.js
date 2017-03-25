@@ -128,8 +128,9 @@ export class WordCloud{
     // console.log(this.cloud);
     if (size[0] !== this.width/2 || size[1] !== this.height/2) {
       // this.size(size);
-      this.drawBackground();
       this.radius = size;
+      this.drawBackground();
+
     }
     if (!this.bgHandle)
       this.drawBackground();

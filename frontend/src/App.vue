@@ -16,12 +16,7 @@
           <main-view :height="height * 0.6"> </main-view>
         </el-row>
         <el-row :gutter="10">
-          <el-col :span="12" class="col-bg" :gutter="15">
-            <info-board :type="'state'" :id="'state-info'" :height="height * 0.2"> </info-board>
-          </el-col>
-          <el-col :span="12" class="col-bg" :gutter="15">
-            <info-board :type="'word'" :id="'word-info'" :height="height * 0.2"> </info-board>
-          </el-col>
+          <info-view :height="height * 0.2"> </info-view>
         </el-row>
       </el-col>
       <!--<el-col :span='6' class="col-bg border" :gutter="15">-->
@@ -37,16 +32,33 @@
 import ModelView from 'components/ModelView';
 import MainView from 'components/MainView';
 import TextView from 'components/TextView';
-import InfoBoard from 'components/InfoBoard';
+import InfoView from 'components/InfoView';
 
 export default {
   name: 'app',
-  components: { ModelView, MainView, TextView, InfoBoard },
-  computed: {
-    height: function() {
-      return document.documentElement.clientHeight;
-    },
+  components: { ModelView, MainView, TextView, InfoView },
+  data() {
+    return {
+      height: 800,
+      width: 1000,
+    };
   },
+  computed: {
+    mainHeight: function () {
+      return this.height * 0.6;
+    },
+    infoHeight: function () {
+      return this.height * 0.2;
+    }
+  },
+  mounted() {
+    this.height = window.innerHeight;
+    this.width = window.innerWidth;
+    window.addEventListener("resize", () => {
+      this.height = window.innerHeight;
+      this.width = window.innerWidth;
+    });
+  }
 };
 </script>
 

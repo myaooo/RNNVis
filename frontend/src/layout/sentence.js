@@ -18,7 +18,7 @@ const layoutParams = {
 // see TestView.vue: draw3();
 
 class SentenceLayout{
-  constructor(selector, params = layoutParams){
+  constructor(selector, compare = false, params = layoutParams){
     this.group = selector;
     this._size = [50, 600];
     this._rectSize = [20, 50];
@@ -28,7 +28,9 @@ class SentenceLayout{
     // this.handles = [];
     this._dataList = [];
     this.type = 'bar2';
+    this.compare = compare;
     this._mouseoverCallback = function(_) {console.log(_)};
+    this.transform();
     // each data in data list has 3 handles after drawing:
     // el: the group holding all elements of a word
     // els: 3 groups, each holds a pie chart
@@ -40,7 +42,10 @@ class SentenceLayout{
   size(size){
     return arguments.length ? (this._size = size, this) : this._size;
   }
-  transform(transformStr) {
+  transform(transformStr = '') {
+    if (this.compare)
+      transformStr += 'scale(-1, 1) translate(' + [-this.nodeWidth, 0] + ')'; // + transformStr;
+    console.log(transformStr);
     this.group
       .transition()
       .duration(200)
@@ -277,7 +282,8 @@ class SentenceLayout{
     const unitWidth = this.nodeWidth / data.data.length;
 
     el.on('mouseover', function() {self._mouseoverCallback(t, true)})
-      .on('mouseleave', function() {self._mouseoverCallback(t, false)});
+      .on('mouseleave', function() {self._mouseoverCallback(t, false)})
+      .on('click', function() {self._mouseoverCallback(t, false, true)});
     // bounding box
     const bg = el.append('rect')
       .attr('x', 0)
@@ -286,7 +292,8 @@ class SentenceLayout{
       .attr('height', height)
       .attr('stroke', 'gray')
       .attr('stroke-width', 1)
-      .attr('fill', 'none')
+      .attr('fill', 'white')
+      .attr('fill-opacity', 0);
 
     const gSelector = el.selectAll('g')
       .data(data.data);
@@ -593,8 +600,8 @@ class SentenceLayout{
   }
 };
 
-function sentence(selector){
-  return new SentenceLayout(selector);
+function sentence(selector, compare = false){
+  return new SentenceLayout(selector, compare);
 };
 
 export {

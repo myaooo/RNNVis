@@ -85,6 +85,11 @@ export class Chart {
     this.offset = [];
     this.rotateFlag = false;
   }
+  resize(width, height) {
+    this.width = width;
+    this.height = height;
+    return this;
+  }
   // set the relative translation regarding its mother element
   translate(x, y) {
     this.offset = [x, y];
@@ -359,11 +364,14 @@ export class Chart {
         this.axisHandles[name] = null;
       }
     })
+    this.marginAll = [0, 0, 0, 0];
+    this.rotateFlag = false;
     this.scale = { x: null, y: null };
     this.extents = [[Infinity, -Infinity], [Infinity, -Infinity]];
     // this.axis = { x: null, y: null };
-    // this.drawHooks = { xAxis: null, yAxis: null};
+    this.drawHooks = { xAxis: null, yAxis: null};
     this.charts = [];
+    return this;
   }
 }
 
