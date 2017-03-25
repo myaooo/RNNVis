@@ -185,27 +185,169 @@
         })
 
       },
-      draw3() {
+      draw4() {
+        let color = d3.scaleOrdinal(d3.schemeCategory10);
+        let width = 500, height = 500;
+        const rectHeight = 20;
+        const rectWidth = 50;
+        const rectInterval = 10;
+        const data = ['this', 'is', 'foy', 'test', '<eos>'];
+        
+        var x = d3.scaleTime()
+          .domain([new Date(2013, 7, 1), new Date(2013, 7, 15) - 1])
+          .rangeRound([0, width]);
+        const g = d3.select(`#${this.svgId}`)
+          .attr('width', width)
+          .attr('height', height)
+          .append('g')
+          .attr("transform", "translate(100," + height / 3  + ")");
+
+        let texts = g
+          .selectAll('text')
+          .data(data).enter()
+          .append('text')
+          .text((d) => {return d})
+          .style('text-anchor', 'middle')
+          // .attr('font-size', 12)
+          .attr('transform', function(d, i) {
+            return 'translate(' + [(rectWidth + rectInterval) * i + rectWidth / 2, rectHeight/1.3] + ')';
+          });
+        
+        const rect_g = g.append('g');
+        data.forEach((d, i) => {
+          if (i > 0) {
+            rect_g.append('rect')
+              .attr('x', i * (rectWidth + rectInterval) - rectInterval)
+              .attr('y', '0')
+              .attr('width', rectInterval)
+              .attr('height', rectHeight)
+              .attr('fill', 'lightgray')
+              .attr('stroke-width', 2)
+              .attr('stroke', 'blue')
+              .attr('opacity', 0.2);
+          }
+          rect_g
+            .append('rect')
+            .attr('x', i * (rectWidth + rectInterval))
+            .attr('y', '0')
+            .attr('width', rectWidth)
+            .attr('height', rectHeight)
+            .attr('fill', 'lightgray')
+            .attr('stroke-width', 2)
+            .attr('stroke', 'blue')
+            .attr('opacity', 0.2);
+        });
+        
+        g.append('g')
+          .call(d3.brushX()
+              .extent([[0, 0], [(rectWidth + rectInterval) * data.length - rectInterval, rectHeight]])
+              .on('end', brushended)
+          );
+        
+        function brushended () {
+          if (!d3.event.sourceEvent) return;
+          if (!d3.event.selection) return;
+          let extent = d3.event.selection;
+          extent[0] = Math.round(extent[0] / (rectWidth + rectInterval)) * (rectWidth + rectInterval);
+          extent[1] = Math.max(Math.round(extent[1] / (rectWidth + rectInterval)) * (rectWidth + rectInterval) - rectInterval, extent[0]);
+          console.log(d3.event.selection);
+          d3.select(this).transition().call(d3.event.target.move, extent)
+        }
+      },
+
+      drawRect(g, dataLength, func) {
+        const self = this;
+        const rectSize = [20, 50];
+        const minBrushLength = 3;
+        g.selectAll('.wordRect')
+          .data(d3.range(dataLength)).enter()
+          .append('rect')
+          .attr('x', 0)
+          .attr('y', d => d * rectSize[1])
+          .attr('width', rectSize[0])
+          .attr('height', rectSize[1])
+          .attr('fill', 'lightgray')
+          .attr('stroke-width', 2)
+          .attr('stroke', 'blue')
+          .attr('opacity', 0.2);
+        let brush = d3.brushY()
+          .extent([[0, 0], [rectSize[0], rectSize[1] * dataLength]])
+          .on('end', function() {
+            if (!d3.event.sourceEvent) return;
+            if (!d3.event.selection) return;
+            let extent = d3.event.selection;
+            extent[0] = Math.round(extent[0] / rectSize[1]) * rectSize[1];
+            extent[1] = Math.round(extent[1] / rectSize[1]) * rectSize[1];
+            d3.select(this).transition().call(d3.event.target.move, extent);
+            console.log(d3.event.selection);
+            func([Math.round(extent[0] / rectSize[1]), Math.round(extent[1] / rectSize[1])])
+          });
+        g.append('g')
+          .call(brush)
+          .call(brush.move, [0, rectSize[1] * dataLength])
+      },
+
+      draw5() {
         const p1 = bus.loadCoCluster('PTB-LSTM', 'state_c', 10, {top_k: 300, mode: 'raw'});
         const record = bus.evalSentence('What can I do for you?', 'PTB-LSTM');
         const p2 = record.evaluate();
+        const clientHeight = 500;
+        let sent = null;
+        const svg = d3.select(`#${this.svgId}`);
+        const sent_g = svg.append('g');
+        
         Promise.all([p1, p2]).then((values) => {
           const coCluster = bus.getCoCluster('PTB-LSTM', 'state_c', 10, {top_k: 300, mode: 'raw'});
           const sentenceRecord = record.getRecords('state_c', -1);
           console.log(record);
-          const a = sentence(d3.select(`#${this.svgId}`).append('g'))
-            .transform('translate(50, 10)')
-            .size([50, 450])
+          const rect_g = svg.append('g')
+            .attr('transform', 'translate(0, 50)');
+          sent = sentence(sent_g)
+            .transform('translate(100, 0)')
+            .size([50, clientHeight])
             .sentence(sentenceRecord)
             .coCluster(coCluster)
             .words(record.tokens)
-            .draw();
-          console.log(a.strengthByCluster);
-        })
+            .draw()
+            // .transform('scale('  + scaleFactor + ')translate(' + [200/scaleFactor,10/scaleFactor] + ')');;
+          console.log(sent.strengthByCluster);
+          this.drawRect(rect_g, record.tokens.length, updateSentence);
+      });
 
-          // .layout();
+      function updateSentence(extent_) {
+        console.log(`extent_ is ${extent_}`);
+        const words = record.tokens.slice(...extent_);
+        console.log(`words is ${words}`);
+        let scaleFactor = record.tokens.length / words.length;
+        scaleFactor = Math.min(scaleFactor, 2);
+        const newHeight = scaleFactor * clientHeight;
+        let translateY = sent.getWordPos(extent_[0])[1];
+        sent.transform('scale('  + scaleFactor + ')translate(' + [100/scaleFactor, -translateY] + ')');
       }
     },
+    
+    draw3() {
+      const p1 = bus.loadCoCluster('PTB-LSTM', 'state_c', 10, {top_k: 300, mode: 'raw'});
+      const record = bus.evalSentence('What can I do for you?', 'PTB-LSTM');
+      const p2 = record.evaluate();
+      Promise.all([p1, p2]).then((values) => {
+        const coCluster = bus.getCoCluster('PTB-LSTM', 'state_c', 10, {top_k: 300, mode: 'raw'});
+        const sentenceRecord = record.getRecords('state_c', -1);
+        console.log(record);
+        const a = sentence(d3.select(`#${this.svgId}`).append('g'))
+          .transform('translate(100, 10)')
+          .size([50, 450])
+          .sentence(sentenceRecord)
+          .coCluster(coCluster)
+          .words(record.tokens)
+          .draw();
+        console.log(a.strengthByCluster);
+      })
+
+
+        // .layout();
+    },
+  },
     mounted() {
       // let coClusterData;
       // const p = dataService.getCoCluster(this.model, this.state, 10, {}, response => {
@@ -216,7 +358,8 @@
       this.init();
       // this.draw2();
       // this.draw_arc();
-      this.draw3();
+      this.draw5();
+      // this.draw4();
     }
 
   }

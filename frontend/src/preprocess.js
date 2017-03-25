@@ -19,26 +19,27 @@ export class CoClusterProcessor {
   }
   get labels() {
     if (this.hasData && !this._labels) {
-      this._labels = [...new Set(this.rowLabels)];
+      this._labels = [...new Set(this.colLabels)];
       if (this.sortBy === 'col')
         this._labels.sort((a, b) => this.colSizes[a] - this.colSizes[b]);
       else if (this.sortBy === 'row')
         this._labels.sort((a, b) => this.rowSizes[a] - this.rowSizes[b]);
+      // console.log(this._labels);
     }
     return this._labels;
   }
   get colSizes() {
     if (this.hasData && !this._colSizes) {
-      const colSizes = [];
-      this.colLabels.forEach((label, i) => { colSizes[label] = 1 + (colSizes[label] || 0); });
+      const colSizes = new Int32Array(this.labels.length);
+      this.colLabels.forEach((label, i) => { colSizes[label] += 1; });
       this._colSizes = colSizes;
     }
     return this._colSizes;
   }
   get rowSizes() {
     if (this.hasData && !this._rowSizes) {
-      const rowSizes = [];
-      this.rowLabels.forEach((label, i) => { rowSizes[label] = 1 + (rowSizes[label] || 0); });
+      const rowSizes = new Int32Array(this.labels.length);
+      this.rowLabels.forEach((label, i) => { rowSizes[label] += 1; });
       this._rowSizes = rowSizes;
     }
     return this._rowSizes;
@@ -89,21 +90,24 @@ export class CoClusterProcessor {
 
   Create2DArray(rowNum, colNum) {
     return Array.from({ length: rowNum }, (v, i) => {
-      return Array.from({ length: colNum }, (v, i) => 0);
+      return new Float32Array(colNum); //Array.from({ length: colNum }, (v, i) => 0);
     });
   }
+
+  // sortData() {
+  //   if (this.hasData) {
+
+  //   }
+  // }
   get aggregation_info() {
-    if (this.hasData) {
-      if (this._aggregation_info) {
-        return this._aggregation_info;
-      }
-      let rowClusters = this.rowClusters;
-      let colClusters = this.colClusters;
-      let row_cluster_2_col_cluster = this.Create2DArray(this.nCluster, this.nCluster);
-      let row_single_2_col_cluster = this.Create2DArray(this.rawData.row.length, this.nCluster);
-      let row_cluster_2_col_single = this.Create2DArray(this.nCluster, this.rawData.col.length);
-      let row_single_2_col_single = this.Create2DArray(this.rawData.row.length, this.rawData.col.length);
-      let cluster = [];
+    if (this.hasData && !this._aggregation_info) {
+      // const rowClusters = this.rowClusters;
+      // const colClusters = this.colClusters;
+      const row_cluster_2_col_cluster = this.Create2DArray(this.nCluster, this.nCluster);
+      const row_single_2_col_cluster = this.Create2DArray(this.rawData.row.length, this.nCluster);
+      const row_cluster_2_col_single = this.Create2DArray(this.nCluster, this.rawData.col.length);
+      const row_single_2_col_single = this.Create2DArray(this.rawData.row.length, this.rawData.col.length);
+      const cluster = [];
       // calculate the correlation between clusters
       this.correlation.forEach((strength_list, r_index) => {
         strength_list.forEach((s, c_index) => {
@@ -115,23 +119,79 @@ export class CoClusterProcessor {
         });
       });
 
-      return {
+      this._aggregation_info = {
         row_cluster_2_col_cluster: row_cluster_2_col_cluster,
         row_single_2_col_cluster: row_single_2_col_cluster,
         row_cluster_2_col_single: row_cluster_2_col_single,
         row_single_2_col_single: row_single_2_col_single
       };
     }
-    return null;
+    return this._aggregation_info;
+  }
+
+  get cluster2cluster() {
+    if (this.hasData && !this._cluster2cluster) {
+      const row_cluster_2_col_cluster = this.Create2DArray(this.nCluster, this.nCluster);
+      this.correlation.forEach((strength_list, r_index) => {
+        strength_list.forEach((s, c_index) => {
+          let strength = this.strength_filter(s);
+          row_cluster_2_col_cluster[this.rawData.row[r_index]][this.rawData.col[c_index]] += strength;
+        });
+      });
+      this._cluster2cluster = row_cluster_2_col_cluster;
+    }
+    return this._cluster2cluster;
+  }
+
+  get single2cluster() {
+    if (this.hasData && !this._single2cluster) {
+      const row_single_2_col_cluster = this.Create2DArray(this.rawData.row.length, this.nCluster);
+      this.correlation.forEach((strength_list, r_index) => {
+        strength_list.forEach((s, c_index) => {
+          let strength = this.strength_filter(s);
+          row_single_2_col_cluster[r_index][this.rawData.col[c_index]] += strength;
+        });
+      });
+      this._single2cluster = row_single_2_col_cluster;
+    }
+    return this._cluster2cluster;
+  }
+
+  get cluster2single() {
+    if (this.hasData && !this._cluster2single) {
+      const row_cluster_2_col_single = this.Create2DArray(this.nCluster, this.rawData.col.length);
+      this.correlation.forEach((strength_list, r_index) => {
+        strength_list.forEach((s, c_index) => {
+          let strength = this.strength_filter(s);
+          row_single_2_col_single[r_index][c_index] += strength;
+        });
+      });
+      this._cluster2single = row_cluster_2_col_single;
+    }
+    return this._cluster2single;
+  }
+
+  get single2single() {
+    if (this.hasData && !this._single2single) {
+      const row_single_2_col_single = this.Create2DArray(this.rawData.row.length, this.rawData.col.length);
+      this.correlation.forEach((strength_list, r_index) => {
+        strength_list.forEach((s, c_index) => {
+          let strength = this.strength_filter(s);
+          row_single_2_col_cluster[r_index][this.rawData.col[c_index]] += strength;
+        });
+      });
+      this._single2cluster = row_single_2_col_cluster;
+    }
+    return this._cluster2cluster;
   }
 
   get rowClusters() {
     if (this.hasData && !this._rowClusters) {
-      const rowClusters = new Array(this.labels.length);
+      const rowClusters = Array.from({ length: this.labels.length }, (v, i) => []);
       this.rawData.row.forEach((r, i) => {
-        if (rowClusters[r] === undefined) {
-          rowClusters[r] = [];
-        }
+        // if (rowClusters[r] === undefined) {
+        //   rowClusters[r] = [];
+        // }
         rowClusters[r].push(i);
       });
       this._rowClusters = new Array(this.labels.length);
@@ -141,7 +201,7 @@ export class CoClusterProcessor {
   }
   get colClusters() {
     if (this.hasData && !this._colClusters) {
-      const colClusters = [];
+      const colClusters = Array.from({ length: this.labels.length }, (v, i) => []);
       this.rawData.col.forEach((c, i) => {
         if (colClusters[c] === undefined) {
           colClusters[c] = [];
@@ -155,7 +215,7 @@ export class CoClusterProcessor {
   }
 
   static identifier(processor) {
-    return `${processor.modelName}_${processor.stateName}_${processor.nCluster}_${processor.params.layer}`;
+    return `${processor.modelName}${processor.stateName}${processor.nCluster}${processor.params.layer+1}`;
   }
 
 }

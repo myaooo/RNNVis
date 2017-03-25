@@ -131,9 +131,9 @@
           return this.statistics.statOfWord(word.text);
         });
         this.chart
-          .margin(5, 5, 20, 30)
-          .xAxis()
-          .yAxis();
+          .margin(20, 35, 20, 30)
+          .xAxis('dims')
+          .yAxis('response');
         let sortIdx = wordsStatistics[0].sort_idx;
         const interval = ~~(sortIdx.length / 100)
         const ranges = range(0, sortIdx.length, interval);
@@ -179,7 +179,7 @@
           console.log('Painting no words');
           return;
         }
-        const top_k = 8;
+        const top_k = 4;
         // const units = this.selectedUnits;
         const unitsStatistics = this.selectedUnits.map((unit, i) => {
           const data = this.statistics.statesData[unit];
@@ -201,23 +201,25 @@
 
         this.labelBoard.selectAll('path, text').remove();
         unitsStatistics.forEach((unitData, i) => {
+          const xLabel = i === unitsStatistics.length - 1 ? 'response' : ' '
           const subchart = this.chart.subChart(subChartWidth, this.height)
-            .xAxis()
-            .yAxis();
+            .xAxis(xLabel)
+            .yAxis('words');
           subchart.axis.y.tickFormat((j) => {
             // console.log(j);
             if (-1 < j && j < top_k * 2)
               return unitData[j].word;
-          }).tickValues(range(0,20,1));
-          subchart.axis.x.ticks(7);
+          }).tickValues(range(0,top_k*2,1));
+          subchart.axis.x.ticks(6);
           subchart
-            .margin(10,10,20,60)
+            .margin(20,10,20,60)
             .translate(subChartWidth*i, 0)
             .rotate();
           subchart
             .box(unitData, 6, (d, j) => j, (d) => d.mean, (d) => d.range1, (d) => d.range2)
             .attr('fill', 'steelblue')
-            .attr('stroke', 'gray')
+            .attr('stroke', 'black')
+            .attr('stroke-width', 0)
             .attr('fill-opacity', 0.5);
           // horizontal line
           subchart.line([[top_k-0.5, subchart.extents[1][0]], [top_k-0.5, subchart.extents[1][1]]])
