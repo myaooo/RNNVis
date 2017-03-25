@@ -219,6 +219,12 @@
         // console.log(`${this.svgId} > cluster num: ${this.layout.clusterNum}`);
         return this.layout.clusterNum;
       },
+      strokeControlType: function() {
+        return this.layout.strokeControlType;
+      },
+      strokeControlStrength: function() {
+        return this.layout.strokeControlStrength;
+      },
       selectedWords: function() {
         return this.compare ? this.shared.selectedWords2 : this.shared.selectedWords;
       },
@@ -238,10 +244,20 @@
         console.log(`${this.svgId} > layer changed to ${this.selectedLayer}`);
         this.maybeReload();
       },
-      layout: function(layout) {
-        console.log(`${this.svgId} > layout changed. clusterNum: ${layout.clusterNum}`);
+      strokeControlType: function(strokeControlType) {
+        this.changeStrokeWidth(this.strokeControlType, this.strokeControlStrength);
+      },
+      strokeControlStrength: function(strokeControlStrength) {
+        this.changeStrokeWidth(this.strokeControlType, this.strokeControlStrength);
+      },
+      clusterNum: function(clusterNum) {
+        console.log(`${this.svgId} > layout changed. clusterNum: ${this.layout.clusterNum}`);
         this.maybeReload();
       },
+      // layout: function(layout) {
+      //   console.log(`${this.svgId} > layout changed. clusterNum: ${layout.clusterNum}`);
+      //   this.maybeReload();
+      // },
       selectedModel: function (newModel, oldModel) {
         console.log(`${this.svgId} > model changed to ${this.selectedModel}`);
         this.maybeReload();
@@ -348,6 +364,9 @@
             this.painter.draw(this.clusterData);
           });
       },
+      changeStrokeWidth(controlType, controlStrength) {
+        this.painter.setStrokeWidth(controlType, controlStrength);
+      }
     },
     mounted() {
       this.init();
@@ -447,6 +466,8 @@
       this.sentenceTranslateHis = [this.params.sentenceInitTranslate[0],];
       this.sentences = [];
 
+      this.strokeWidth = function(t) { return Math.abs(t) * 0.01};
+
     }
 
     get stateClusterWordCloudDX () {
@@ -466,6 +487,27 @@
     }
     get middle_line_y() {
       return this.params.middleLineY;
+    }
+
+    setStrokeWidth(controlType, controlStrength) {
+      console.log(`controlType is ${controlType}, controlStrength is ${controlStrength}`);
+      switch(controlType) {
+        case "Linear":
+          this.strokeWidth = function(t) {return Math.abs(t) * controlStrength};
+          break;
+        case "Logarithm":
+          this.strokeWidth = function(t) {return Math.abs(Math.log(Math.abs(t)) / Math.log(controlStrength))};
+          break;
+        case "Exponential":
+          this.strokeWidth = function(t) {return Math.pow(controlStrength, Math.abs(t))};
+          break;
+        default:
+          console.log("The control type of " + controlType + " currently is not supported");
+          return;
+      }
+      if (this.graph) {
+        this.draw_link(this.hg, this.graph);
+      }
     }
 
     deleteSentence(value) {
@@ -1128,9 +1170,9 @@
       }
       // const strengthes = flatten(link_info).filter(d => {return d.strength > 0}).map(d => {return Math.abs(d.strength)});
       const strengthes = flatten(link_info).map(d => {return Math.abs(d.strength)});
-      const scale = d3.scaleLinear()
-        .domain([0, d3.extent(strengthes)[1]])
-        .range([0, this.linkWidthRanage[1]])
+      // const scale = d3.scaleLinear()
+      //   .domain([0, d3.extent(strengthes)[1]])
+      //   .range([0, this.linkWidthRanage[1]])
 
       link_info.forEach((ls, i) => {
         // const strengthRange = d3.extent(ls);
@@ -1139,13 +1181,14 @@
             d3.select(l['el'])
               .transition()
               .duration(300)
+              .attr('stroke-width', l.strength !== 0 ? this.strokeWidth(l.strength) : 0)
               .attr('d', this.createLink(l))
           } else {
             let tmp_path = g.append('path')
               .classed('link', true)
               .classed('active', false)
               .attr('d', this.createLink(l))
-              .attr('stroke-width', l.strength !== 0 ? scale(Math.abs(l.strength)) : 0)
+              .attr('stroke-width', l.strength !== 0 ? this.strokeWidth(l.strength) : 0)
               .attr('opacity', 0.2)
               .attr('stroke', l.strength > 0 ? this.linkColor[1] : this.linkColor[0])
             l['el'] = tmp_path.node();
