@@ -116,7 +116,7 @@ const bus = new Vue({
     //   return undefined;
     // },
     modelCellType(modelName = state.selectedModel) {
-      if (Object.prototype.hasOwnProperty.call(this.state.modelConfigs, modelName)) {
+      if (state.modelsSet.has(modelName)) {
         const config = this.state.modelConfigs[modelName];
         return config.model.cell_type;
       }
@@ -124,7 +124,7 @@ const bus = new Vue({
     },
     availableStates(modelName = this.state.selectedModel) { // helper function that returns available states of the current selected Model`
       // modelName = modelName || this.state.selectedModel;
-      if (Object.prototype.hasOwnProperty.call(this.state.modelConfigs, modelName)) {
+      if (state.modelsSet.has(modelName)) {
         const config = this.state.modelConfigs[modelName];
         return this.cell2states[config.model.cell_type];
       }
@@ -132,7 +132,7 @@ const bus = new Vue({
     },
     layerNum(modelName = this.selectedModel) {
       // modelName = modelName || this.state.selectedModel;
-      if (Object.prototype.hasOwnProperty.call(this.state.modelConfigs, modelName)) {
+      if (state.modelsSet.has(modelName)) {
         const config = this.state.modelConfigs[modelName];
         return config.model.cells.length;
       }
@@ -140,7 +140,7 @@ const bus = new Vue({
     },
     layerSize(modelName = this.state.selectedModel, layer = -1) {
       // modelName = modelName || this.state.selectedModel;
-      if (Object.prototype.hasOwnProperty.call(this.state.modelConfigs, modelName)) {
+      if (state.modelsSet.has(modelName)) {
         if (layer === -1) {
           layer = this.layerNum(modelName) - 1;
         }
@@ -158,6 +158,10 @@ const bus = new Vue({
       return record;
     },
     loadStatistics(modelName = state.selectedModel, stateName = state.selectedState, layer = -1, top_k = 300) {
+      if (!state.modelsSet.has(modelName))
+        return Promise.reject(`No available model ${modelName}`);
+      if (!(stateName === 'state' || stateName === 'state_c' || stateName === 'state_h'))
+        return Promise.reject(`No available state ${stateName}`);
       if (!state.statistics.hasOwnProperty(modelName)) {
         state.statistics[modelName] = {};
       }
@@ -185,7 +189,7 @@ const bus = new Vue({
       return undefined;
     },
     loadPosStatistics(modelName = state.selectedModel, top_k = 300, callback) {
-      if (this.state.modelConfigs.hasOwnProperty(modelName)) {
+      if (this.state.modelsSet.has(modelName)) {
         return dataService.getPosStatistics(modelName, top_k, callback);
       }
       return Promise.reject(`No model with name ${modelName} available!`);
@@ -241,12 +245,15 @@ const bus = new Vue({
         if (units.length > 2)
           units.splice(0, 1);
         this.state.selectedUnits2 = units;
+        this.state.selectedWords2 = [];
       } else {
         const units = this.state.selectedUnits.slice();
         units.push(unitDim);
         if (units.length > 2)
           units.splice(0, 1);
         this.state.selectedUnits = units;
+        if (this.compare)
+          this.state.selectedWords = [];
       }
       console.log(`bus > selected unit ${unitDim}`);
 
@@ -255,8 +262,13 @@ const bus = new Vue({
     this.$on(SELECT_WORD, (word, compare) => {
       const maxSelected = 3;
       let words;
-      if (compare) words = this.state.selectedWords2.slice();
-      else words = this.state.selectedWords.slice();
+      if (compare){
+        words = this.state.selectedWords2.slice();
+        this.state.selectedUnits2 = [];
+      } else {
+        words = this.state.selectedWords.slice();
+        if (this.compare) this.state.selectedUnits = [];
+      }
       words.push(word);
       if (words.length > maxSelected) {
         deactivateText(words[0]);

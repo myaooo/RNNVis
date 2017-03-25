@@ -1,16 +1,35 @@
 from functools import lru_cache
+import os
 
 import yaml
-from flask import jsonify, send_file, request
+from flask import jsonify, send_file, request, send_from_directory, safe_join
 
 from rnnvis.server import app
 from rnnvis.server import _manager
 
 # TODO: add exception handles
 
-@app.route("/")
-def hello():
-    return "Hello World!"
+
+@app.route('/static/js/<path:path>')
+def send_js(path):
+    return send_from_directory(safe_join(app.config['STATIC_FOLDER'], 'js'), path)
+
+
+@app.route('/static/css/<path:path>')
+def send_css(path):
+    return send_from_directory(safe_join(app.config['STATIC_FOLDER'], 'css'), path)
+
+
+@app.route('/static/fonts/<path:path>')
+def send_fonts(path):
+    return send_from_directory(safe_join(app.config['STATIC_FOLDER'], 'fonts'), path)
+
+
+@app.route('/')
+def root():
+    print(safe_join(app.config['FRONT_END_ROOT'], 'index.html'))
+    file = send_from_directory(app.config['FRONT_END_ROOT'], 'index.html')
+    return file
 
 
 @app.route('/models/available')

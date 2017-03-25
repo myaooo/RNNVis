@@ -15,13 +15,13 @@ model:
   loss_func: sequence_loss
   dataset: ptb
 train:
-  epoch_num: 40
+  epoch_num: 60
   num_steps: 40
   batch_size: 20
   keep_prob: 0.5
   gradient_clip: global_norm
   gradient_clip_args:
-    clip_norm: 3.0
-  optimizer: Adam
-  learning_rate: 0.0005 
+    clip_norm: 1.0
+  optimizer: GradientDescent
+  learning_rate: "lambda x: 1.0 * (1.0 if x < 7 else (0.9)** (x-7))"
 

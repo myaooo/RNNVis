@@ -192,12 +192,14 @@ class RNNModel(object):
             if sum_ops:
                 for name in sum_ops:
                     sums[name] += vals[name]
-            if i % verbose_every == 0 and i != 0:
+            if (i+1) % verbose_every == 0:
                 delta_time = time.time() - verbose_time
-                print("epoch[{:d}/{:d}] speed:{:.1f} wps, time: {:.1f}s".format(
-                    i, epoch_size, (i * batch_size * self.num_steps / (time.time() - start_time)), delta_time))
+                print_str = "epoch[{:d}/{:d}] speed:{:.1f} wps, time: {:.1f}s".format(
+                    i+1, epoch_size, ((i+1) * batch_size * self.num_steps / (time.time() - start_time)), delta_time)
                 sum_list = ["{:s}: {:.4f}".format(name, value / (i+1)) for name, value in sums.items()]
-                if sum_list: print(', '.join(sum_list))
+                if sum_list: 
+                    print_str += ' > ' + ', '.join(sum_list)
+                print(print_str)
                 verbose_time = time.time()
         total_time = time.time() - start_time
         # Prepare for returning values
