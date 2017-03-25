@@ -8,6 +8,11 @@
 # install dependencies
 npm install
 
+npm install -g element-theme
+
+# compile default css
+et -c src/style/element-variables.css -o src/theme/
+
 # serve with hot reload at localhost:8080
 npm run dev
 

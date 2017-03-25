@@ -2,8 +2,8 @@ model:
   name: IMDB
   initializer_name: random_uniform
   initializer_args:
-    minval: -0.06
-    maxval: 0.06
+    minval: -0.03
+    maxval: 0.03
   input_dtype: int32
   target_dtype: int32
   vocab_size: 10000
@@ -12,8 +12,8 @@ model:
   embedding_size: 500
   cell_type: GRU
   cells:
-    - num_units: 300
-    - num_units: 300
+    - num_units: 200
+    - num_units: 200
   loss_func: sentence_loss
   dataset: imdb-small
 train:
@@ -22,4 +22,4 @@ train:
   batch_size: 32
   keep_prob: 0.5
   optimizer: Adam 
-  learning_rate: 0.0001
+  learning_rate: 0.001

@@ -152,7 +152,7 @@ def get_datasets_by_name(name, fields=None):
     return complete_data
 
 
-def insert_evaluation(data_name, model_name, eval_text_tokens, replace=False):
+def insert_evaluation(data_name, model_name, set_name, eval_text_tokens, replace=False):
     """
     Add an evaluation record to the 'eval' collection, with given data_name, model_name and a list of word tokens
     Since we don't want duplicate evaluations, we must ensure one time there is only one same doc
@@ -191,11 +191,13 @@ def insert_evaluation(data_name, model_name, eval_text_tokens, replace=False):
                             .format(type(eval_text_token[0])))
         tag = hash_tag_str(eval_text_token)
         filt = {'name': data_name, 'tag': tag, 'model': model_name}
+        if set_name is not None:
+            filt['set'] = set_name
         data = {'data': eval_ids}
         data.update(filt)
         datas.append(data)
     if replace:
-        existing_evals = query_evals(data_name, model_name)
+        existing_evals = query_evals(data_name, model_name, set_name)
         delete_evals([eval_['_id'] for eval_ in existing_evals])
         return db_hdlr['eval'].insert_many(datas).inserted_ids
     else:
@@ -268,8 +270,11 @@ def query_evaluation_records(eval_, range_=None, data_name=None, model_name=None
     return records
 
 
-def query_evals(data_name, model_name):
-    return db_hdlr['eval'].find({'name': data_name, 'model': model_name})
+def query_evals(data_name, model_name, set_name=None):
+    filt = {'name': data_name, 'model': model_name}
+    if set_name is not None:
+        filt['set'] = set_name
+    return db_hdlr['eval'].find(filt)
 
 
 def delete_evals(eval_ids):

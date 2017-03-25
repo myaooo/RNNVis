@@ -1,5 +1,5 @@
 model:
-  name: IMDB
+  name: IMDB-TINY
   initializer_name: random_uniform
   initializer_args:
     minval: -0.03
@@ -9,17 +9,16 @@ model:
   vocab_size: 10000
   target_size: 2
   use_last_output: True
-  embedding_size: 100
+  embedding_size: 50
   cell_type: GRU
   cells:
-    - num_units: 50
     - num_units: 50
   loss_func: sentence_loss
   dataset: imdb-small
 train:
-  epoch_num: 20
-  num_steps: 100
-  batch_size: 32
+  epoch_num: 10
+  num_steps: 150
+  batch_size: 16
   keep_prob: 1.0
   optimizer: Adam 
-  learning_rate: 0.0001
+  learning_rate: 0.01

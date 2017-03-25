@@ -2,8 +2,8 @@ model:
   name: SHAKESPEARE-1
   initializer_name: random_uniform
   initializer_args:
-    minval: -0.06
-    maxval: 0.06
+    minval: -0.04
+    maxval: 0.04
   input_dtype: int32
   target_dtype: int32
   vocab_size: 14981
@@ -21,6 +21,6 @@ train:
   keep_prob: 0.7
   gradient_clip: global_norm
   gradient_clip_args:
-    clip_norm: 5.0
+    clip_norm: 4.0
   optimizer: GradientDescent
-  learning_rate: "lambda epoch: 1.0 *(1.0 if epoch < 7 else 0.88**(epoch - 7))"
+  learning_rate: "lambda epoch: 4.5 *(1.0 if epoch < 6 else 0.8**(epoch - 6))"

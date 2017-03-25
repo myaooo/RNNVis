@@ -7,19 +7,20 @@ model:
   input_dtype: int32
   target_dtype: int32
   vocab_size: 10000
-  embedding_size: 800
+  embedding_size: 600
   cell_type: BasicLSTM
   cells:
-    - num_units: 800
-    - num_units: 800
+    - num_units: 600
+    - num_units: 600
   loss_func: sequence_loss
+  dataset: ptb
 train:
   epoch_num: 40
   num_steps: 40
   batch_size: 20
   keep_prob: 0.4
-  gradient_clip: global_norm
+  gradient_cli: global_norm
   gradient_clip_args:
-    clip_norm: 15.0
-  optimizer: GradientDescent
-  learning_rate: "lambda epoch: 1.6 *(1.0 if epoch < 11 else 0.9**(epoch-11))"
+    clip_norm: 5.0
+  optimizer: Adam
+  learning_rate: 0.0005

@@ -1,13 +1,29 @@
 <template>
   <div id="app">
+    <!--<el-row :gutter="10" class="header-menu">-->
+      <el-menu theme="dark" :default-active="''" class="header-menu" mode="horizontal" @select="() => {console.log('Hi!');}">
+        <el-menu-item class="logo" index="1">RNNVis</el-menu-item>
+        <el-menu-item index="2">Info</el-menu-item>
+      </el-menu>
+    <!--</el-row>-->
     <el-row :gutter="10">
-      <el-col :span="4" class="col-bg">
+      <el-col :span="6" class="col-bg" :gutter="15">
         <model-view></model-view>
       </el-col>
-      <el-col :span="16" class="col-bg">
+      <el-col :span="18" class="col-bg" :gutter="15">
         <!--<router-view></router-view>-->
-        <main-view> </main-view>
+        <el-row>
+          <main-view :height="height * 0.6"> </main-view>
+        </el-row>
+        <el-row :gutter="10">
+          <info-view :height="height * 0.2"> </info-view>
+        </el-row>
       </el-col>
+      <!--<el-col :span='6' class="col-bg border" :gutter="15">-->
+
+          <!--<text-view> </text-view>-->
+
+      <!--</el-col>-->
     </el-row>
   </div>
 </template>
@@ -15,10 +31,34 @@
 <script>
 import ModelView from 'components/ModelView';
 import MainView from 'components/MainView';
+import TextView from 'components/TextView';
+import InfoView from 'components/InfoView';
 
 export default {
   name: 'app',
-  components: { ModelView, MainView },
+  components: { ModelView, MainView, TextView, InfoView },
+  data() {
+    return {
+      height: 800,
+      width: 1000,
+    };
+  },
+  computed: {
+    mainHeight: function () {
+      return this.height * 0.6;
+    },
+    infoHeight: function () {
+      return this.height * 0.2;
+    }
+  },
+  mounted() {
+    this.height = window.innerHeight;
+    this.width = window.innerWidth;
+    window.addEventListener("resize", () => {
+      this.height = window.innerHeight;
+      this.width = window.innerWidth;
+    });
+  }
 };
 </script>
 
@@ -30,7 +70,7 @@ export default {
   -moz-osx-font-smoothing: grayscale;
   text-align: center;
   /*color: #2c3e50;*/
-  margin-top: 60px;
+  margin-top: 10px;
 }
 
 .el-row {
@@ -43,24 +83,54 @@ export default {
   border-radius: 4px;
 }
 .bg-purple-dark {
-  background: #99a9bf;
+  background: #abc;
 }
 .bg-purple {
-  background: #d3dce6;
+  background: white;
 }
 .bg-purple-light {
-  background: #e5e9f2;
+  background: #fff;
 }
 .grid-content {
   border-radius: 4px;
   min-height: 36px;
 }
 .col-bg {
-  padding: 10px 0;
-  background-color: #f9fafc;
+  padding: 5px 0;
+  background-color: white;
 }
 .row-bg {
   padding: 10px 0;
-  background-color: #f9fafc;
+  background-color: white;
 }
+.border {
+  border-style: solid;
+  border-width: 1px;
+  border-color: #99A9BF;
+}
+.normal {
+  font-weight: normal;
+}
+h4 {
+  font-size: 14px;
+  color: #555;
+  line-height: 18px;
+  margin-top: 0px;
+  padding-left: 10px;
+  padding-top: 5px;
+  padding-bottom: 5px;
+  margin-bottom: -10px;
+  text-align: left;
+  background-color: rgba(128, 128, 128, 0.1);
+}
+
+.header-menu {
+  height: 60px;
+  /*margin-bottom: -10px;*/
+}
+
+.logo {
+  font-size: 18px;
+}
+
 </style>
