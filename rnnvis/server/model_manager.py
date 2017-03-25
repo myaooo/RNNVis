@@ -31,7 +31,8 @@ class ModelManager(object):
         # 'Shakespeare': {'config': 'shakespeare.yml'},
         'IMDB': {'config': 'imdb-tiny.yml'},
         'PTB-GRU': {'config': 'gru.yml'},
-        'PTB-SMALL': {'config': 'lstm-small-1.yml'}
+        'PTB-SMALL': {'config': 'lstm-small-1.yml'},
+        'PTB-RNN': {'config': 'rnn.yml'}
     }
 
     def __init__(self):
@@ -156,10 +157,11 @@ class ModelManager(object):
         record_name = '|'.join([name, dataset])
         if record_name not in self.record_flag:
             self.record_flag[record_name] = 'un-started'
-        if self.record_flag[record_name] != 'un-started':
-            return self.record_flag[record_name]
         if not force:
-            if query_evals(config.dataset, model.name, dataset).count != 0:
+            if self.record_flag[record_name] != 'un-started':
+                return self.record_flag[record_name]
+
+            if query_evals(config.dataset, model.name, dataset).count() != 0:
                 print("Already has evals in dataset", flush=True)
                 self.record_flag[record_name] = 'done'
                 return self.record_flag[record_name]

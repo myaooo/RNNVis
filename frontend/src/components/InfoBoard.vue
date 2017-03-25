@@ -135,7 +135,7 @@
           .xAxis('dims')
           .yAxis('response');
         let sortIdx = wordsStatistics[0].sort_idx;
-        const interval = ~~(sortIdx.length / 100)
+        const interval = ~~(sortIdx.length / 200)
         const ranges = range(0, sortIdx.length, interval);
         sortIdx = ranges.map((i) => sortIdx[i]);
         // console.log(range);

@@ -166,9 +166,9 @@ class SentenceLayout{
     let maxValue = 0.1;
     this.dataList.forEach((data) => {
       data.data.forEach((clst) => {
-        const clstMaxP =  clst.currents[0] - (clst.updateds[0] < 0 ? clst.updateds[0] : 0);
-        const clstMaxN =  clst.currents[1] - (clst.updateds[1] < 0 ? clst.updateds[1] : 0);
-        const clstMax = Math.max(clstMaxP/clst.size, clstMaxN/clst.size);
+        const clstMaxP =  clst.currents[0] - Math.min(clst.updateds[0], 0);
+        const clstMaxN =  clst.currents[1] - Math.min(clst.updateds[1], 0);
+        const clstMax = Math.max(clstMaxP/clst.size, Math.abs(clstMaxN/clst.size));
         maxValue = maxValue < clstMax ? clstMax : maxValue;
       })
     });
@@ -276,6 +276,8 @@ class SentenceLayout{
     const scaleHeight = this.scaleHeight;
     const unitWidth = this.nodeWidth / data.data.length;
 
+    el.on('mouseover', function() {self._mouseoverCallback(t, true)})
+      .on('mouseleave', function() {self._mouseoverCallback(t, false)});
     // bounding box
     const bg = el.append('rect')
       .attr('x', 0)
@@ -285,8 +287,6 @@ class SentenceLayout{
       .attr('stroke', 'gray')
       .attr('stroke-width', 1)
       .attr('fill', 'none')
-      // .on('mouseover', function() {console.log(`mourseover on ${t}`)})
-      .on('mouseover', function() {self._mouseoverCallback(t)})
 
     const gSelector = el.selectAll('g')
       .data(data.data);
@@ -312,11 +312,11 @@ class SentenceLayout{
       .attr('height', (d) => scaleHeight(Math.abs(d.updateds[1]) / d.size))
       .attr('transform', (d) => d.updateds[1] < 0 ? ('translate(' + [0, -scaleHeight(Math.abs(d.updateds[1]) / d.size) ] + ')') : '')
       .attr('fill', (d, j) => d.updateds[1] > 0 ? 'none' : color(j))
-      .style('stroke-opacity', (d, j) => d.updateds[1] > 0 ? 0.6 : 0.8);
+      .style('stroke-opacity', (d, j) => d.updateds[1] > 0 ? 1.0 : 1.0);
     gUpdated1 //.style('fill-opacity', 0.8)
       .style('stroke-width', 0.5)
       .style('stroke', 'gray')
-      .style('fill-opacity', 0.4);
+      .style('fill-opacity', 0.3);
 
 
     const gUpdated2 = gSelector.enter()
@@ -328,7 +328,7 @@ class SentenceLayout{
       .attr('height', (d) => scaleHeight(Math.abs(d.updateds[0]) / d.size))
       .attr('transform', (d) => d.updateds[0] < 0 ? ('translate(' + [0, -scaleHeight(Math.abs(d.updateds[0]) / d.size) ] + ')') : '')
       .attr('fill', (d, j) => d.updateds[0] < 0 ? 'none' : color(j))
-      .style('stroke-opacity', (d, j) => d.updateds[1] < 0 ? 0.6 : 0.8);
+      .style('stroke-opacity', (d, j) => d.updateds[1] < 0 ? 1.0 : 1.0);
     gUpdated2 //.style('fill-opacity', 0.8)
       .style('stroke-width', 0.5)
       .style('stroke', 'gray')
@@ -439,16 +439,16 @@ class SentenceLayout{
       .innerRadius(1)
       .outerRadius((d) => {
         // console.log(d);
-        return radius * d.data.kept;
+        return radius * d.data.keptRate;
       });
 
     let arc2 = d3.arc()
-      .innerRadius((d) => radius * d.data.kept)
+      .innerRadius((d) => radius * d.data.keptRate)
       .outerRadius(radius);
 
     let arc3 = d3.arc()
-      .innerRadius((d) => { return radius * (d.data.updatedRate < 0 ? (1 + d.data.updatedRate*2) : 1); })
-      .outerRadius((d) => { return radius * (d.data.updatedRate < 0 ? 1 : (1 + d.data.updatedRate*2)); });
+      .innerRadius((d) => { return radius * (d.data.updatedRate < 0 ? (1 + d.data.updatedRate) : 1); })
+      .outerRadius((d) => { return radius * (d.data.updatedRate < 0 ? 1 : (1 + d.data.updatedRate)); });
 
     let arcs = [arc1, arc3, arc2];
     let pie = d3.pie()

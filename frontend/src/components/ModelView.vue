@@ -36,15 +36,15 @@
       };
     },
     mounted() {
-      this.getModels();
+      this.getAvailableModels();
     },
     computed: {
-      availableModels: function() { // model list
-        return this.shared.availableModels;
-      },
+      // availableModels: function() { // model list
+      //   return this.shared.availableModels;
+      // },
     },
     methods: {
-      getModels() {
+      getAvailableModels() {
         bus.loadAvailableModels();
       },
       modelColor(i) {

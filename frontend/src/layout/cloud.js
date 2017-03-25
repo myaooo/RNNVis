@@ -16,8 +16,8 @@ const bgLayout = {
 
 const wordLayout = {
   'font': 'Arial',
-  'fontSize': [7, 14],
-  'fontWeight': [200, 300, 400, 500, 600],
+  'fontSize': [8, 13],
+  'fontWeight': [200, 300, 400, 500],
   'padding': 0,
   'opacity': 0.7,
   'baseColor': 'steelblue',
@@ -188,10 +188,10 @@ export class WordCloud{
           d.opacity = wordLayout.opacity;
           d.baseColor = wordLayout.baseColor;
           d3.select(this).style('fill-opacity', 1.0).style('font-weight', d.weight+300);
-          bus.$emit(SELECT_WORD, d, false);
+          bus.$emit(SELECT_WORD, d, self.compare);
         } else {
           d.select = false;
-          bus.$emit(DESELECT_WORD, d, false);
+          bus.$emit(DESELECT_WORD, d, self.compare);
           d3.select(this).style('fill-opacity', wordLayout.opacity).style('font-weight', d.weight);
         }
       });
@@ -236,7 +236,7 @@ export class WordCloud{
     });
     // d3.cloud()
     cloud()
-      .size([this.width*1.2, this.height*1.05]) // when layout, first give a larger region
+      .size([this.width*1.3, this.height*1.1]) // when layout, first give a larger region
       .words(words)
       .padding(this.wordLayout.padding)
       .rotate(0)
