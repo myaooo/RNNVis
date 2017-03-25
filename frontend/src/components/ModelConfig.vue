@@ -203,7 +203,7 @@
         switch(this.layout.strokeControlType) {
           case "Linear":
             this.strokeControlStrengthMin = 0;
-            this.strokeControlStrengthMax = 0.002;
+            this.strokeControlStrengthMax = 0.02;
             this.strokeControlStrengthStep = 0.0001;
             break;
           case "Logarithm":
