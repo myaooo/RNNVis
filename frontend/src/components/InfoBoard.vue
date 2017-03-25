@@ -266,21 +266,21 @@
       // this.register();
 
       // test event
-      bus.$on(SELECT_LAYER, () => {
-        setTimeout(() => {
-          if (this.type === 'word')
-            bus.$emit(SELECT_UNIT, 10, false);
-          // if (this.type === 'state')
-          //   bus.$emit(SELECT_WORD, 'he', false);
-        }, 1000);
-        setTimeout(() => {
-          if (this.type === 'word')
-            bus.$emit(SELECT_UNIT, 20, false);
-          // if (this.type === 'state')
-          //   bus.$emit(SELECT_WORD, 'she', false);
-        }, 4000);
+      // bus.$on(SELECT_LAYER, () => {
+      //   setTimeout(() => {
+      //     if (this.type === 'word')
+      //       bus.$emit(SELECT_UNIT, 10, false);
+      //     // if (this.type === 'state')
+      //     //   bus.$emit(SELECT_WORD, 'he', false);
+      //   }, 1000);
+      //   setTimeout(() => {
+      //     if (this.type === 'word')
+      //       bus.$emit(SELECT_UNIT, 20, false);
+      //     // if (this.type === 'state')
+      //     //   bus.$emit(SELECT_WORD, 'she', false);
+      //   }, 4000);
 
-      });
+      // });
 
     }
   }

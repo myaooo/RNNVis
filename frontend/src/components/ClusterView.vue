@@ -368,7 +368,7 @@
       bus.$on(CLOSE_SENTENCE, (sentence, compare) => {
         if(compare !== this.compare)
           return;
-          this.painter.deleteSentence(sentence);
+        this.painter.deleteSentence(sentence);
       });
     }
   }
@@ -1202,10 +1202,12 @@
       const coClusterAggregation = coCluster.aggregation_info;
       let state_info = this.calculate_state_info(coCluster);
 
-      self.graph = {
-        state_info: state_info,
-        coCluster: coCluster,
-        sentence_info: [],
+      if (!self.graph){
+        self.graph = {
+          state_info: state_info,
+          coCluster: coCluster,
+          sentence_info: [],
+        };
       }
       this.draw_state(this.hg, self.graph);
 
