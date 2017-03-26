@@ -162,6 +162,7 @@
               };
               this.posSwitch = false;
               this.selectedLayer = this.config.LayerNum - 1;
+              this.sentences = [];
               bus.$emit(SELECT_MODEL, this.selectedModel, this.compare);
               bus.$emit(CHANGE_LAYOUT, this.layout, this.compare);
             }

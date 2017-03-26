@@ -277,13 +277,20 @@ class SentenceLayout{
     const height = this.nodeHeight;
     const width = this.nodeWidth;
     const color = this.params.color;
-    console.log(data);
+    // console.log(data);
     const scaleHeight = this.scaleHeight;
     const unitWidth = this.nodeWidth / data.data.length;
 
-    el.on('mouseover', function() {self._mouseoverCallback(t, true)})
-      .on('mouseleave', function() {self._mouseoverCallback(t, false)})
-      .on('click', function() {self._mouseoverCallback(t, false, true)});
+    el.on('mouseover', function() {
+        // el.attr('class')
+        self._mouseoverCallback(data, t, true)
+      })
+      .on('mouseleave', function() {
+        self._mouseoverCallback(data, t, false);
+      })
+      .on('click', function() {
+        self._mouseoverCallback(data, t, false, true);
+      });
     // bounding box
     const bg = el.append('rect')
       .attr('x', 0)
@@ -373,6 +380,7 @@ class SentenceLayout{
     updated2.each(function(d) { d.els[2] = this; });
     data.els = [cur, updated1, updated2];
     data.el = el; // bind group
+    data.bg = bg;
     return el;
   }
 
@@ -508,6 +516,13 @@ class SentenceLayout{
       });
     });
 
+    const updatedData = sentence.map((word, t)=>{
+      if (t === 0) return word;
+      return word.map((v, j) => {
+        return v - sentence[t-1][j];
+      });
+    })
+
     const infoPositive = new Array(len);
     const infoNegative = new Array(len);
     const infoCurrent = new Array(len);
@@ -581,6 +596,7 @@ class SentenceLayout{
       return {
         word: word,
         data: data,
+        response: updatedData[t],
       };
     });
     return dataList;
@@ -592,7 +608,7 @@ class SentenceLayout{
     if (!this._strengthByCluster) {
       this._strengthByCluster = this._dataList.map((word, i) => {
         return word.data.map((clst, j) => {
-          return clst.updated;
+          return clst.updatedRate;
         });
       });
     }

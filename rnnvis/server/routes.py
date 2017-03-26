@@ -219,7 +219,7 @@ def word_statistics():
     layer = int(request.args.get('layer', -1))
     word = request.args.get('word')  # required
     try:
-        results = _manager.state_statistics(model, state_name, True, layer, 100, word)
+        results = _manager.state_statistics(model, state_name, True, layer, None, word)
         if results is None:
             return 'Cannot find model with name {:s}'.format(model), 404
         return jsonify(results)
