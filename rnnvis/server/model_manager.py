@@ -15,7 +15,8 @@ from rnnvis.utils.io_utils import get_path, assert_path_exists
 from rnnvis.procedures import build_model, pour_data
 from rnnvis.rnn.eval_recorder import BufferRecorder, StateRecorder
 from rnnvis.state_processor import get_state_signature, get_empirical_strength, strength2json, \
-    get_tsne_projection, solution2json, get_co_cluster, get_state_statistics, get_pos_statistics
+    get_tsne_projection, solution2json, get_co_cluster, get_state_statistics, get_pos_statistics, \
+    get_an_empirical_strength
 from rnnvis.datasets.text_processor import tokenize
 from rnnvis.db.db_helper import query_evals
 
@@ -273,6 +274,18 @@ class ModelManager(object):
             word = model.id_to_word[pos_data['id']]
             pos_data['word'] = word
         return results
+
+    def model_empirical_strength_of_word(self, name, state_name, layer, word):
+        model = self._get_model(name)
+        if model is None:
+            return None
+        config = self._train_configs[name]
+        k = model.get_id_from_word([word])[0]
+        strength = get_an_empirical_strength(config.dataset, model.name, state_name, layer, k)
+        if strength is None:
+            k = model.get_id_from_word(['<unk>'])[0]
+            strength = get_an_empirical_strength(config.dataset, model.name, state_name, layer, k)
+        return strength.tolist()
 
 
 def hash_tag_str(text_list):

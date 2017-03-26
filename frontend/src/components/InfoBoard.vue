@@ -18,6 +18,7 @@
   import * as d3 from 'd3';
   import { Chart } from '../layout/chart';
   import { bus, SELECT_UNIT, SELECT_WORD, SELECT_LAYER } from '../event-bus';
+  import dataServices from '../services/dataService.js'
 
   const layoutParams = {
     lineLength: 30,
@@ -36,6 +37,9 @@
         shared: bus.state,
         statistics: null,
         layoutParams: layoutParams,
+        wordsStatistics: null,
+        unitsStatistics: null,
+        top_k: 4,
       };
     },
     props: {
@@ -59,7 +63,7 @@
     computed: {
       header: function() {
         const typeStr = this.type === 'state' ? 'Hidden State' : 'Word';
-        return this.shared.compare ? (this.selectedModel + ': ' + typeStr) : typeStr;
+        return 'Info: ' + (this.shared.compare ? ('[' + this.selectedModel + '] ' + typeStr) : typeStr);
       },
       svgId: function () {
         return this.id + '-svg';
@@ -79,6 +83,9 @@
       selectedWords: function () {
         return this.type === 'word' ? (this.compare ? this.shared.selectedWords2 : this.shared.selectedWords) : 0;
       },
+      selectedNode: function() {
+        return this.type === 'word' ? (this.compare ? this.shared.selectedNode2 : this.shared.selectedNode) : 0;
+      }
     },
     watch: {
       width: function () {
@@ -95,6 +102,20 @@
           const p = bus.loadStatistics(model, state, layer)
             .then(() => {
               this.statistics = bus.getStatistics(model, state, layer);
+              this.unitsStatistics = this.selectedUnits.map((unit, i) => {
+                const data = this.statistics.statesData[unit];
+                const dataArray = data.mean.map((_, j) => {
+                  return {
+                    mean: data.mean[j],
+                    range1: [data.low1[j], data.high1[j]],
+                    range2: [data.low2[j], data.high2[j]],
+                    word: data.words[j],
+                  };
+                });
+                dataArray.sort((a, b) => a.mean - b.mean);
+                dataArray.splice(this.top_k, dataArray.length - 2 * this.top_k);
+                return dataArray;
+              });
               this.repaintState();
             });
         }
@@ -107,10 +128,35 @@
           const p = bus.loadStatistics(model, state, layer)
             .then(() => {
               this.statistics = bus.getStatistics(model, state, layer);
+              this.wordsStatistics = this.selectedWords.map((word, i) => {
+                const wordData = this.statistics.statOfWord(word.text);
+                wordData.color = this.selectedWords[i].color;
+                return wordData;
+              });
               // console.log(this.statistics);
               this.repaintWord();
               // const wordsStatistics = this.statistics.statOfWord(this.selectedWords[0]).mean;
             });
+        }
+      },
+      selectedNode: function() {
+        if (this.selectedNode) {
+          let model = this.selectedModel,
+            state = this.selectedState,
+            layer = this.selectedLayer;
+          const p = dataServices.getWordStatistics(model, state, layer, this.selectedNode.word, (response) => {
+            if (response.status === 200) {
+              const data = response.data;
+              data.word = data.words;
+              data.range1 = data.low1.map((low1, i) => [low1, data.high1[i]]);
+              data.range2 = data.low2.map((low2, i) => [low2, data.high2[i]]);
+              data.color = this.layoutParams.color(0);
+              const line = {mean: this.selectedNode.response, color: this.layoutParams.color(1), word: data.word + '(sentence)'};
+              this.wordsStatistics = [data, line];
+              console.log(this.selectedNode);
+              this.repaintWord();
+            }
+          });
         }
       },
       compare: function () {
@@ -136,55 +182,56 @@
         this.chart.clean()
           .resize(this.width, this.height);
         this.labelBoard.selectAll('rect, text, path').remove();
-        // console.log(this.statistics);
-        if (!this.selectedWords.length){
+        if (!this.wordsStatistics.length){
           console.log('Painting no words');
           return;
         }
         const layout = this.layoutParams;
         const color = layout.color;
         const labelLength = layout.lineLength + layout.wordWidth + layout.interval;
-        const wordsStatistics = this.selectedWords.map((word, i) => {
-          return this.statistics.statOfWord(word.text);
-        });
+
         this.chart
           .margin(20, 35, 20, 30)
           .xAxis('dims')
           .yAxis('response');
-        let sortIdx = wordsStatistics[0].sort_idx;
+        let sortIdx = this.wordsStatistics[0].sort_idx;
         const interval = ~~(sortIdx.length / 200)
         const ranges = range(0, sortIdx.length, interval);
         sortIdx = ranges.map((i) => sortIdx[i]);
         // console.log(range);
         // console.log(sortIdx);
-        this.chart.line([[0,0], [wordsStatistics[0].mean.length,0]])
+        this.chart.line([[0,0], [this.wordsStatistics[0].mean.length,0]])
           .attr('stroke', '#000');
 
-        wordsStatistics.forEach((wordData, i) => {
+        this.wordsStatistics.forEach((wordData, i) => {
           this.chart
             .line(sortIdx.map((i) => wordData.mean[i]), (d, i) => i*interval, (d) => { return d; })
             .attr('stroke-width', 1)
-            .attr('stroke', this.selectedWords[i].color);
-          this.chart
-            .area(sortIdx.map((i) => wordData.range1[i]), (d, i) => i*interval, (d) => d[0], (d) => d[1])
-            .attr('fill', this.selectedWords[i].color)
-            .attr('fill-opacity', 0.2);
-          this.chart
-            .area(sortIdx.map((i) => wordData.range2[i]), (d, i) => i*interval, (d) => d[0], (d) => d[1])
-            .attr('fill', this.selectedWords[i].color)
-            .attr('fill-opacity', 0.1);
+            .attr('stroke', wordData.color);
+          if(wordData.range1){
+            this.chart
+              .area(sortIdx.map((i) => wordData.range1[i]), (d, i) => i*interval, (d) => d[0], (d) => d[1])
+              .attr('fill', wordData.color)
+              .attr('fill-opacity', 0.2);
+          }
+          if(wordData.range2){
+            this.chart
+              .area(sortIdx.map((i) => wordData.range2[i]), (d, i) => i*interval, (d) => d[0], (d) => d[1])
+              .attr('fill', wordData.color)
+              .attr('fill-opacity', 0.1);
+          }
           // draw labels
           this.labelBoard.append('rect')
             .attr('x', labelLength*i + 20).attr('y', 10).attr('width', layout.lineLength).attr('height', 1)
-            .attr('fill', this.selectedWords[i].color);
+            .attr('fill', wordData.color);
           this.labelBoard.append('text')
             .attr('x', labelLength*i + 30 + layout.lineLength).attr('y', 15)
-            .text(this.selectedWords[i].text)
+            .text(wordData.word)
             .style('font-size', 12);
           if (i === 0) {
             this.labelBoard.append('path')
-              .attr('d', 'M' + (30 + layout.lineLength) + ' 20 ' + 'H ' + (this.selectedWords[i].text.length*7 + 30 + layout.lineLength))
-              .style('stroke', this.selectedWords[i].color);
+              .attr('d', 'M' + (30 + layout.lineLength) + ' 20 ' + 'H ' + (wordData.word.length*7 + 30 + layout.lineLength))
+              .style('stroke', wordData.color);
           }
         });
         this.chart.draw();
@@ -198,29 +245,11 @@
           console.log('Painting no states');
           return;
         }
-        const top_k = 4;
-        // const units = this.selectedUnits;
-        const unitsStatistics = this.selectedUnits.map((unit, i) => {
-          const data = this.statistics.statesData[unit];
-          const dataArray = data.mean.map((_, j) => {
-            return {
-              mean: data.mean[j],
-              range1: [data.low1[j], data.high1[j]],
-              range2: [data.low2[j], data.high2[j]],
-              word: data.words[j],
-            };
-          });
-
-          dataArray.sort((a, b) => a.mean - b.mean);
-          dataArray.splice(top_k, dataArray.length - 2 * top_k);
-          return dataArray;
-        });
-        // console.log(unitsStatistics);
         const subChartWidth = this.width/3;
+        const top_k = this.top_k;
 
-
-        unitsStatistics.forEach((unitData, i) => {
-          const xLabel = i === unitsStatistics.length - 1 ? 'response' : ' '
+        this.unitsStatistics.forEach((unitData, i) => {
+          const xLabel = i === this.unitsStatistics.length - 1 ? 'response' : ' '
           const subchart = this.chart.subChart(subChartWidth, this.height)
             .xAxis(xLabel)
             .yAxis('words');
