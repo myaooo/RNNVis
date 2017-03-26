@@ -54,6 +54,14 @@
       <el-form-item label="Cluster Num" v-if="selectedState">
         <el-slider v-model="layout.clusterNum" :min="2" :max="20" style="width: 80%" @change="layoutChange"></el-slider>
       </el-form-item>
+      <el-form-item label="Stroke Width" v-if="selectedState">
+        <el-radio-group v-model="layout.strokeControlType" size="small" @change="strokeControlTypeChange">
+          <el-radio-button label="Logarithm"></el-radio-button>
+          <el-radio-button label="Linear"></el-radio-button>
+          <el-radio-button label="Exponential"></el-radio-button>
+        </el-radio-group>
+        <el-slider v-model="layout.strokeControlStrength" :min="strokeControlStrengthMin" :max="strokeControlStrengthMax" :step="strokeControlStrengthStep" style="width: 80%" @change="layoutChange"></el-slider>
+      </el-form-item>
     </el-form>
   </div>
 </template>
@@ -106,10 +114,13 @@
         selectedLayer: null,
         posSwitch: false,
         config: null,
-        layout: { clusterNum: 10 },
+        layout: { clusterNum: 10, strokeControlType: "Linear", strokeControlStrength: 0.01},
         sentences: [],
         inputVisible: false,
         inputValue: '',
+        strokeControlStrengthMin: 0,
+        strokeControlStrengthMax: 0.02,
+        strokeControlStrengthStep: 0.0001,
       };
     },
     props: {
@@ -186,6 +197,30 @@
       layoutChange() {
         console.log("Layout changed")
         // copy to a new one to force change
+        const layout = Object.assign({}, this.layout)
+        bus.$emit(CHANGE_LAYOUT, layout, this.compare);
+      },
+      strokeControlTypeChange() {
+        switch(this.layout.strokeControlType) {
+          case "Linear":
+            this.strokeControlStrengthMin = 0;
+            this.strokeControlStrengthMax = 0.02;
+            this.strokeControlStrengthStep = 0.0001;
+            break;
+          case "Logarithm":
+            this.strokeControlStrengthMin = 2;
+            this.strokeControlStrengthMax = 10;
+            this.strokeControlStrengthStep = 0.1;
+            break;
+          case "Exponential":
+            this.strokeControlStrengthMin = 1;
+            this.strokeControlStrengthMax = 1.002;
+            this.strokeControlStrengthStep = 0.0001;
+            break;
+          default:
+            console.log("The control type of " + controlType + " currently is not supported");
+            return;
+        }
         const layout = Object.assign({}, this.layout)
         bus.$emit(CHANGE_LAYOUT, layout, this.compare);
       },
