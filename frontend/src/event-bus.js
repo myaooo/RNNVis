@@ -14,6 +14,7 @@ const DESELECT_UNIT = 'DESELECT_UNIT';
 const DESELECT_WORD = 'DESELECT_WORD';
 const SELECT_LAYER = 'SELECT_LAYER';
 const CLOSE_SENTENCE = 'CLOSE_SENTENCE';
+const SELECT_SENTENCE_NODE = 'SELECT_SENTENCE_NODE';
 
 const state = {
   selectedModel: null,
@@ -34,10 +35,13 @@ const state = {
   selectedWords: [],
   selectedUnits2: [],
   selectedWords2: [],
+  selectedNode: null,
+  selectedNode2: null,
   compare: false,
   color: d3.scaleOrdinal(d3.schemeCategory10),
   renderPos: false,
   renderPos2:false,
+  // nodeRecord: [],
 };
 
 const bus = new Vue({
@@ -80,7 +84,7 @@ const bus = new Vue({
             this.state.availableModels = data.models;
             this.state.modelsSet = new Set(this.state.availableModels);
             // console.log(this.state.modelsSet);
-          } else throw response;
+          }
         });
       }
       return Promise.resolve('Already Loaded');
@@ -189,6 +193,7 @@ const bus = new Vue({
       console.log(`bus > unable to get statistics for ${modelName}, ${stateName}, ${layer}`);
       return undefined;
     },
+    // load
     loadPosStatistics(modelName = state.selectedModel, top_k = 300, callback) {
       if (this.state.modelsSet.has(modelName)) {
         return dataService.getPosStatistics(modelName, top_k, callback);
@@ -309,6 +314,12 @@ const bus = new Vue({
     this.$on(CLOSE_SENTENCE, (sentence, compare) => {
       console.log(`bus > close sentence: ${sentence}`);
     });
+    this.$on(SELECT_SENTENCE_NODE, (node, compare) => {
+      if(compare)
+        this.state.selectedNode2 = node;
+      else this.state.selectedNode = node;
+      console.log(`bus > sentence node selected: ${node.word}`);
+    });
 
   }
 });
@@ -377,4 +388,5 @@ export {
   DESELECT_UNIT,
   DESELECT_WORD,
   CLOSE_SENTENCE,
+  SELECT_SENTENCE_NODE,
 }
