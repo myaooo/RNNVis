@@ -86,7 +86,7 @@ let getVocab = function (model, top_k = 100, callback) {
 // Get statistics of all states in a layer. The statistics are relating to words, e.g. reaction distribution
 let getStateStatistics = function (model, state, layer, top_k, callback) {
   // k: k words with highest strength, and k words with lowest negative strength
-  console.log(`If no statistics data available, try visit url ${devMainUrl}/models/record_default/model=${model}&set=test for generating state records!`);
+  console.log(`If no statistics data available, try visit url ${devMainUrl}/models/record_default?model=${model}&set=test for generating state records!`);
   const url = `${devMainUrl}/state_statistics?model=${model}&state=${state}&layer=${layer}&top_k=${top_k}`;
   return getUrlData(url, callback);
 }

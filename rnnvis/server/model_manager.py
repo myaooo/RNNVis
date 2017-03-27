@@ -178,7 +178,7 @@ class ModelManager(object):
         def record_thread(manager):
             try:
                 print("Start evaluating...", flush=True)
-
+                # print("the inputs is " + inputs)
                 model.run_with_context(model.evaluator2.evaluate_and_record, inputs, None,
                                        recorder, verbose=True,
                                        refresh_state=False if hasattr(model, 'use_last_output') else model.use_last_output)
@@ -186,6 +186,7 @@ class ModelManager(object):
                 manager.record_flag[record_name] = 'done'
             except:
                 print("ERROR: Fail to evaluate given sequence!")
+                raise
         start_new_thread(record_thread, (self,))
         return self.record_flag[record_name]
 
