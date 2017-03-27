@@ -90,8 +90,8 @@
     watch: {
       width: function () {
         if (this.selectedLayer && this.selectedModel && this.selectedState) {
-          if (this.type === 'word' && this.selectedWords) this.repaintWord();
-          else if (this.type === 'state' && this.selectedUnits) this.repaintState();
+          if (this.type === 'word' && this.wordsStatistics) this.repaintWord();
+          else if (this.type === 'state' && this.unitsStatistics) this.repaintState();
         }
       },
       selectedUnits: function () {

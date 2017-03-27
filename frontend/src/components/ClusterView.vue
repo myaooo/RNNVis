@@ -74,13 +74,13 @@
     constructor(width=800, height=800){
       this.unitWidthRatio = 1.0;
       // this.unitHeight = 4;
-      this.unitMarginSuppose = 2;
+      // this.unitMarginSuppose = 2;
       this.unitMarginRatio = 0.5;
       this.clusterMarginRatio = 0.7;
       this.wordCloudArcDegree = 110;
       // this.wordCloudNormalRadius = 60;
       this.wordCloudHightlightRatio = 1.5;
-      this.wordCloudPaddingLength = 3;
+      this.wordCloudPaddingLength = 5;
       this.wordCloudChord2ClusterDistance = 50;
       this.wordCloudChordLength2ClientHeightRatio = 0.9;
       this.wordCloudChord2stateClusterHeightRatio = 1.1;
@@ -89,8 +89,8 @@
       this.littleTriangleHeight = 5;
       this.strengthThresholdPercent = [0.2, 1];
       this.wordSize2StrengthRatio = 3;
-      this.dxShrinkFactor = 0.05;
-      this.spacePerSentence = 2/15;
+      this.dxShrinkFactor = 0.04;
+      this.spacePerSentence = 2/20;
       this.sentenceNodeWidth = 100;
       this.sentenceInitTranslate = [50, 10]
       // this.middleLineX = 300;
@@ -104,8 +104,11 @@
       this.height = height;
       this.sentenceBrushRectWidth = 10;
     }
+    get wordCloudWidth () {
+      return this.width*0.15;
+    }
     get unitHeight () {
-      return Math.max(3, Math.min(~~((this.width - 500)/500) + 3, 6));
+      return Math.max(3, Math.min(~~((this.width - 400)/400) + 3, 6));
     }
     updateWidth(width) {
       if (typeof width === 'number')
@@ -778,7 +781,8 @@
       let self = this;
       const wordCloudPaddingLength = this.params.wordCloudPaddingLength;
       const wordSize2StrengthRatio = this.params.wordSize2StrengthRatio;
-      const wordCloudWidth2HeightRatio = this.params.wordCloudWidth2HeightRatio;
+      // const wordCloudWidth2HeightRatio = this.params.wordCloudWidth2HeightRatio;
+      const baseWordCloudWidth = this.params.wordCloudWidth;
       const wordClusters = coCluster.rowClusters;
       const words = coCluster.words;
       const nCluster = coCluster.labels.length;
@@ -814,6 +818,7 @@
       let wd_height_sum = wd_height.reduce((acc, val) => {
         return acc + val;
       }, 0);
+      const max_height = wd_height.reduce((a, b) => Math.max(a,b), 0);
 
       let offset = -chordLength / 2 ;
       wordClusters.forEach((wdst, i) => {
@@ -821,7 +826,7 @@
         // let actual_radius = wordCloudArcRadius * angle * Math.PI / 180;
         // let angle_loc = angle + offset;
         const actual_height = wd_height[i] / wd_height_sum * availableLength;
-        const actual_width = actual_height * wordCloudWidth2HeightRatio;
+        const actual_width = wd_height[i] / max_height * baseWordCloudWidth;
         const top_left_y = offset;
         const top_left_x = Math.sqrt(wordCloudArcRadius ** 2 - top_left_y ** 2);
         offset += actual_height + wordCloudPaddingLength;
@@ -1224,7 +1229,7 @@
               .attr('opacity', 0.3)
               .attr('stroke', l.strength > 0 ? this.linkColor[1] : this.linkColor[0])
               .attr('display', (Math.abs(l.strength) < strength_bound[0] || Math.abs(l.strength) > strength_bound[1]) ? 'none' : '')
-              
+
             l['el'] = tmp_path.node();
           }
 
