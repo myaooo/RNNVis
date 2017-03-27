@@ -1181,12 +1181,13 @@
         }, []);
       }
 
+      const strength_extent = d3.extent(flatten(link_info).map((l) => l.strength));
+      const max_strength = Math.max(Math.abs(strength_extent[0]), Math.abs(strength_extent[1]));
+      const strength_bound = this.strengthThresholdPercent.map((t) => t * max_strength);
+      
       link_info.forEach((ls, i) => {
         // const strengthRange = d3.extent(ls);
-        const strength_extent = d3.extent(ls.map((l) => l.strength));
-        const max_strength = Math.max(Math.abs(strength_extent[0]), Math.abs(strength_extent[1]));
-        console.log(`strength threshold is ${this.strengthThresholdPercent}`);
-        const strength_bound = this.strengthThresholdPercent.map((t) => t * max_strength);
+        // console.log(`strength threshold is ${this.strengthThresholdPercent}`);
         ls.forEach((l, j) => {
           if (l['el']) {
             d3.select(l['el'])
