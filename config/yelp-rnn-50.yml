@@ -10,7 +10,7 @@ model:
   target_size: 5
   use_last_output: True
   embedding_size: 500
-  cell_type: RNN
+  cell_type: BasicRNN
   cells:
     - num_units: 50
     - num_units: 50
