@@ -225,9 +225,6 @@
         // console.log(`${this.svgId} > cluster num: ${this.layout.clusterNum}`);
         return this.layout.clusterNum;
       },
-      strokeControlType: function() {
-        return this.layout.strokeControlType;
-      },
       strokeControlStrength: function() {
         return this.layout.strokeControlStrength;
       },
@@ -253,14 +250,11 @@
         console.log(`${this.svgId} > layer changed to ${this.selectedLayer}`);
         this.maybeReload();
       },
-      strokeControlType: function(strokeControlType) {
-        this.changeStroke(this.strokeControlType, this.strokeControlStrength, this.linkFilterThreshold);
-      },
       strokeControlStrength: function(strokeControlStrength) {
-        this.changeStroke(this.strokeControlType, this.strokeControlStrength, this.linkFilterThreshold);
+        this.changeStroke(this.strokeControlStrength, this.linkFilterThreshold);
       },
       linkFilterThreshold: function(linkFilterThreshold) {
-        this.changeStroke(this.strokeControlType, this.strokeControlStrength, this.linkFilterThreshold);
+        this.changeStroke(this.strokeControlStrength, this.linkFilterThreshold);
       },
       clusterNum: function(clusterNum) {
         console.log(`${this.svgId} > layout changed. clusterNum: ${this.layout.clusterNum}`);
@@ -372,8 +366,8 @@
             this.painter.draw(this.clusterData);
           });
       },
-      changeStroke(controlType, controlStrength, linkFilterThreshold) {
-        this.painter.refreshStroke(controlType, controlStrength, linkFilterThreshold);
+      changeStroke(controlStrength, linkFilterThreshold) {
+        this.painter.refreshStroke(controlStrength, linkFilterThreshold);
       }
     },
     mounted() {
@@ -494,22 +488,8 @@
       return this.params.middleLineY;
     }
 
-    refreshStroke(controlType, controlStrength, linkFilterThreshold) {
-      console.log(`controlType is ${controlType}, controlStrength is ${controlStrength}, linkFilterThreshold is ${linkFilterThreshold}`);
-      switch(controlType) {
-        case "Linear":
-          this.strokeWidth = function(t) {return Math.abs(t) * controlStrength};
-          break;
-        case "Logarithm":
-          this.strokeWidth = function(t) {return Math.abs(Math.log(Math.abs(t)) / Math.log(controlStrength))};
-          break;
-        case "Exponential":
-          this.strokeWidth = function(t) {return Math.pow(controlStrength, Math.abs(t))};
-          break;
-        default:
-          console.log("The control type of " + controlType + " currently is not supported");
-          return;
-      }
+    refreshStroke(controlStrength, linkFilterThreshold) {
+      this.strokeWidth = function(t) {return Math.abs(t) * controlStrength};
       this.strengthThresholdPercent = linkFilterThreshold;
       if (this.graph) {
         this.draw_link(this.hg, this.graph);
@@ -987,7 +967,8 @@
           d3.select(this).select('rect').classed('cluster-selected', true);
           graph.link_info[i].forEach((l, j) => {
             d3.select(l['el']).classed('active', true);
-            if (Math.abs(l.strength) > 0)
+            // if (Math.abs(l.strength) > 0)
+            if (d3.select(l['el']).attr('display') !== 'none')
               graph.word_info[j]['wordCloud'].bgHandle.classed('wordcloud-active', true);
           })
           // graph.sentence_link.forEach((ls) => {
