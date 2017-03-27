@@ -87,8 +87,7 @@
       this.wordCloudWidth2HeightRatio = 1 / 0.5;
       this.littleTriangleWidth = 5;
       this.littleTriangleHeight = 5;
-      this.strengthThresholdPercent = 0.2;
-      this.linkWidth2StrengthRatio = 0.01;
+      this.strengthThresholdPercent = [0.2, 1];
       this.wordSize2StrengthRatio = 3;
       this.dxShrinkFactor = 0.05;
       this.spacePerSentence = 2/15;
@@ -103,8 +102,7 @@
       this.middleLineOffset = 0;
       this.width = width;
       this.height = height;
-      this.sentenceBrushRectWidth = 20;
-      this.sentenceBrushRectHeight = 40;
+      this.sentenceBrushRectWidth = 10;
     }
     get unitHeight () {
       return Math.max(3, Math.min(~~((this.width - 700)/700) + 3, 5));
@@ -233,6 +231,9 @@
       strokeControlStrength: function() {
         return this.layout.strokeControlStrength;
       },
+      linkFilterThreshold: function() {
+        return this.layout.linkFilterThreshold;
+      },
       selectedWords: function() {
         return this.compare ? this.shared.selectedWords2 : this.shared.selectedWords;
       },
@@ -253,10 +254,13 @@
         this.maybeReload();
       },
       strokeControlType: function(strokeControlType) {
-        this.changeStrokeWidth(this.strokeControlType, this.strokeControlStrength);
+        this.changeStroke(this.strokeControlType, this.strokeControlStrength, this.linkFilterThreshold);
       },
       strokeControlStrength: function(strokeControlStrength) {
-        this.changeStrokeWidth(this.strokeControlType, this.strokeControlStrength);
+        this.changeStroke(this.strokeControlType, this.strokeControlStrength, this.linkFilterThreshold);
+      },
+      linkFilterThreshold: function(linkFilterThreshold) {
+        this.changeStroke(this.strokeControlType, this.strokeControlStrength, this.linkFilterThreshold);
       },
       clusterNum: function(clusterNum) {
         console.log(`${this.svgId} > layout changed. clusterNum: ${this.layout.clusterNum}`);
@@ -330,10 +334,8 @@
           && (typeof this.width === 'number') && (typeof this.height === 'number');
       },
       maybeReload() {
-        // console.log(this.changingFlag);
         if (!this.changingFlag){
           this.changingFlag = true;
-          // console.log(this.changingFlag);
           if (this.checkLegality()){
             console.log(`${this.svgId} > reloading...`);
             this.reload(this.selectedModel, this.selectedState, this.selectedLayer, this.clusterNum)
@@ -349,8 +351,6 @@
         this.params.updateWidth(this.width);
         this.rootGroup = d3.select(`#${this.svgId}`).append('g');
         this.painter = new Painter(this.rootGroup, this.params, this.compare);
-      // this.client_width = this.svg.node().getBoundingClientRect().width;
-        // this.painter.size([this.width, this.height]);
         this.posLabel = new PosLabel(this.rootGroup.append('g'), labelParams, this.compare);
       },
       reload(model, state, layer, clusterNum) {
@@ -372,8 +372,8 @@
             this.painter.draw(this.clusterData);
           });
       },
-      changeStrokeWidth(controlType, controlStrength) {
-        this.painter.setStrokeWidth(controlType, controlStrength);
+      changeStroke(controlType, controlStrength, linkFilterThreshold) {
+        this.painter.refreshStroke(controlType, controlStrength, linkFilterThreshold);
       }
     },
     mounted() {
@@ -449,6 +449,7 @@
       this.hg = this.topg.append('g');
       this.wg = this.topg.append('g');
       this.sentenceWordThreshold = params.sentenceWordThreshold;
+      this.strengthThresholdPercent = params.strengthThresholdPercent;
 
       this.dx = 0, this.dy = 0;
       this.graph = null;
@@ -493,8 +494,8 @@
       return this.params.middleLineY;
     }
 
-    setStrokeWidth(controlType, controlStrength) {
-      console.log(`controlType is ${controlType}, controlStrength is ${controlStrength}`);
+    refreshStroke(controlType, controlStrength, linkFilterThreshold) {
+      console.log(`controlType is ${controlType}, controlStrength is ${controlStrength}, linkFilterThreshold is ${linkFilterThreshold}`);
       switch(controlType) {
         case "Linear":
           this.strokeWidth = function(t) {return Math.abs(t) * controlStrength};
@@ -509,6 +510,7 @@
           console.log("The control type of " + controlType + " currently is not supported");
           return;
       }
+      this.strengthThresholdPercent = linkFilterThreshold;
       if (this.graph) {
         this.draw_link(this.hg, this.graph);
       }
@@ -845,7 +847,6 @@
 
     calculate_link_info(state_info, word_info, coCluster, dx, dy) {
       const self = this;
-      const strengthThresholdPercent = this.params.strengthThresholdPercent;
       let links = [];
       const row_cluster_2_col_cluster = coCluster.aggregation_info.row_cluster_2_col_cluster;
       const colClusters = coCluster.colClusters;
@@ -855,12 +856,12 @@
       // console.log(row_cluster_2_col_cluster);
       state_info.state_cluster_info.forEach((s, i) => {
         let max_strength = 0;
-        if (!self.graph || !this.graph.link_info) {
-          const strength_extent = d3.extent(row_cluster_2_col_cluster.map((row_cluster, j) => row_cluster[i]));
-          max_strength = Math.max(Math.abs(strength_extent[0]), Math.abs(strength_extent[1]));
-          // console.log(`threshold is ${strength_extent[0]*strengthThresholdPercent}, ${strength_extent[1]*strengthThresholdPercent}`);
-        }
-        const filter_strength = max_strength * strengthThresholdPercent;
+        // if (!self.graph || !this.graph.link_info) {
+        //   const strength_extent = d3.extent(row_cluster_2_col_cluster.map((row_cluster) => row_cluster[i]));
+        //   max_strength = Math.max(Math.abs(strength_extent[0]), Math.abs(strength_extent[1]));
+        //   // console.log(`threshold is ${strength_extent[0]*strengthThresholdPercent}, ${strength_extent[1]*strengthThresholdPercent}`);
+        // }
+        // const filter_strength = max_strength * strengthThresholdPercent;
         word_info.forEach((w, j) => {
           if (links[i] === undefined) {
             links[i] = [];
@@ -876,7 +877,7 @@
             };
           } else {
             let tmp_strength = row_cluster_2_col_cluster[labels[j]][labels[i]];
-            tmp_strength = Math.abs(tmp_strength) < filter_strength ? 0 : tmp_strength;
+            // tmp_strength = Math.abs(tmp_strength) < filter_strength ? 0 : tmp_strength;
             links[i][j] = {source: {x: s.top_left[0] + s.width,
               y: s.top_left[1] + s.height / 2},
               target: {x: w.top_left[0] + dx, y: w.top_left[1] + w.height/2 + dy},
@@ -1029,17 +1030,17 @@
         .attr('x', 0) //(clst, i) => state_info.state_cluster_info[i].top_left[0])
         .attr('y', 0) //(clst, i) => state_info.state_cluster_info[i].top_left[1]);
 
-      hGroups.append('path')
-        .classed('little-triangle', true)
-        .attr('d', 'M 0, 0 L ' + -littleTriangleWidth/2 + ', ' +
-          littleTriangleHeight + ' L ' +  littleTriangleWidth/2 +
-          ', ' + littleTriangleHeight + ' L 0, 0')
-        .transition()
-        .duration(400)
-        .attr('transform', (k, i) => {
-          return 'translate(' + [state_info.state_cluster_info[i].width / 2,
-            state_info.state_cluster_info[i].height] + ')';
-        });
+      // hGroups.append('path')
+      //   .classed('little-triangle', true)
+      //   .attr('d', 'M 0, 0 L ' + -littleTriangleWidth/2 + ', ' +
+      //     littleTriangleHeight + ' L ' +  littleTriangleWidth/2 +
+      //     ', ' + littleTriangleHeight + ' L 0, 0')
+      //   .transition()
+      //   .duration(400)
+      //   .attr('transform', (k, i) => {
+      //     return 'translate(' + [state_info.state_cluster_info[i].width / 2,
+      //       state_info.state_cluster_info[i].height] + ')';
+      //   });
 
       const units = hGroups.append('g')
         .selectAll('rect')
@@ -1192,33 +1193,38 @@
 
     draw_link(g, graph) {
       const link_info = graph.link_info;
-      const linkWidth2StrengthRatio = this.params.linkWidth2StrengthRatio;
 
       function flatten(arr) {
         return arr.reduce((acc, val) => {
           return acc.concat(Array.isArray(val) ? flatten(val) : val);
         }, []);
       }
-      // const strengthes = flatten(link_info).filter(d => {return d.strength > 0}).map(d => {return Math.abs(d.strength)});
-      const strengthes = flatten(link_info).map(d => {return Math.abs(d.strength)});
 
       link_info.forEach((ls, i) => {
         // const strengthRange = d3.extent(ls);
+        const strength_extent = d3.extent(ls.map((l) => l.strength));
+        const max_strength = Math.max(Math.abs(strength_extent[0]), Math.abs(strength_extent[1]));
+        console.log(`strength threshold is ${this.strengthThresholdPercent}`);
+        const strength_bound = this.strengthThresholdPercent.map((t) => t * max_strength);
         ls.forEach((l, j) => {
           if (l['el']) {
             d3.select(l['el'])
+              .attr('display', (Math.abs(l.strength) < strength_bound[0] || Math.abs(l.strength) > strength_bound[1]) ? 'none' : '')
               .transition()
               .duration(300)
-              .attr('stroke-width', l.strength !== 0 ? this.strokeWidth(l.strength) : 0)
+              .attr('stroke-width', this.strokeWidth(l.strength))
+              // .attr('stroke-width', l.strength !== 0 ? this.strokeWidth(l.strength) : 0)
               .attr('d', this.createLink(l))
           } else {
             let tmp_path = g.append('path')
               .classed('link', true)
               .classed('active', false)
               .attr('d', this.createLink(l))
-              .attr('stroke-width', l.strength !== 0 ? this.strokeWidth(l.strength) : 0)
+              .attr('stroke-width', this.strokeWidth(l.strength))
               .attr('opacity', 0.3)
               .attr('stroke', l.strength > 0 ? this.linkColor[1] : this.linkColor[0])
+              .attr('display', (Math.abs(l.strength) < strength_bound[0] || Math.abs(l.strength) > strength_bound[1]) ? 'none' : '')
+              
             l['el'] = tmp_path.node();
           }
 

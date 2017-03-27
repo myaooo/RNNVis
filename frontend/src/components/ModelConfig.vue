@@ -62,6 +62,9 @@
         </el-radio-group>
         <el-slider v-model="layout.strokeControlStrength" :min="strokeControlStrengthMin" :max="strokeControlStrengthMax" :step="strokeControlStrengthStep" style="width: 80%" @change="layoutChange"></el-slider>
       </el-form-item>
+      <el-form-item label="Link Filter" v-if="selectedState">
+        <el-slider v-model="layout.linkFilterThreshold" range show-stops :min="0" :max="1" :step="0.05" @change="layoutChange"></el-slider>
+      </el-form-item>
     </el-form>
   </div>
 </template>
@@ -114,7 +117,12 @@
         selectedLayer: null,
         posSwitch: false,
         config: null,
-        layout: { clusterNum: 10, strokeControlType: "Linear", strokeControlStrength: 0.01},
+        layout: {
+           clusterNum: 10, 
+           strokeControlType: "Linear", 
+           strokeControlStrength: 0.01, 
+           linkFilterThreshold: [0.2, 1],
+        },
         sentences: [],
         inputVisible: false,
         inputValue: '',
