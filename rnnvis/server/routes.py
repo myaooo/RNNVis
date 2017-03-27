@@ -59,9 +59,10 @@ def model_generate():
     return result
 
 
-@app.route('/models/record_default/<string:model>', methods=['POST', 'GET'])
-def model_record_default(model):
+@app.route('/models/record_default/', methods=['POST', 'GET'])
+def model_record_default():
     dataset = request.args.get('set', 'test')
+    model = request.args.get('model', '')
     force = bool(request.args.get('force', False))
     result = _manager.model_record_default(model, dataset, force)
 

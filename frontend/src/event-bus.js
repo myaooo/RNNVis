@@ -77,6 +77,7 @@ const bus = new Vue({
     loadAvailableModels() {
       // console.log(this.availableModels);
       if (this.state.availableModels === null) {
+        console.log("Start loading model data");
         return dataService.getModels(response => {
           if (response.status === 200) {
             const data = response.data;
