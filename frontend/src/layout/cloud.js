@@ -20,7 +20,7 @@ const wordLayout = {
   'fontWeight': [200, 300, 400, 500],
   'padding': 0,
   'opacity': 0.7,
-  'baseColor': 'steelblue',
+  'baseColor': '#1f77b4',
 }
 
 export class WordCloud{
@@ -189,7 +189,7 @@ export class WordCloud{
           d.select = true;
           d.opacity = wordLayout.opacity;
           d.baseColor = wordLayout.baseColor;
-          d3.select(this).style('fill-opacity', 1.0).style('font-weight', d.weight+300);
+          d3.select(this).style('fill-opacity', 1.0).style('font-weight', d.weight+500);
           bus.$emit(SELECT_WORD, d, self.compare);
         } else {
           d.select = false;

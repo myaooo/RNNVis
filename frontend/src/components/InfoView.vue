@@ -20,7 +20,7 @@
   }
 </style>
 <script>
-  import { bus, SELECT_UNIT, SELECT_WORD } from '../event-bus.js';
+  import { bus, SELECT_UNIT, SELECT_WORD, SELECT_SENTECE_NODE } from '../event-bus.js';
   import InfoBoard from './InfoBoard';
 
   export default{
@@ -57,6 +57,14 @@
         }
       });
       bus.$on(SELECT_WORD, (word, compare) => {
+        if (!this.compare) return;
+        if (compare) {
+          this.type1 = 'word';
+        } else {
+          this.type2 = 'word';
+        }
+      });
+      bus.$on(SELECT_SENTECE_NODE, (node, compare) => {
         if (!this.compare) return;
         if (compare) {
           this.type1 = 'word';
