@@ -252,14 +252,17 @@ const bus = new Vue({
           units.splice(0, 1);
         this.state.selectedUnits2 = units;
         this.state.selectedWords2 = [];
+        this.state.selectedNode2 = null;
       } else {
         const units = this.state.selectedUnits.slice();
         units.push(unitDim);
         if (units.length > 2)
           units.splice(0, 1);
         this.state.selectedUnits = units;
-        if (this.compare)
+        if (this.state.compare){
           this.state.selectedWords = [];
+          this.state.selectedNode = null;
+        }
       }
       console.log(`bus > selected unit ${unitDim}`);
 
@@ -271,9 +274,13 @@ const bus = new Vue({
       if (compare){
         words = this.state.selectedWords2.slice();
         this.state.selectedUnits2 = [];
+        this.state.selectedNode2 = null;
       } else {
         words = this.state.selectedWords.slice();
-        if (this.compare) this.state.selectedUnits = [];
+        if (this.state.compare) {
+          this.state.selectedUnits = [];
+          this.state.selectedNode = null;
+        }
       }
       words.push(word);
       if (words.length > maxSelected) {
