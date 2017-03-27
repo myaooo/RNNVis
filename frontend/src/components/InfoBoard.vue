@@ -191,7 +191,7 @@
         const labelLength = layout.lineLength + layout.wordWidth + layout.interval;
 
         this.chart
-          .margin(20, 35, 20, 30)
+          .margin(20, 40, 20, 30)
           .xAxis('dims')
           .yAxis('response');
         let sortIdx = this.wordsStatistics[0].sort_idx;
@@ -245,12 +245,14 @@
           console.log('Painting no states');
           return;
         }
-        const subChartWidth = this.width/3;
+        const subChartWidth = (this.width-50)/this.unitsStatistics.length;
         const top_k = this.top_k;
 
         this.unitsStatistics.forEach((unitData, i) => {
           const xLabel = i === this.unitsStatistics.length - 1 ? 'response' : ' '
-          const subchart = this.chart.subChart(subChartWidth, this.height)
+          const marginRight = i === this.unitsStatistics.length - 1 ? 60 : 10;
+          const subWidth = i === this.unitsStatistics.length - 1 ? subChartWidth + 50 : subChartWidth;
+          const subchart = this.chart.subChart(subWidth, this.height)
             .xAxis(xLabel)
             .yAxis('words');
           subchart.axis.y.tickFormat((j) => {
@@ -260,7 +262,7 @@
           }).tickValues(range(0,top_k*2,1));
           subchart.axis.x.ticks(6);
           subchart
-            .margin(20,10,20,60)
+            .margin(20,marginRight,20,60)
             .translate(subChartWidth*i, 0)
             .rotate();
           subchart
@@ -289,7 +291,7 @@
     },
     mounted() {
       // console.log(this.$el);
-      this.width = this.$el.clientWidth;
+      this.width = this.$el.clientWidth - 10;
       this.init();
       // register event listener
       // this.register();
