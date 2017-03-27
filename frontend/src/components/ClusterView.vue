@@ -76,7 +76,7 @@
       // this.unitHeight = 4;
       this.unitMarginSuppose = 2;
       this.unitMarginRatio = 0.5;
-      this.clusterMarginRatio = 0.5;
+      this.clusterMarginRatio = 0.7;
       this.wordCloudArcDegree = 110;
       // this.wordCloudNormalRadius = 60;
       this.wordCloudHightlightRatio = 1.5;
@@ -107,7 +107,7 @@
       this.sentenceBrushRectHeight = 40;
     }
     get unitHeight () {
-      return Math.max(3, Math.min(~~((this.width - 700)/700) + 3, 5));
+      return Math.max(3, Math.min(~~((this.width - 500)/500) + 3, 6));
     }
     updateWidth(width) {
       if (typeof width === 'number')
@@ -128,7 +128,7 @@
     }
     get maxClusterWidth() {
       // const width = Math.max(this.width, 500);
-      return Math.min(this.width/3, 400);
+      return Math.min(this.width/4, 400);
     }
     get middleLineX() {
       // const width = Math.max(this.width, 500);
@@ -141,15 +141,33 @@
     get cluster2UnitRatio() {
       return (this.packNum + (this.packNum - 1 ) * this.unitMarginRatio + 2 * this.clusterMarginRatio );
     }
-    computeParams (clusterNum, clusterInterval2HeightRatio) {
-      // const unit2ClusterRatio = this.unit2ClusterRatio;
+    computeParams (clusterNum, clusterInterval2HeightRatio, maxClusterSize) {
       this.wordCloudChordLength = this.height * this.wordCloudChordLength2ClientHeightRatio;
       this.clusterHeight = (this.wordCloudChordLength / this.wordCloudChord2stateClusterHeightRatio) /
         (clusterNum + clusterNum * clusterInterval2HeightRatio - clusterInterval2HeightRatio);
-      this.clusterHeight =  ~~(this.clusterHeight / this.cluster2UnitRatio) * this.cluster2UnitRatio;
+      this.packNum = ~~((this.clusterHeight / this.unitHeight + this.unitMarginRatio - 2 * this.clusterMarginRatio) / (1+this.unitMarginRatio));
+      this.clusterHeight =  this.unitHeight * this.cluster2UnitRatio;
       this.clusterInterval = this.clusterHeight * clusterInterval2HeightRatio;
-      this.packNum = ~~(this.clusterHeight / (this.unitHeight + this.unitMargin));
-      this.wordCloudChord2CenterDistance = this.wordCloudChordLength / 2 / Math.tan(this.wordCloudArcDegree / 2 * Math.PI / 180);
+      this.middleLineY = (this.height - this.clusterHeight * clusterNum - this.clusterInterval * (clusterNum - 1)) / 2;
+      if (this.middleLineY < 0) {
+        this.computeParams(clusterNum, clusterInterval2HeightRatio-0.2, maxClusterSize);
+      }
+      // this.wordCloudChord2CenterDistance = this.wordCloudChordLength / 2 / Math.tan(this.wordCloudArcDegree / 2 * Math.PI / 180);
+      // const unit2ClusterRatio = this.unit2ClusterRatio;
+      const maxClusterWidth = Math.ceil(maxClusterSize / this.packNum) * (this.unitWidth + this.unitMargin);
+      if (maxClusterWidth < 0.4 * this.maxClusterWidth) {
+        clusterInterval2HeightRatio += 0.2;
+        this.computeParams(clusterNum, clusterInterval2HeightRatio, maxClusterSize);
+        // maxClusterWidth = Math.ceil(maxClusterSize / this.packNum) * (this.unitWidth + this.unitMargin);
+        // console.log(maxClusterWidth);
+      }
+      if (maxClusterWidth > this.maxClusterWidth) {
+        clusterInterval2HeightRatio -= 0.2;
+        this.computeParams(clusterNum, clusterInterval2HeightRatio, maxClusterSize);
+        // maxClusterWidth = Math.ceil(maxClusterSize / this.packNum) * (this.unitWidth + this.unitMargin);
+        // console.log(maxClusterWidth);
+      }
+
     }
 
   }
@@ -458,7 +476,7 @@
       this.loc = null;
       this.wordClouds = [];
 
-      this.unitNormalColor = '#ff7f0e';
+      this.unitNormalColor = '#ff5b09';
       this.unitRangeColor = ['#09adff', '#ff5b09'];
       this.linkWidthRange = [1, 5];
       this.linkColor = ['#09adff', '#ff5b09'];
@@ -907,8 +925,9 @@
         this.graph.state_info.state_info.forEach((s, i) => {
           d3.select(s['el'])
             .transition()
-            .duration(300)
+            .duration(400)
             .attr('fill', this.unitNormalColor)
+            .attr('fill-opacity', 0.3)
         });
       }
     }
@@ -1082,7 +1101,7 @@
         .attr('x', (i) => state_info.state_info[i].top_left[0])
         .attr('y', (i) => state_info.state_info[i].top_left[1])
         .attr('fill', self.unitNormalColor)
-        .attr('fill-opacity', 0.5)
+        .attr('fill-opacity', 0.3)
 
       tmp_units.each(function(d) {
         graph.state_info.state_info[d]['el'] = this;
@@ -1234,9 +1253,15 @@
       let clusterInterval2HeightRatio = 1;
       // console.log(coCluster);
       // console.log(`cluster number is ${nCluster}`);
-      this.params.computeParams(coCluster.labels.length, clusterInterval2HeightRatio);
+      this.params.computeParams(coCluster.labels.length, clusterInterval2HeightRatio, maxClusterSize);
 
       let maxClusterWidth = Math.ceil(maxClusterSize / this.params.packNum) * (this.params.unitWidth + this.params.unitMargin);
+      while (maxClusterWidth < 0.4 * this.params.maxClusterWidth) {
+        clusterInterval2HeightRatio += 0.2;
+        this.params.computeParams(coCluster.labels.length, clusterInterval2HeightRatio);
+        maxClusterWidth = Math.ceil(maxClusterSize / this.params.packNum) * (this.params.unitWidth + this.params.unitMargin);
+        // console.log(maxClusterWidth);
+      }
       while (maxClusterWidth > this.params.maxClusterWidth) {
         clusterInterval2HeightRatio -= 0.2;
         this.params.computeParams(coCluster.labels.length, clusterInterval2HeightRatio);
@@ -1245,9 +1270,9 @@
       }
       // this.dx = this.params.wordCloudChord2ClusterDistance - (this.params.wordCloudChord2CenterDistance - maxClusterWidth / 2);
       this.dx = this.stateClusterWordCloudDX;
-      this.dy = this.params.wordCloudChordLength / 2.1;
+      this.dy = this.params.wordCloudChordLength / 2.0 - this.middle_line_y / 2;
       console.log(`maxClusterWidth is ${maxClusterWidth}`);
-      console.log(`wordCloudChord2CenterDistance is ${this.params.wordCloudChord2CenterDistance}`);
+      // console.log(`wordCloudChord2CenterDistance is ${this.params.wordCloudChord2CenterDistance}`);
       console.log(`dx is ${this.dx}, dy is ${this.dy}`);
 
       // this.dx = 0, this.dy = chordLength / 2;
