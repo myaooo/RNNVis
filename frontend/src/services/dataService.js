@@ -3,7 +3,7 @@ import VueResource from 'vue-resource';
 Vue.use(VueResource);
 
 // Test version
-const devMainUrl = 'http://143.89.191.20/';
+const devMainUrl = 'http://143.89.191.20';
 // const devMainUrl = 'http://localhost:5000';
 
 const $http = Vue.http;
