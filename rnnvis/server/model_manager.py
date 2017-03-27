@@ -33,7 +33,16 @@ class ModelManager(object):
         'IMDB': {'config': 'imdb-tiny.yml'},
         'PTB-GRU': {'config': 'gru.yml'},
         'PTB-SMALL': {'config': 'lstm-small-1.yml'},
-        'PTB-RNN': {'config': 'rnn.yml'}
+        'PTB-RNN': {'config': 'rnn.yml'},
+        'YELP-GRU-1000': {'config': 'yelp-gru-1000.yml'},
+        'YELP-GRU-200': {'config': 'yelp-gru-200.yml'},
+        'YELP-GRU-50': {'config': 'yelp-gru-50.yml'},
+        'YELP-LSTM-1000': {'config': 'yelp-lstm-1000.yml'},
+        'YELP-LSTM-50': {'config': 'yelp-lstm-200.yml'},
+        'YELP-LSTM-50': {'config': 'yelp-lstm-50.yml'},
+        'YELP-RNN-50': {'config': 'yelp-rnn-1000.yml'},
+        'YELP-RNN-50': {'config': 'yelp-rnn-200.yml'},
+        'YELP-RNN-50': {'config': 'yelp-rnn-50.yml'},
     }
 
     def __init__(self):

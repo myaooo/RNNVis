@@ -59,7 +59,7 @@ def model_generate():
     return result
 
 
-@app.route('/models/record_default', methods=['POST', 'GET'])
+@app.route('/models/record-default', methods=['POST', 'GET'])
 def model_record_default():
     dataset = request.args.get('set', 'test')
     model = request.args.get('model', '')

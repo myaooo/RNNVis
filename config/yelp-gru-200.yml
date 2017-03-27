@@ -1,5 +1,5 @@
 model:
-  name: yelp-small3
+  name: YELP-GRU-200
   initializer_name: random_uniform
   initializer_args:
     minval: -0.1
@@ -12,8 +12,8 @@ model:
   embedding_size: 500
   cell_type: GRU
   cells:
-    - num_units: 1000
-    - num_units: 1000
+    - num_units: 200
+    - num_units: 200
   loss_func: sentence_loss
   dataset: yelp-small
 train:
