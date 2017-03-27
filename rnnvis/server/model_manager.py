@@ -33,7 +33,8 @@ class ModelManager(object):
         'IMDB': {'config': 'imdb-tiny.yml'},
         'PTB-GRU': {'config': 'gru.yml'},
         'PTB-SMALL': {'config': 'lstm-small-1.yml'},
-        'PTB-RNN': {'config': 'rnn.yml'}
+        'PTB-RNN': {'config': 'rnn.yml'},
+        'YELP-6': {'config': 'yelp-small6.yml'}
     }
 
     def __init__(self):
