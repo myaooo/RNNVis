@@ -9,7 +9,7 @@
 .cluster-selected {
   stroke-width: 1.5;
   stroke-opacity: 0.5;
-  stroke: black;
+  stroke: red;
   fill-opacity: 0.3;
 }
 #middle_line {
@@ -45,7 +45,7 @@
 }
 
 .wordcloud-active {
-  stroke: 'black';
+  stroke: 'red';
   stroke-width: 1.5;
 }
 
@@ -966,8 +966,12 @@
           self.redraw_word_link(i);
           graph.link_info[i].forEach((l, j) => {
             d3.select(l['el']).classed('active', true);
-            if (Math.abs(l.strength) > 0)
+            // if (Math.abs(l.strength) > 0)
+            if (d3.select(l['el']).attr('display') !== 'none') {
+              console.log(`link ${i} ${j} is displayed`);
               graph.word_info[j]['wordCloud'].bgHandle.classed('wordcloud-active', true);
+            }
+            
           });
           // graph.link_info[i].forEach((l) => {d3.select(l['el']).classed('active', true);})
         } else {
