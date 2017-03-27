@@ -143,7 +143,7 @@
     }
     computeParams (clusterNum, clusterInterval2HeightRatio, maxClusterSize) {
       this.wordCloudChordLength = this.height * this.wordCloudChordLength2ClientHeightRatio;
-      this.clusterHeight = (this.wordCloudChordLength / this.wordCloudChord2stateClusterHeightRatio) /
+      this.clusterHeight = (this.wordCloudChordLength) /
         (clusterNum + clusterNum * clusterInterval2HeightRatio - clusterInterval2HeightRatio);
       this.packNum = ~~((this.clusterHeight / this.unitHeight + this.unitMarginRatio - 2 * this.clusterMarginRatio) / (1+this.unitMarginRatio));
       this.clusterHeight =  this.unitHeight * this.cluster2UnitRatio;
