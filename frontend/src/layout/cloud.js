@@ -16,7 +16,7 @@ const bgLayout = {
 
 const wordLayout = {
   'font': 'Arial',
-  'fontSize': [9, 13],
+  'fontSize': [9, 16],
   'fontWeight': [200, 300, 400, 500],
   'padding': 0,
   'opacity': 0.7,
@@ -155,12 +155,12 @@ export class WordCloud{
       .append('text')
       .style('font-family', wordLayout.font)
       .attr('text-anchor', 'middle')
-      .style('fill', (d, i) => { return d.type ? self.colorScheme(d.type) : wordLayout.baseColor; });
+      .style('fill', (d, i) => { return typeof d.type === 'number' ? self.colorScheme(d.type) : wordLayout.baseColor; });
     text
       .text(function (d) { return d.text; });
 
     this.cloud
-      .style('fill', (d, i) => { return d.type ? self.colorScheme(d.type) : wordLayout.baseColor; });
+      .style('fill', (d, i) => { return typeof d.type === 'number' ? self.colorScheme(d.type) : wordLayout.baseColor; });
 
       // .attr('font-size', 1);
 
@@ -188,7 +188,7 @@ export class WordCloud{
         if (!d.select){
           d.select = true;
           d.opacity = wordLayout.opacity;
-          d.baseColor = wordLayout.baseColor;
+          d.baseColor = typeof d.type === 'number' ? self.colorScheme(d.type) : wordLayout.baseColor;
           d3.select(this).style('fill-opacity', 1.0).style('font-weight', d.weight+500);
           bus.$emit(SELECT_WORD, d, self.compare);
         } else {

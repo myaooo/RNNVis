@@ -90,8 +90,8 @@
     watch: {
       width: function () {
         if (this.selectedLayer && this.selectedModel && this.selectedState) {
-          if (this.type === 'word' && this.selectedWords) this.repaintWord();
-          else if (this.type === 'state' && this.selectedUnits) this.repaintState();
+          if (this.type === 'word' && this.wordsStatistics) this.repaintWord();
+          else if (this.type === 'state' && this.unitsStatistics) this.repaintState();
         }
       },
       selectedUnits: function () {
@@ -191,8 +191,8 @@
         const labelLength = layout.lineLength + layout.wordWidth + layout.interval;
 
         this.chart
-          .margin(20, 35, 20, 30)
-          .xAxis('dims')
+          .margin(20, 30, 20, 30)
+          .xAxis('dim')
           .yAxis('response');
         let sortIdx = this.wordsStatistics[0].sort_idx;
         const interval = ~~(sortIdx.length / 200)
@@ -245,12 +245,15 @@
           console.log('Painting no states');
           return;
         }
-        const subChartWidth = this.width/3;
+        const xLabelWidth = 20;
+        const subChartWidth = (this.width-xLabelWidth)/this.unitsStatistics.length;
         const top_k = this.top_k;
 
         this.unitsStatistics.forEach((unitData, i) => {
-          const xLabel = i === this.unitsStatistics.length - 1 ? 'response' : ' '
-          const subchart = this.chart.subChart(subChartWidth, this.height)
+          const xLabel = i === this.unitsStatistics.length - 1 ? 'r' : ' '
+          const marginRight = i === this.unitsStatistics.length - 1 ? xLabelWidth : 0;
+          const subWidth = i === this.unitsStatistics.length - 1 ? subChartWidth + xLabelWidth : subChartWidth;
+          const subchart = this.chart.subChart(subWidth, this.height)
             .xAxis(xLabel)
             .yAxis('words');
           subchart.axis.y.tickFormat((j) => {
@@ -260,7 +263,7 @@
           }).tickValues(range(0,top_k*2,1));
           subchart.axis.x.ticks(6);
           subchart
-            .margin(20,10,20,60)
+            .margin(20,marginRight,20,55)
             .translate(subChartWidth*i, 0)
             .rotate();
           subchart
@@ -289,7 +292,7 @@
     },
     mounted() {
       // console.log(this.$el);
-      this.width = this.$el.clientWidth;
+      this.width = this.$el.clientWidth - 10;
       this.init();
       // register event listener
       // this.register();
