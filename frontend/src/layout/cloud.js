@@ -16,11 +16,11 @@ const bgLayout = {
 
 const wordLayout = {
   'font': 'Arial',
-  'fontSize': [8, 13],
+  'fontSize': [9, 16],
   'fontWeight': [200, 300, 400, 500],
   'padding': 0,
   'opacity': 0.7,
-  'baseColor': 'steelblue',
+  'baseColor': '#1f77b4',
 }
 
 export class WordCloud{
@@ -41,6 +41,7 @@ export class WordCloud{
     this.colorScheme = d3.scaleOrdinal(d3.schemeCategory10);
     this.word2data;
     this.compare = compare;
+    this.boundingSize = [radiusX*2, radiusY*2];
     // this.selected = [];
     // this.bounding();
     // register event listener
@@ -154,12 +155,12 @@ export class WordCloud{
       .append('text')
       .style('font-family', wordLayout.font)
       .attr('text-anchor', 'middle')
-      .style('fill', (d, i) => { return d.type ? self.colorScheme(d.type) : wordLayout.baseColor; });
+      .style('fill', (d, i) => { return typeof d.type === 'number' ? self.colorScheme(d.type) : wordLayout.baseColor; });
     text
       .text(function (d) { return d.text; });
 
     this.cloud
-      .style('fill', (d, i) => { return d.type ? self.colorScheme(d.type) : wordLayout.baseColor; });
+      .style('fill', (d, i) => { return typeof d.type === 'number' ? self.colorScheme(d.type) : wordLayout.baseColor; });
 
       // .attr('font-size', 1);
 
@@ -187,8 +188,8 @@ export class WordCloud{
         if (!d.select){
           d.select = true;
           d.opacity = wordLayout.opacity;
-          d.baseColor = wordLayout.baseColor;
-          d3.select(this).style('fill-opacity', 1.0).style('font-weight', d.weight+300);
+          d.baseColor = typeof d.type === 'number' ? self.colorScheme(d.type) : wordLayout.baseColor;
+          d3.select(this).style('fill-opacity', 1.0).style('font-weight', d.weight+500);
           bus.$emit(SELECT_WORD, d, self.compare);
         } else {
           d.select = false;
@@ -236,8 +237,9 @@ export class WordCloud{
       word.size = scale(word.size);
     });
     // d3.cloud()
+    self.boundingSize = [self.boundingSize[0]*1.3, self.boundingSize[1]*1.05];
     cloud()
-      .size([this.width*1.3, this.height*1.1]) // when layout, first give a larger region
+      .size(this.boundingSize) // when layout, first give a larger region
       .words(words)
       .padding(this.wordLayout.padding)
       .rotate(0)
@@ -245,7 +247,15 @@ export class WordCloud{
       .text(d => d.text)
       .fontSize(d => d.size)
       .fontWeight(d => d.weight)
-      .on('end', (words) => self.draw([self.width/2, self.height/2], words))
+      .on('end', (words_) => {
+        // if(words_.length < words.length * 0.8){
+        //   self.boundingSize = [self.boundingSize[0]*1.3, self.boundingSize[1]*1.05];
+        //   console.log('word cloud size updated to ' + self.boundingSize);
+        //   self.update(words);
+        // } else {
+        self.draw([self.width/2, self.height/2], words_);
+        // }
+      })
       .random(()=> 0.5)
       .spiral('rectangular')
       .start();

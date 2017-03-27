@@ -63,35 +63,34 @@
 
 <script>
   import * as d3 from 'd3';
-  import { bus, SELECT_MODEL, SELECT_STATE, CHANGE_LAYOUT, EVALUATE_SENTENCE, SELECT_UNIT, DESELECT_UNIT, CLOSE_SENTENCE} from '../event-bus';
+  import { bus, SELECT_MODEL, SELECT_STATE, CHANGE_LAYOUT, EVALUATE_SENTENCE, SELECT_UNIT, DESELECT_UNIT, CLOSE_SENTENCE, SELECT_SENTENCE_NODE} from '../event-bus';
   import { WordCloud } from '../layout/cloud.js';
   import { sentence } from '../layout/sentence.js';
 
-  const colorHex = ['#a6cee3','#1f78b4','#b2df8a','#33a02c','#fb9a99','#e31a1c','#fdbf6f','#ff7f00','#cab2d6','#6a3d9a','#ffff99','#b15928'];
+  const colorHex = ['#33a02c','#1f78b4','#b15928','#fb9a99','#e31a1c','#6a3d9a','#ff7f00','#cab2d6','#ffff99','#a6cee3','#b2df8a','#fdbf6f'];
   const colorScheme = (i) => colorHex[i];
 
   class LayoutParamsConstructor {
     constructor(width=800, height=800){
       this.unitWidthRatio = 1.0;
-      this.unitHeight = 3;
-      this.unitMarginSuppose = 2;
+      // this.unitHeight = 4;
+      // this.unitMarginSuppose = 2;
       this.unitMarginRatio = 0.5;
       this.clusterMarginRatio = 0.7;
       this.wordCloudArcDegree = 110;
       // this.wordCloudNormalRadius = 60;
       this.wordCloudHightlightRatio = 1.5;
-      this.wordCloudPaddingLength = 3;
+      this.wordCloudPaddingLength = 5;
       this.wordCloudChord2ClusterDistance = 50;
       this.wordCloudChordLength2ClientHeightRatio = 0.9;
       this.wordCloudChord2stateClusterHeightRatio = 1.1;
-      this.wordCloudWidth2HeightRatio = 1 / 0.6;
+      this.wordCloudWidth2HeightRatio = 1 / 0.5;
       this.littleTriangleWidth = 5;
       this.littleTriangleHeight = 5;
-      this.strengthThresholdPercent = 0.2;
-      this.linkWidth2StrengthRatio = 0.01;
+      this.strengthThresholdPercent = [0.2, 1];
       this.wordSize2StrengthRatio = 3;
-      this.dxShrinkFactor = 0.05;
-      this.spacePerSentence = 2/15;
+      this.dxShrinkFactor = 0.04;
+      this.spacePerSentence = 2/20;
       this.sentenceNodeWidth = 100;
       this.sentenceInitTranslate = [50, 10]
       // this.middleLineX = 300;
@@ -103,12 +102,17 @@
       this.middleLineOffset = 0;
       this.width = width;
       this.height = height;
-      this.sentenceBrushRectWidth = 20;
-      this.sentenceBrushRectHeight = 40;
+      this.sentenceBrushRectWidth = 10;
+    }
+    get wordCloudWidth () {
+      return this.width*0.15;
+    }
+    get unitHeight () {
+      return Math.max(3, Math.min(~~((this.width - 400)/400) + 3, 6));
     }
     updateWidth(width) {
       if (typeof width === 'number')
-        this.width = Math.min(Math.max(500, width), 1200);
+        this.width = Math.min(Math.max(500, width), 1400);
     }
     updateHeight(height) {
       if (typeof height === 'number')
@@ -126,22 +130,49 @@
     get maxClusterWidth() {
       // const width = Math.max(this.width, 500);
       return Math.min(this.width/3, 400);
-    }ß
+    }
     get middleLineX() {
       // const width = Math.max(this.width, 500);
       return this.width * 0.25 + this.middleLineOffset;
     }
     computeUnitParams() {
-      const unitHeight = this.clusterHeight / (this.packNum + (this.packNum - 1 ) * this.unitMarginRatio + 2 * this.clusterMarginRatio );
-      // this.unitHeight = unitHeight;
+      // const unitHeight = this.clusterHeight / this.cluster2UnitRatio;
+      // this.unitHeight = ~~unitHeight;
     }
-    computeParams (clusterNum, clusterInterval2HeightRatio) {
+    get cluster2UnitRatio() {
+      return (this.packNum + (this.packNum - 1 ) * this.unitMarginRatio + 2 * this.clusterMarginRatio );
+    }
+    computeParams (clusterNum, clusterInterval2HeightRatio, maxClusterSize, callTime = 0) {
+      if (callTime > 5) return;
       this.wordCloudChordLength = this.height * this.wordCloudChordLength2ClientHeightRatio;
-      this.clusterHeight = (this.wordCloudChordLength / this.wordCloudChord2stateClusterHeightRatio) /
+      this.clusterHeight = (this.wordCloudChordLength) /
         (clusterNum + clusterNum * clusterInterval2HeightRatio - clusterInterval2HeightRatio);
+      this.packNum = ~~((this.clusterHeight / this.unitHeight + this.unitMarginRatio - 2 * this.clusterMarginRatio) / (1+this.unitMarginRatio));
+      this.clusterHeight =  this.unitHeight * this.cluster2UnitRatio;
       this.clusterInterval = this.clusterHeight * clusterInterval2HeightRatio;
-      this.packNum = ~~(this.clusterHeight / (this.unitHeight + this.unitMargin));
-      this.wordCloudChord2CenterDistance = this.wordCloudChordLength / 2 / Math.tan(this.wordCloudArcDegree / 2 * Math.PI / 180);
+      this.middleLineY = (this.height - this.clusterHeight * clusterNum - this.clusterInterval * (clusterNum - 1)) / 2;
+      if (this.middleLineY < 0) {
+        callTime++;
+        this.computeParams(clusterNum, clusterInterval2HeightRatio-0.2, maxClusterSize, callTime);
+      }
+      // this.wordCloudChord2CenterDistance = this.wordCloudChordLength / 2 / Math.tan(this.wordCloudArcDegree / 2 * Math.PI / 180);
+      // const unit2ClusterRatio = this.unit2ClusterRatio;
+      const maxClusterWidth = Math.ceil(maxClusterSize / this.packNum) * (this.unitWidth + this.unitMargin);
+      if (maxClusterWidth < 0.8 * this.maxClusterWidth) {
+        callTime++;
+        clusterInterval2HeightRatio += 0.2;
+        this.computeParams(clusterNum, clusterInterval2HeightRatio, maxClusterSize, callTime);
+        // maxClusterWidth = Math.ceil(maxClusterSize / this.packNum) * (this.unitWidth + this.unitMargin);
+        // console.log(maxClusterWidth);
+      }
+      if (maxClusterWidth > this.maxClusterWidth) {
+        callTime++;
+        clusterInterval2HeightRatio -= 0.2;
+        this.computeParams(clusterNum, clusterInterval2HeightRatio, maxClusterSize, callTime);
+        // maxClusterWidth = Math.ceil(maxClusterSize / this.packNum) * (this.unitWidth + this.unitMargin);
+        // console.log(maxClusterWidth);
+      }
+
     }
 
   }
@@ -219,6 +250,12 @@
         // console.log(`${this.svgId} > cluster num: ${this.layout.clusterNum}`);
         return this.layout.clusterNum;
       },
+      strokeControlStrength: function() {
+        return this.layout.strokeControlStrength;
+      },
+      linkFilterThreshold: function() {
+        return this.layout.linkFilterThreshold;
+      },
       selectedWords: function() {
         return this.compare ? this.shared.selectedWords2 : this.shared.selectedWords;
       },
@@ -238,10 +275,20 @@
         console.log(`${this.svgId} > layer changed to ${this.selectedLayer}`);
         this.maybeReload();
       },
-      layout: function(layout) {
-        console.log(`${this.svgId} > layout changed. clusterNum: ${layout.clusterNum}`);
+      strokeControlStrength: function(strokeControlStrength) {
+        this.changeStroke(this.strokeControlStrength, this.linkFilterThreshold);
+      },
+      linkFilterThreshold: function(linkFilterThreshold) {
+        this.changeStroke(this.strokeControlStrength, this.linkFilterThreshold);
+      },
+      clusterNum: function(clusterNum) {
+        console.log(`${this.svgId} > layout changed. clusterNum: ${this.layout.clusterNum}`);
         this.maybeReload();
       },
+      // layout: function(layout) {
+      //   console.log(`${this.svgId} > layout changed. clusterNum: ${layout.clusterNum}`);
+      //   this.maybeReload();
+      // },
       selectedModel: function (newModel, oldModel) {
         console.log(`${this.svgId} > model changed to ${this.selectedModel}`);
         this.maybeReload();
@@ -267,7 +314,7 @@
         const data = {};
         if (renderPos) {
           bus.loadPosStatistics(this.selectedModel, undefined, (response) => {
-            console.log(response);
+            // console.log(response);
             if (response.status === 200) {
               const posStatistics = response.data;
               posStatistics.forEach((word, i) => {
@@ -277,6 +324,7 @@
                 posRatio.sort((a, b) => b.value - a.value);
                 data[word.word] = pos2tag[posRatio[0].pos];
               });
+              // console.log(data);
               this.posLabel.draw(pos2tag).transform('translate(' + [this.width-40, 10] + ')');
             }
             this.painter.renderWord(data);
@@ -306,10 +354,8 @@
           && (typeof this.width === 'number') && (typeof this.height === 'number');
       },
       maybeReload() {
-        // console.log(this.changingFlag);
         if (!this.changingFlag){
           this.changingFlag = true;
-          // console.log(this.changingFlag);
           if (this.checkLegality()){
             console.log(`${this.svgId} > reloading...`);
             this.reload(this.selectedModel, this.selectedState, this.selectedLayer, this.clusterNum)
@@ -325,8 +371,6 @@
         this.params.updateWidth(this.width);
         this.rootGroup = d3.select(`#${this.svgId}`).append('g');
         this.painter = new Painter(this.rootGroup, this.params, this.compare);
-      // this.client_width = this.svg.node().getBoundingClientRect().width;
-        // this.painter.size([this.width, this.height]);
         this.posLabel = new PosLabel(this.rootGroup.append('g'), labelParams, this.compare);
       },
       reload(model, state, layer, clusterNum) {
@@ -348,6 +392,9 @@
             this.painter.draw(this.clusterData);
           });
       },
+      changeStroke(controlStrength, linkFilterThreshold) {
+        this.painter.refreshStroke(controlStrength, linkFilterThreshold);
+      }
     },
     mounted() {
       this.init();
@@ -368,7 +415,7 @@
       bus.$on(CLOSE_SENTENCE, (sentence, compare) => {
         if(compare !== this.compare)
           return;
-          this.painter.deleteSentence(sentence);
+        this.painter.deleteSentence(sentence);
       });
     }
   }
@@ -421,19 +468,10 @@
       this.topg = this.svg.append('g').attr('class', this.topGroupClass);
       this.hg = this.topg.append('g');
       this.wg = this.topg.append('g');
-
-
-      // this.client_width = this.svg.node().getBoundingClientRect().width;
-      // this.client_height = this.svg.node().getBoundingClientRect().height;
-      // this.middle_line_x = params.middleLineX;
-      // this.middle_line_y = params.middleLineY;
-      // this.hwg = this.svg.append('g');
-      // this.hg = this.hwg.append('g');
-      // this.wg = this.hwg.append('g');
       this.sentenceWordThreshold = params.sentenceWordThreshold;
+      this.strengthThresholdPercent = params.strengthThresholdPercent;
 
       this.dx = 0, this.dy = 0;
-      this.dxOffset = 0;
       this.graph = null;
       this.clusterSelected = [];
 
@@ -441,19 +479,24 @@
       this.loc = null;
       this.wordClouds = [];
 
-      this.unitNormalColor = '#ff7f0e';
+      this.unitNormalColor = '#ff5b09';
       this.unitRangeColor = ['#09adff', '#ff5b09'];
-      this.linkWidthRanage = [1, 5];
+      this.linkWidthRange = [1, 5];
       this.linkColor = ['#09adff', '#ff5b09'];
       this.compare = compare;
       this.stateTranslateHis = [];
       this.sentenceTranslateHis = [this.params.sentenceInitTranslate[0],];
       this.sentences = [];
 
-    }
+      this.strokeWidth = function(t) { return Math.abs(t) * 0.01};
 
+    }
+    get dxOffset() {
+      const adaptive = (this.client_width - this.client_height) / 4;
+      return Math.max(adaptive, 0);
+    }
     get stateClusterWordCloudDX () {
-      return this.client_width * (0.0 - this.params.dxShrinkFactor * this.sentences.length);
+      return this.client_width * ( - this.params.dxShrinkFactor * this.sentences.length) + this.dxOffset;
     }
     transform(trans) {
       this.svg.attr('transform', trans);
@@ -469,6 +512,14 @@
     }
     get middle_line_y() {
       return this.params.middleLineY;
+    }
+
+    refreshStroke(controlStrength, linkFilterThreshold) {
+      this.strokeWidth = function(t) {return Math.abs(t) * controlStrength};
+      this.strengthThresholdPercent = linkFilterThreshold;
+      if (this.graph) {
+        this.draw_link(this.hg, this.graph);
+      }
     }
 
     deleteSentence(value) {
@@ -488,6 +539,21 @@
       sentence_to_add.forEach((s) => {
         this.addSentence(s, tmpSentenceInfo[s].record, tmpSentenceInfo[s].sentenceRecord)
       });
+    }
+
+    deleteAllSentences() {
+      this.sentences = [];
+      this.translateX(-d3.sum(this.stateTranslateHis));
+      this.adjustdx(this.stateClusterWordCloudDX);
+      this.stateTranslateHis = [];
+      this.sentenceTranslateHis = [this.params.sentenceInitTranslate[0],];
+
+      const tmpSentenceInfo = {};
+      this.graph.sentence_info.forEach((s) => {
+        tmpSentenceInfo[s.value] = s;
+        s['group'].remove();
+      });
+      this.graph.sentence_info = [];
     }
 
     addSentence(value, record, sentenceRecord) {
@@ -514,18 +580,10 @@
         s.group
         .transition()
         .attr('transform', 'translate(' + [d3.sum(this.sentenceTranslateHis), sentenceInitTranslate[1]] + ')');
-        // s.sentence.transform('translate(' + [d3.sum(this.sentenceTranslateHis), sentenceInitTranslate[1]] + ')')
-        // s.links.forEach((ls, i) => {
-        //   ls.forEach((l, j) => {
-        //     // l.target.x = this.graph.state_info.state_cluster_info[j].top_left[0] + this.middle_line_x - k * sentenceTranslationX;
-
-        //   })
-        // })
       });
 
-
       const rectGroup = sg.append('g').attr('transform', 'translate(' + [-this.params.sentenceNodeWidth/2, this.client_height/4] + ')');
-      this.drawBrushRect(rectGroup, record.tokens.length, updateSentence);
+      this.drawBrushRect(rectGroup, sentenceRecord.length, updateSentence);
 
       const sent = sentence(spg, this.compare)
         .size([this.params.sentenceNodeWidth, this.params.sentenceNodeWidth * sentenceRecord.length])
@@ -536,12 +594,12 @@
         .draw();
 
       const links = [];
-
-      sentenceRecord.forEach((d, i) => {
+      const strength = sent.strengthByCluster;
+      sent.strengthByCluster.forEach((strengths, i) => {
         links[i] = [];
         const wordPos = sent.getWordPos(i);
         this.graph.coCluster.colClusters.forEach((clst, j) => {
-          const strength = clst.reduce((acc, val) => {return acc + d[val]} , 0);
+          const strength = strengths[j];
           const s = this.graph.state_info.state_cluster_info[j];
           links[i][j] = {
             source: {x: wordPos[0] + sent.nodeWidth, y: wordPos[1] + sent.nodeHeight/2},
@@ -563,7 +621,7 @@
       const strengthes = flatten(links).map(d => {return Math.abs(d.strength)});
       const scale = d3.scaleLinear()
         .domain([0, d3.extent(strengthes)[1]])
-        .range([0, this.linkWidthRanage[1]])
+        .range([0, this.linkWidthRange[1]])
 
       const lsg = sg.append('g');
       links.forEach(function(ls) {
@@ -621,7 +679,8 @@
         })
       }
 
-      function highlightSentenceLinkByNodeIndex (t, highlight, changeCheckStatus=false) {
+      function highlightSentenceLinkByNodeIndex (data, t, highlight, changeCheckStatus=false) {
+        // console.log(this);
         links[t].forEach((l) => {
           if (changeCheckStatus) {
             l['el'].attr('hold', l['el'].attr('hold') === 'false' ? 'true' : 'false');
@@ -634,7 +693,13 @@
             .attr('display', '');
           }
 
-        })
+        });
+        if(changeCheckStatus) {
+          data.selected = !data.selected;
+          bus.$emit(SELECT_SENTENCE_NODE, data, self.compare);
+        }
+        // console.log(data.el);
+        data.bg.classed('wordcloud-active', data.selected ? true : highlight);
       }
 
       function flatten(arr) {
@@ -691,21 +756,13 @@
       const clusterHeight = this.params.clusterHeight;
       const packNum = this.params.packNum;
       this.params.computeUnitParams();
-      // const unitHeight = this.params.unitHeight;
-      // const unitWidth = this.params.unitWidth;
-      // const unitMargin = this.params.unitMargin;
-      // this.params.unitHeight = Math.round(clusterHeight / packNum * 2 / 3);
       const unitHeight = this.params.unitHeight;
       const unitWidth = this.params.unitWidth;
       const unitMargin = this.params.unitMargin;
       const clusterMargin = this.params.clusterMargin;
-      // console.log(this.params);
       const clusterInterval = this.params.clusterInterval;
 
       const stateClusters = coCluster.colClusters;
-      // const agg_info = coCluster.aggregation_info;
-      // const nCluster = coCluster.labels.length;
-      // const words = coCluster.words;
 
       stateClusters.forEach((clst, i) => {
         let width = Math.ceil(clst.length / packNum) * (unitWidth + unitMargin) - unitMargin + 2 * clusterMargin;
@@ -729,7 +786,8 @@
       let self = this;
       const wordCloudPaddingLength = this.params.wordCloudPaddingLength;
       const wordSize2StrengthRatio = this.params.wordSize2StrengthRatio;
-      const wordCloudWidth2HeightRatio = this.params.wordCloudWidth2HeightRatio;
+      // const wordCloudWidth2HeightRatio = this.params.wordCloudWidth2HeightRatio;
+      const baseWordCloudWidth = this.params.wordCloudWidth;
       const wordClusters = coCluster.rowClusters;
       const words = coCluster.words;
       const nCluster = coCluster.labels.length;
@@ -754,17 +812,21 @@
       let word_info = [];
       let wd_height = wordClusters.map((d, i) => {
         if (highlight_clouds.size === 0) {
-          return Math.sqrt(d.length);
+          return d.length;
+          // return Math.sqrt(d.length);
         } else if (!highlight_clouds.has(i)) {
-          return Math.sqrt(d.length);
+          // return Math.sqrt(d.length);
+          return d.length;
         } else {
-          return Math.sqrt(d.length) * this.params.wordCloudHightlightRatio;
+          return d.length * this.params.wordCloudHightlightRatio;
+          // return Math.sqrt(d.length) * this.params.wordCloudHightlightRatio;
         }
       });
 
       let wd_height_sum = wd_height.reduce((acc, val) => {
         return acc + val;
       }, 0);
+      const max_height = wd_height.reduce((a, b) => Math.max(a,b), 0);
 
       let offset = -chordLength / 2 ;
       wordClusters.forEach((wdst, i) => {
@@ -772,7 +834,7 @@
         // let actual_radius = wordCloudArcRadius * angle * Math.PI / 180;
         // let angle_loc = angle + offset;
         const actual_height = wd_height[i] / wd_height_sum * availableLength;
-        const actual_width = actual_height * wordCloudWidth2HeightRatio;
+        const actual_width = baseWordCloudWidth; // * wd_height[i] / max_height;
         const top_left_y = offset;
         const top_left_x = Math.sqrt(wordCloudArcRadius ** 2 - top_left_y ** 2);
         offset += actual_height + wordCloudPaddingLength;
@@ -796,7 +858,6 @@
 
     calculate_link_info(state_info, word_info, coCluster, dx, dy) {
       const self = this;
-      const strengthThresholdPercent = this.params.strengthThresholdPercent;
       let links = [];
       const row_cluster_2_col_cluster = coCluster.aggregation_info.row_cluster_2_col_cluster;
       const colClusters = coCluster.colClusters;
@@ -806,12 +867,12 @@
       // console.log(row_cluster_2_col_cluster);
       state_info.state_cluster_info.forEach((s, i) => {
         let max_strength = 0;
-        if (!self.graph || !this.graph.link_info) {
-          const strength_extent = d3.extent(row_cluster_2_col_cluster.map((row_cluster, j) => row_cluster[i]));
-          max_strength = Math.max(Math.abs(strength_extent[0]), Math.abs(strength_extent[1]));
-          // console.log(`threshold is ${strength_extent[0]*strengthThresholdPercent}, ${strength_extent[1]*strengthThresholdPercent}`);
-        }
-        const filter_strength = max_strength * strengthThresholdPercent;
+        // if (!self.graph || !this.graph.link_info) {
+        //   const strength_extent = d3.extent(row_cluster_2_col_cluster.map((row_cluster) => row_cluster[i]));
+        //   max_strength = Math.max(Math.abs(strength_extent[0]), Math.abs(strength_extent[1]));
+        //   // console.log(`threshold is ${strength_extent[0]*strengthThresholdPercent}, ${strength_extent[1]*strengthThresholdPercent}`);
+        // }
+        // const filter_strength = max_strength * strengthThresholdPercent;
         word_info.forEach((w, j) => {
           if (links[i] === undefined) {
             links[i] = [];
@@ -827,7 +888,7 @@
             };
           } else {
             let tmp_strength = row_cluster_2_col_cluster[labels[j]][labels[i]];
-            tmp_strength = Math.abs(tmp_strength) < filter_strength ? 0 : tmp_strength;
+            // tmp_strength = Math.abs(tmp_strength) < filter_strength ? 0 : tmp_strength;
             links[i][j] = {source: {x: s.top_left[0] + s.width,
               y: s.top_left[1] + s.height / 2},
               target: {x: w.top_left[0] + dx, y: w.top_left[1] + w.height/2 + dy},
@@ -858,8 +919,9 @@
         this.graph.state_info.state_info.forEach((s, i) => {
           d3.select(s['el'])
             .transition()
-            .duration(300)
+            .duration(400)
             .attr('fill', this.unitNormalColor)
+            .attr('fill-opacity', 0.3)
         });
       }
     }
@@ -871,6 +933,7 @@
           word.type = data[word.text];
         })
       });
+      // console.log(this.graph.word_info);
       // console.log(this.graph.word_info);
       this.draw_word(this.wg, this.graph);
     }
@@ -929,15 +992,16 @@
       }
 
       const hGroups = hiddenClusters.enter()
-        .append('g')
-        .attr('transform', (d, i) => 'translate(' + [state_info.state_cluster_info[i].top_left[0], state_info.state_cluster_info[i].top_left[1]] + ')')
+        .append('g');
+      hGroups
         .on('mouseover', function (clst, i) {
           if (clusterSelected[i]) return;
           // const selectedIdx = clusterSelected.indexOf(1);
           d3.select(this).select('rect').classed('cluster-selected', true);
           graph.link_info[i].forEach((l, j) => {
             d3.select(l['el']).classed('active', true);
-            if (Math.abs(l.strength) > 0)
+            // if (Math.abs(l.strength) > 0)
+            if (d3.select(l['el']).attr('display') !== 'none')
               graph.word_info[j]['wordCloud'].bgHandle.classed('wordcloud-active', true);
           })
           // graph.sentence_link.forEach((ls) => {
@@ -960,7 +1024,12 @@
           // });
         })
         .on('click', selectCluster)
-        .attr('id', (clst, i) => (String(clst.length) + String(i)));
+      hGroups.attr('transform', 'translate(0,0)')
+        .attr('id', (clst, i) => (String(clst.length) + String(i)))
+        .transition()
+        .duration(300)
+        .attr('transform', (d, i) => 'translate(' + [state_info.state_cluster_info[i].top_left[0], state_info.state_cluster_info[i].top_left[1]] + ')');
+
 
       hGroups.each(function (d, i) {
         graph.state_info.state_cluster_info[i]['el'] = this;
@@ -975,17 +1044,17 @@
         .attr('x', 0) //(clst, i) => state_info.state_cluster_info[i].top_left[0])
         .attr('y', 0) //(clst, i) => state_info.state_cluster_info[i].top_left[1]);
 
-      hGroups.append('path')
-        .classed('little-triangle', true)
-        .attr('d', 'M 0, 0 L ' + -littleTriangleWidth/2 + ', ' +
-          littleTriangleHeight + ' L ' +  littleTriangleWidth/2 +
-          ', ' + littleTriangleHeight + ' L 0, 0')
-        .transition()
-        .duration(400)
-        .attr('transform', (k, i) => {
-          return 'translate(' + [state_info.state_cluster_info[i].width / 2,
-            state_info.state_cluster_info[i].height] + ')';
-        });
+      // hGroups.append('path')
+      //   .classed('little-triangle', true)
+      //   .attr('d', 'M 0, 0 L ' + -littleTriangleWidth/2 + ', ' +
+      //     littleTriangleHeight + ' L ' +  littleTriangleWidth/2 +
+      //     ', ' + littleTriangleHeight + ' L 0, 0')
+      //   .transition()
+      //   .duration(400)
+      //   .attr('transform', (k, i) => {
+      //     return 'translate(' + [state_info.state_cluster_info[i].width / 2,
+      //       state_info.state_cluster_info[i].height] + ')';
+      //   });
 
       const units = hGroups.append('g')
         .selectAll('rect')
@@ -994,14 +1063,14 @@
       let tmp_units = units.enter()
         .append('rect')
         .on('mouseover', function(d, i) {
-          if (state_info.state_info[i].selected) return;
+          if (state_info.state_info[d].selected) return;
           // if (d3.select(this.parentNode.parentNode).property('selected') === 'true') {
             d3.select(this).classed('unit-active', true)
             // fisheye in
           // }
         })
         .on('mouseleave', function(d, i) {
-          if (state_info.state_info[i].selected) return;
+          if (state_info.state_info[d].selected) return;
           // if (d3.select(this.parentNode.parentNode).property('selected') === 'true') {
             d3.select(this).classed('unit-active', false)
             // fisheye out
@@ -1009,14 +1078,15 @@
         })
         .on('click', function(d, i) {
           // if (d3.select(this.parentNode.parentNode).property('selected') === 'true') {
-            if (!state_info.state_info[i].selected){
-              state_info.state_info[i].selected = true;
+            if (!state_info.state_info[d].selected){
+              state_info.state_info[d].selected = true;
               d3.select(this).classed('unit-active', true)
               // console.log(d + 'is selected');
               bus.$emit(SELECT_UNIT, d, self.compare);
             } else {
               // console.log(d + 'is deselected');
-            d3.select(this).classed('unit-active', false)
+              state_info.state_info[d].selected = false;
+              d3.select(this).classed('unit-active', false)
               bus.$emit(DESELECT_UNIT, d, self.compare);
             }
           // }
@@ -1028,7 +1098,7 @@
         .attr('x', (i) => state_info.state_info[i].top_left[0])
         .attr('y', (i) => state_info.state_info[i].top_left[1])
         .attr('fill', self.unitNormalColor)
-        .attr('fill-opacity', 0.5)
+        .attr('fill-opacity', 0.3)
 
       tmp_units.each(function(d) {
         graph.state_info.state_info[d]['el'] = this;
@@ -1106,7 +1176,7 @@
           .transition()
           .duration(500)
           .style('opacity', 0)
-          .remove()
+          .remove();
         });
       });
     }
@@ -1125,7 +1195,7 @@
           .duration(500)
           .style('fill-opacity', 1e-6)
           .style('opacity', 1e-6)
-          .remove()
+          .remove();
       });
     }
 
@@ -1138,35 +1208,39 @@
 
     draw_link(g, graph) {
       const link_info = graph.link_info;
-      const linkWidth2StrengthRatio = this.params.linkWidth2StrengthRatio;
 
       function flatten(arr) {
         return arr.reduce((acc, val) => {
           return acc.concat(Array.isArray(val) ? flatten(val) : val);
         }, []);
       }
-      // const strengthes = flatten(link_info).filter(d => {return d.strength > 0}).map(d => {return Math.abs(d.strength)});
-      const strengthes = flatten(link_info).map(d => {return Math.abs(d.strength)});
-      const scale = d3.scaleLinear()
-        .domain([0, d3.extent(strengthes)[1]])
-        .range([0, this.linkWidthRanage[1]])
+
+      const strength_extent = d3.extent(flatten(link_info).map((l) => l.strength));
+      const max_strength = Math.max(Math.abs(strength_extent[0]), Math.abs(strength_extent[1]));
+      const strength_bound = this.strengthThresholdPercent.map((t) => t * max_strength);
 
       link_info.forEach((ls, i) => {
         // const strengthRange = d3.extent(ls);
+        // console.log(`strength threshold is ${this.strengthThresholdPercent}`);
         ls.forEach((l, j) => {
           if (l['el']) {
             d3.select(l['el'])
+              .attr('display', (Math.abs(l.strength) < strength_bound[0] || Math.abs(l.strength) > strength_bound[1]) ? 'none' : '')
               .transition()
               .duration(300)
+              .attr('stroke-width', this.strokeWidth(l.strength))
+              // .attr('stroke-width', l.strength !== 0 ? this.strokeWidth(l.strength) : 0)
               .attr('d', this.createLink(l))
           } else {
             let tmp_path = g.append('path')
               .classed('link', true)
               .classed('active', false)
               .attr('d', this.createLink(l))
-              .attr('stroke-width', l.strength !== 0 ? scale(Math.abs(l.strength)) : 0)
-              .attr('opacity', 0.2)
+              .attr('stroke-width', this.strokeWidth(l.strength))
+              .attr('opacity', 0.3)
               .attr('stroke', l.strength > 0 ? this.linkColor[1] : this.linkColor[0])
+              .attr('display', (Math.abs(l.strength) < strength_bound[0] || Math.abs(l.strength) > strength_bound[1]) ? 'none' : '')
+
             l['el'] = tmp_path.node();
           }
 
@@ -1179,23 +1253,29 @@
       // console.log(coCluster.colClusters.length);
       const maxClusterSize = coCluster.colSizes.reduce((a, b) => Math.max(a,b));
       const nCluster = coCluster.labels.length;
-      let clusterInterval2HeightRatio = 2;
+      let clusterInterval2HeightRatio = 1;
       // console.log(coCluster);
       // console.log(`cluster number is ${nCluster}`);
-      this.params.computeParams(coCluster.labels.length, clusterInterval2HeightRatio);
+      this.params.computeParams(coCluster.labels.length, clusterInterval2HeightRatio, maxClusterSize);
 
       let maxClusterWidth = Math.ceil(maxClusterSize / this.params.packNum) * (this.params.unitWidth + this.params.unitMargin);
+      while (maxClusterWidth < 0.4 * this.params.maxClusterWidth) {
+        clusterInterval2HeightRatio += 0.2;
+        this.params.computeParams(coCluster.labels.length, clusterInterval2HeightRatio);
+        maxClusterWidth = Math.ceil(maxClusterSize / this.params.packNum) * (this.params.unitWidth + this.params.unitMargin);
+        // console.log(maxClusterWidth);
+      }
       while (maxClusterWidth > this.params.maxClusterWidth) {
-        clusterInterval2HeightRatio -= 0.05;
+        clusterInterval2HeightRatio -= 0.2;
         this.params.computeParams(coCluster.labels.length, clusterInterval2HeightRatio);
         maxClusterWidth = Math.ceil(maxClusterSize / this.params.packNum) * (this.params.unitWidth + this.params.unitMargin);
         // console.log(maxClusterWidth);
       }
       // this.dx = this.params.wordCloudChord2ClusterDistance - (this.params.wordCloudChord2CenterDistance - maxClusterWidth / 2);
       this.dx = this.stateClusterWordCloudDX;
-      this.dy = this.params.wordCloudChordLength / 2.1;
+      this.dy = this.params.wordCloudChordLength / 2.0 - this.middle_line_y / 2;
       console.log(`maxClusterWidth is ${maxClusterWidth}`);
-      console.log(`wordCloudChord2CenterDistance is ${this.params.wordCloudChord2CenterDistance}`);
+      // console.log(`wordCloudChord2CenterDistance is ${this.params.wordCloudChord2CenterDistance}`);
       console.log(`dx is ${this.dx}, dy is ${this.dy}`);
 
       // this.dx = 0, this.dy = chordLength / 2;
@@ -1230,12 +1310,15 @@
       if (!this.graph) {
         return;
       }
+      this.deleteAllSentences();
       this.erase_state();
       this.erase_link();
       this.erase_word();
       this.topg.transition()
+        // .attr('transform')
         .duration(300)
-        .style('opacity', 0)
+        .attr('transform', 'scale(0.01, 0.01)')
+        .style('opacity', 1e-6)
         .remove();
       this.topg = this.svg.append('g');
       this.hg = this.topg.append('g');

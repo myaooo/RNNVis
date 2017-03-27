@@ -15,7 +15,8 @@ from rnnvis.utils.io_utils import get_path, assert_path_exists
 from rnnvis.procedures import build_model, pour_data
 from rnnvis.rnn.eval_recorder import BufferRecorder, StateRecorder
 from rnnvis.state_processor import get_state_signature, get_empirical_strength, strength2json, \
-    get_tsne_projection, solution2json, get_co_cluster, get_state_statistics, get_pos_statistics
+    get_tsne_projection, solution2json, get_co_cluster, get_state_statistics, get_pos_statistics, \
+    get_an_empirical_strength
 from rnnvis.datasets.text_processor import tokenize
 from rnnvis.db.db_helper import query_evals
 
@@ -32,7 +33,16 @@ class ModelManager(object):
         'IMDB': {'config': 'imdb-tiny.yml'},
         'PTB-GRU': {'config': 'gru.yml'},
         'PTB-SMALL': {'config': 'lstm-small-1.yml'},
-        'PTB-RNN': {'config': 'rnn.yml'}
+        'PTB-RNN': {'config': 'rnn.yml'},
+        'YELP-GRU-1000': {'config': 'yelp-gru-1000.yml'},
+        'YELP-GRU-200': {'config': 'yelp-gru-200.yml'},
+        'YELP-GRU-50': {'config': 'yelp-gru-50.yml'},
+        'YELP-LSTM-1000': {'config': 'yelp-lstm-1000.yml'},
+        'YELP-LSTM-50': {'config': 'yelp-lstm-200.yml'},
+        'YELP-LSTM-50': {'config': 'yelp-lstm-50.yml'},
+        'YELP-RNN-50': {'config': 'yelp-rnn-1000.yml'},
+        'YELP-RNN-50': {'config': 'yelp-rnn-200.yml'},
+        'YELP-RNN-50': {'config': 'yelp-rnn-50.yml'},
     }
 
     def __init__(self):
@@ -177,7 +187,7 @@ class ModelManager(object):
         def record_thread(manager):
             try:
                 print("Start evaluating...", flush=True)
-
+                # print("the inputs is " + inputs)
                 model.run_with_context(model.evaluator2.evaluate_and_record, inputs, None,
                                        recorder, verbose=True,
                                        refresh_state=False if hasattr(model, 'use_last_output') else model.use_last_output)
@@ -185,6 +195,7 @@ class ModelManager(object):
                 manager.record_flag[record_name] = 'done'
             except:
                 print("ERROR: Fail to evaluate given sequence!")
+                raise
         start_new_thread(record_thread, (self,))
         return self.record_flag[record_name]
 
@@ -273,6 +284,18 @@ class ModelManager(object):
             word = model.id_to_word[pos_data['id']]
             pos_data['word'] = word
         return results
+
+    def model_empirical_strength_of_word(self, name, state_name, layer, word):
+        model = self._get_model(name)
+        if model is None:
+            return None
+        config = self._train_configs[name]
+        k = model.get_id_from_word([word])[0]
+        strength = get_an_empirical_strength(config.dataset, model.name, state_name, layer, k)
+        if strength is None:
+            k = model.get_id_from_word(['<unk>'])[0]
+            strength = get_an_empirical_strength(config.dataset, model.name, state_name, layer, k)
+        return strength.tolist()
 
 
 def hash_tag_str(text_list):
