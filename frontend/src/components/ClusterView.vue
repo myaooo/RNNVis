@@ -12,6 +12,12 @@
   stroke: red;
   fill-opacity: 0.3;
 }
+.cluster-hovered {
+  stroke-width: 1.5;
+  stroke-opacity: 0.5;
+  stroke: black;
+  fill-opacity: 0.3;
+}
 #middle_line {
   stroke: lightskyblue;
   stroke-width: 2;
@@ -43,8 +49,11 @@
   fill-opacity: 0.0;
   stroke-opacity: 0.8;
 }
-
-.wordcloud-active {
+.wordcloud-selected {
+  stroke: 'black';
+  stroke-width: 1.5;
+}
+.wordcloud-hovered {
   stroke: 'red';
   stroke-width: 1.5;
 }
@@ -987,7 +996,7 @@
         .on('mouseover', function (clst, i) {
           if (clusterSelected[i]) return;
           // const selectedIdx = clusterSelected.indexOf(1);
-          d3.select(this).select('rect').classed('cluster-selected', true);
+          d3.select(this).select('rect').classed('cluster-hovered', true);
           graph.link_info[i].forEach((l, j) => {
             d3.select(l['el']).classed('active', true);
             // if (Math.abs(l.strength) > 0)
