@@ -1,5 +1,5 @@
 model:
-  name: yelp-small8
+  name: YELP-RNN-200
   initializer_name: random_uniform
   initializer_args:
     minval: -0.1

@@ -1,5 +1,5 @@
 model:
-  name: yelp-small6
+  name: YELP-LSTM-200
   initializer_name: random_uniform
   initializer_args:
     minval: -0.1
@@ -10,7 +10,7 @@ model:
   target_size: 5
   use_last_output: True
   embedding_size: 500
-  cell_type: LSTM
+  cell_type: BasicLSTM
   cells:
     - num_units: 200
     - num_units: 200
