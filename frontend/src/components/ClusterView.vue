@@ -67,7 +67,7 @@
   import { WordCloud } from '../layout/cloud.js';
   import { sentence } from '../layout/sentence.js';
 
-  const colorHex = ['#a6cee3','#1f78b4','#b2df8a','#33a02c','#fb9a99','#e31a1c','#fdbf6f','#ff7f00','#cab2d6','#6a3d9a','#ffff99','#b15928'];
+  const colorHex = ['#a6cee3','#1f78b4','#b15928','#33a02c','#fb9a99','#e31a1c','#fdbf6f','#ff7f00','#cab2d6','#6a3d9a','#ffff99','#b2df8a'];
   const colorScheme = (i) => colorHex[i];
 
   class LayoutParamsConstructor {
