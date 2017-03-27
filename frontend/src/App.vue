@@ -9,14 +9,17 @@
     <el-row :gutter="10">
       <el-col :span="6" class="col-bg" :gutter="15">
         <model-view></model-view>
+        <br>
+        <info-board v-if='!compare' :compare='false' :type='"word"' :id='"info-word"' :height='infoHeight'></info-board>
+        <info-board v-if='!compare' :compare='false' :type='"state"' :id='"info-state"' :height='infoHeight'></info-board>
       </el-col>
       <el-col :span="18" class="col-bg" :gutter="15">
         <!--<router-view></router-view>-->
         <el-row>
-          <main-view :height="height * 0.6"> </main-view>
+          <main-view :height="mainHeight"> </main-view>
         </el-row>
         <el-row :gutter="10">
-          <info-view :height="height * 0.2"> </info-view>
+          <info-view v-if='compare' :height="infoHeight"> </info-view>
         </el-row>
       </el-col>
       <!--<el-col :span='6' class="col-bg border" :gutter="15">-->
@@ -33,22 +36,28 @@ import ModelView from 'components/ModelView';
 import MainView from 'components/MainView';
 import TextView from 'components/TextView';
 import InfoView from 'components/InfoView';
+import InfoBoard from 'components/InfoBoard';
+import { bus } from './event-bus';
 
 export default {
   name: 'app',
-  components: { ModelView, MainView, TextView, InfoView },
+  components: { ModelView, MainView, TextView, InfoView, InfoBoard },
   data() {
     return {
       height: 800,
       width: 1000,
+      shared: bus.state,
     };
   },
   computed: {
     mainHeight: function () {
-      return this.height * 0.6;
+      return this.compare ? this.height * 0.6 : this.height*0.9;
     },
     infoHeight: function () {
       return this.height * 0.2;
+    },
+    compare: function () {
+      return this.shared.compare;
     }
   },
   mounted() {
