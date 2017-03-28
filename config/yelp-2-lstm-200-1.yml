@@ -13,7 +13,7 @@ model:
   cell_type: BasicLSTM
   cells:
     - num_units: 200
-    forget_bias: 1.0
+      forget_bias: 1.0
   loss_func: sentence_loss
   dataset: yelp-2
 train:
