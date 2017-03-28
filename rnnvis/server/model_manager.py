@@ -38,7 +38,7 @@ class ModelManager(object):
         'YELP-GRU-200': {'config': 'yelp-gru-200.yml'},
         'YELP-GRU-50': {'config': 'yelp-gru-50.yml'},
         'YELP-LSTM-1000': {'config': 'yelp-lstm-1000.yml'},
-        'YELP-LSTM-50': {'config': 'yelp-lstm-200.yml'},
+        'YELP-LSTM-50': {'config': 'yelp-2-lstm-200-1.yml'},
         'YELP-LSTM-50': {'config': 'yelp-lstm-50.yml'},
         'YELP-RNN-50': {'config': 'yelp-rnn-1000.yml'},
         'YELP-RNN-50': {'config': 'yelp-rnn-200.yml'},
