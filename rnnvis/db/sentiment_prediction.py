@@ -88,7 +88,7 @@ def store_sst(data_path, name, split_scheme, upsert=False):
             label = [float(i) for i in label]
             label = [(0 if i <= 0.2 else 1 if i <= 0.4 else 2 if i <= 0.6 else 3 if i <= 0.8 else 4) for i in label]
             data_dict[set_name] = {'data': data, 'label': label, 'ids': ids}
-    store_dataset_by_default(name, data_dict)
+    store_dataset_by_default(name, data_dict, upsert)
 
 
 def store_imdb(data_path, name, n_words=100000, upsert=False):
@@ -109,7 +109,7 @@ def store_imdb(data_path, name, n_words=100000, upsert=False):
         # insertion('sentences', {'name': name, 'set': set_name},
         #           {'name': name, 'set': set_name, 'data': data, 'label': label, 'ids': ids})
         data_dict[set_name] = {'data': data, 'label': label, 'ids': ids}
-    store_dataset_by_default(name, data_dict)
+    store_dataset_by_default(name, data_dict, upsert)
 
 
 def store_yelp(data_path, name, n_words=10000, upsert=False):
@@ -176,7 +176,7 @@ def store_yelp(data_path, name, n_words=10000, upsert=False):
         data_dict[data_names[i]] = {'data': data, 'label': label, 'ids': ids}
         insertion('sentences', {'name': name, 'set': data_names[i]},
                   {'name': name, 'set': data_names[i], 'data': data, 'label': label, 'ids': ids})
-    store_dataset_by_default(name, data_dict)
+    store_dataset_by_default(name, data_dict, upsert)
 
 
 def get_dataset_path(name):
