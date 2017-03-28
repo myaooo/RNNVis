@@ -1,0 +1,29 @@
+model:
+  name: YELP-2-LSTM-50-2
+  initializer_name: random_uniform
+  initializer_args:
+    minval: -0.1
+    maxval: 0.1
+  input_dtype: int32
+  target_dtype: int32
+  vocab_size: 10001
+  target_size: 2
+  use_last_output: True
+  embedding_size: 50
+  cell_type: BasicLSTM
+  cells:
+    - num_units: 50
+    - num_units: 50
+  loss_func: sentence_loss
+  dataset: yelp-2
+train:
+  epoch_num: 25
+  num_steps: 250
+  batch_size: 32
+  keep_prob: 1
+  gradient_clip: global_norm
+  gradient_clip_args:
+    clip_norm: 1.0
+  optimizer: Adam
+  learning_rate: 0.0001
+
