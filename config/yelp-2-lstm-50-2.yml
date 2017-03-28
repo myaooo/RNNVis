@@ -25,5 +25,5 @@ train:
   gradient_clip_args:
     clip_norm: 1.0
   optimizer: Adam
-  learning_rate: 0.0001
+  learning_rate: 0.001
 
