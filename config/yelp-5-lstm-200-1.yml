@@ -6,7 +6,7 @@ model:
     maxval: 0.1
   input_dtype: int32
   target_dtype: int32
-  vocab_size: 10001
+  vocab_size: 10000
   target_size: 5
   use_last_output: True
   embedding_size: 200
