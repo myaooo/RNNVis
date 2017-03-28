@@ -136,9 +136,9 @@ def store_yelp(data_path, name, n_words=10000, upsert=False):
         reviews.append(tokenized_review)
         stars.append(item['label'])
         all_words.extend(tokenized_review)
-    for w in all_words:
-        if isinstance(w, list):
-            print("found a list" + str(w))
+    # for w in all_words:
+    #     if isinstance(w, list):
+    #         print("found a list" + str(w))
     word_to_id, counter, words = tokens2vocab(all_words)
 
     word_to_id = {k: v+1 for k, v in word_to_id.items() if v < n_words}
