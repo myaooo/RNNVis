@@ -43,6 +43,7 @@ class ModelManager(object):
         'YELP-RNN-50': {'config': 'yelp-rnn-1000.yml'},
         'YELP-RNN-50': {'config': 'yelp-rnn-200.yml'},
         'YELP-RNN-50': {'config': 'yelp-rnn-50.yml'},
+        'YELP-2-LSTM-50-1': {'config': 'yelp-2-lstm-50-1.yml'},
     }
 
     def __init__(self):
