@@ -120,17 +120,25 @@ def store_yelp(data_path, name, n_words=10000, upsert=False):
     with open(os.path.join(data_path, 'review_label.json'), 'r') as file:
         data = json.load(file)
     if name == 'yelp-2':
+        tmp_ = []
         for item in data:
+            if item['label'] == 3:
+                continue
             item['label'] = 0 if item['label'] < 3 else 1
-    training_data, validate_data, test_data = split(data, fractions=[0.8, 0.1, 0.1])
+            tmp_.append(item)
+        data = tmp_
+    training_data, validate_data, test_data = split(data, fractions=[0.8, 0.1, 0.1], shuffle=True)
     all_words = []
     reviews = []
     stars = []
     for item in training_data:
-        tokenized_review = list(itertools.chain.from_iterable(tokenize(item['review'])))
+        tokenized_review = list(itertools.chain.from_iterable(tokenize(item['review'], remove_punct=True)))
         reviews.append(tokenized_review)
         stars.append(item['label'])
         all_words.extend(tokenized_review)
+    for w in all_words:
+        if isinstance(w, list):
+            print("found a list" + str(w))
     word_to_id, counter, words = tokens2vocab(all_words)
 
     word_to_id = {k: v+1 for k, v in word_to_id.items() if v < n_words}
