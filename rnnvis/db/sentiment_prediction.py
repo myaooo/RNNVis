@@ -119,6 +119,9 @@ def store_yelp(data_path, name, n_words=10000, upsert=False):
         insertion = insert_one_if_not_exists
     with open(os.path.join(data_path, 'review_label.json'), 'r') as file:
         data = json.load(file)
+    if name == 'yelp-2':
+        for item in data:
+            item['label'] = 0 if item['label'] < 3 else 1
     training_data, validate_data, test_data = split(data, fractions=[0.8, 0.1, 0.1])
     all_words = []
     reviews = []
