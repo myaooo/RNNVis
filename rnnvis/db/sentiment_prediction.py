@@ -132,7 +132,7 @@ def store_yelp(data_path, name, n_words=10000, upsert=False):
     reviews = []
     stars = []
     for item in training_data:
-        tokenized_review = list(itertools.chain.from_iterable(tokenize(item['review'], remove_punct=True)))
+        tokenized_review = list(itertools.chain.from_iterable(tokenize(item['review'], remove_punct=True)[0]))
         reviews.append(tokenized_review)
         stars.append(item['label'])
         all_words.extend(tokenized_review)
@@ -156,7 +156,7 @@ def store_yelp(data_path, name, n_words=10000, upsert=False):
         reviews = []
         stars = []
         for item in _data:
-            tokenized_review = list(itertools.chain.from_iterable(tokenize(item['review'])))
+            tokenized_review = list(itertools.chain.from_iterable(tokenize(item['review'])[0]))
             reviews.append([word_to_id[t] if word_to_id.get(t) else 0 for t in tokenized_review])
             stars.append(item['label'])
         tmp_data.append((reviews, stars))
