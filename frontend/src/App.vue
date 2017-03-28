@@ -10,8 +10,8 @@
       <el-col :span="6" class="col-bg" :gutter="15">
         <model-view></model-view>
         <br>
-        <info-board v-if='!compare' :compare='false' :type='"word"' :id='"info-word"' :height='infoHeight'></info-board>
-        <info-board v-if='!compare' :compare='false' :type='"state"' :id='"info-state"' :height='infoHeight'></info-board>
+        <info-board v-if='!compare' :compare='false' :type='"word"' :id='"info-word"' :height='infoHeight*0.8'></info-board>
+        <info-board v-if='!compare' :compare='false' :type='"state"' :id='"info-state"' :height='infoHeight*0.8'></info-board>
       </el-col>
       <el-col :span="18" class="col-bg" :gutter="15">
         <!--<router-view></router-view>-->

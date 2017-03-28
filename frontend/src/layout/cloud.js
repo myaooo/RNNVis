@@ -7,17 +7,17 @@ import { bus, SELECT_WORD, DESELECT_WORD } from '../event-bus';
 // console.log('haha');
 
 const bgLayout = {
-  'stroke': 'gray',
-  'stroke-width': 0.5,
+  'stroke': 'black',
+  'stroke-width': 1,
   'fill': 'white',
   'fill-opacity': 0.0,
-  'stroke-opacity': 0.8,
+  'stroke-opacity': 0.2,
 };
 
 const wordLayout = {
   'font': 'Arial',
-  'fontSize': [9, 16],
-  'fontWeight': [200, 300, 400, 500],
+  'fontSize': [9, 17],
+  'fontWeight': [300, 400, 500, 600],
   'padding': 0,
   'opacity': 0.7,
   'baseColor': '#1f77b4',
