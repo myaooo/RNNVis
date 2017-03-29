@@ -323,6 +323,16 @@ class SentenceLayout{
       .attr('stroke-width', 1.0)
       .attr('stroke-opacity', 0.5);
 
+    gCurrent.append('path')
+      .attr('d', (d, i) => 'M ' + (unitWidth*i) + ' ' + (height/2 - scaleHeight(d.currents[0] / d.size))
+        + ' H ' + (unitWidth * (i+1) ))
+      .attr('stroke-width', 2);
+
+    gCurrent.append('path')
+      .attr('d', (d, i) => 'M ' + (unitWidth*i) + ' ' + (height/2 - scaleHeight(d.currents[1] / d.size))
+        + ' H ' + (unitWidth * (i+1) ))
+      .attr('stroke-width', 2);
+
     const gUpdated1 = gSelector.enter()
       .append('g');
     const updated1 = gUpdated1.append('rect')
@@ -331,7 +341,7 @@ class SentenceLayout{
       .attr('width', (d) => unitWidth)
       .attr('height', (d) => scaleHeight(Math.abs(d.updateds[1]) / d.size))
       .attr('transform', (d) => d.updateds[1] < 0 ? ('translate(' + [0, -scaleHeight(Math.abs(d.updateds[1]) / d.size) ] + ')') : '')
-      .style('stroke-opacity', (d, j) => d.updateds[1] > 0 ? 1.0 : 1.0);
+      .style('fill-opacity', 0.4);
     if (paintColor) {
       updated1.attr('fill', (d, j) => {
         return d.updateds[1] > 0 ? 'none' : color(j);
@@ -344,8 +354,7 @@ class SentenceLayout{
     }
     gUpdated1 //.style('fill-opacity', 0.8)
       .style('stroke-width', 0.5)
-      .style('stroke', 'none')
-      .style('fill-opacity', 0.5);
+      .style('stroke', 'none');
 
 
     const gUpdated2 = gSelector.enter()
@@ -370,7 +379,7 @@ class SentenceLayout{
     gUpdated2 //.style('fill-opacity', 0.8)
       .style('stroke-width', 0.5)
       .style('stroke', 'none')
-      .style('fill-opacity', 0.5);
+      .style('fill-opacity', 0.4);
 
 
     el.append('path').attr('d', 'M0 ' + height/2 + ' H ' + width)
@@ -409,10 +418,12 @@ class SentenceLayout{
     return el;
   }
 
-  drawOneConnection2(el, data, t) {
+  drawOneConnection2(el, data, t, paintColor=false) {
     const height = this.nodeInterval;
     // const width = this.nodeWidth;
-    const color = this.params.color;
+    const color = paintColor ? this.params.color : (i) => {
+      return data.data[i].currents[0] + data.data[i].currents[1] > 0 ? this.params.posColor : this.params.negColor;
+    };
     // console.log(data);
     // const scaleHeight = this.scaleHeight;
     const unitWidth = this.nodeWidth / data.data.length;

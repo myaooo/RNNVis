@@ -39,7 +39,7 @@
 .wordcloud {
   stroke: 'black';
   stroke-width: 1;
-  fill: gray;
+  fill: lightgray;
   fill-opacity: 0.1;
   stroke-opacity: 0.2;
 }
@@ -151,7 +151,7 @@
       if (callTime > 5) return;
       const maxClusterSize = clusterSizes.reduce((a, b) => Math.max(a, b), 0);
       const totalClusterSize = clusterSizes.reduce((a, b) => a+b, 0);
-      this._unitHeight = 4 + this.width / totalClusterSize/5;
+      this._unitHeight = 3 + this.width / totalClusterSize / 2;
       this.wordCloudChordLength = this.height * this.wordCloudChordLength2ClientHeightRatio;
       this.clusterHeight = (this.wordCloudChordLength) /
         (clusterNum + clusterNum * clusterInterval2HeightRatio - clusterInterval2HeightRatio);
