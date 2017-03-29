@@ -19,7 +19,7 @@ export class CoClusterProcessor {
   }
   get labels() {
     if (this.hasData && !this._labels) {
-      this._labels = [...new Set(this.colLabels)];
+      this._labels = [...new Set([...(this.colLabels), ...(this.rowLabels)])];
       if (this.sortBy === 'col')
         this._labels.sort((a, b) => this.colSizes[a] - this.colSizes[b]);
       else if (this.sortBy === 'row')

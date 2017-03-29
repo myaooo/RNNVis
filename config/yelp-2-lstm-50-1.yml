@@ -9,7 +9,7 @@ model:
   vocab_size: 10000
   target_size: 2
   use_last_output: True
-  embedding_size: 50
+  embedding_size: 200
   cell_type: BasicLSTM
   cells:
     - num_units: 50
@@ -18,7 +18,7 @@ model:
   dataset: yelp-2
 train:
   epoch_num: 25
-  num_steps: 250
+  num_steps: 100
   batch_size: 32
   keep_prob: 1
   gradient_clip: global_norm
