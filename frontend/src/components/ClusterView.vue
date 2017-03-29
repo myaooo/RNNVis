@@ -36,14 +36,6 @@
   stroke: black;
   stroke-width: 1.0;
 }
-.wordcloud {
-  stroke: 'black';
-  stroke-width: 1;
-  fill: lightgray;
-  fill-opacity: 0.1;
-  stroke-opacity: 0.2;
-}
-
 .wordcloud.active {
   stroke: 'black';
   stroke-width: 1.5;
@@ -1025,25 +1017,24 @@
       const selectCluster = function (clst, i) {
         if (!clusterSelected[i]){
           clusterSelected[i] = 1;
-          self.update_ref(d3.select(this).select('rect').node(), "plus");
           self.redraw_word_link(i);
-          graph.link_info[i].forEach((l, j) => {
+          self.update_ref(d3.select(this).select('rect').node(), "plus");
+          self.graph.link_info[i].forEach((l, j) => {
             self.update_ref(l['el'], "plus");
             if (d3.select(l['el']).attr('display') !== 'none') {
-              console.log(`link ${i} ${j} is displayed`);
-              self.update_ref(graph.word_info[j]['wordCloud'].bgHandle.node(), "plus");
+              self.update_ref(self.graph.word_info[j]['wordCloud'].bgHandle.node(), "plus");
             }
           });
         } else {
           clusterSelected[i] = 0;
+          self.redraw_word_link(-1);
           self.update_ref(d3.select(this).select('rect').node(), "minus");
-          graph.link_info[i].forEach((l, j) => {
+          self.graph.link_info[i].forEach((l, j) => {
             self.update_ref(l['el'], "minus");
             if (d3.select(l['el']).attr('display') !== 'none') {
-              self.update_ref(graph.word_info[j]['wordCloud'].bgHandle.node(), "minus");
+              self.update_ref(self.graph.word_info[j]['wordCloud'].bgHandle.node(), "minus");
             }
           });
-          self.redraw_word_link(-1);
         }
       }
 
@@ -1052,20 +1043,26 @@
       hGroups
         .on('mouseenter', function (clst, i) {
           self.update_ref(d3.select(this).select('rect').node(), "plus");
-          graph.link_info[i].forEach((l, j) => {
+          self.graph.link_info[i].forEach((l, j) => {
             self.update_ref(l['el'], "plus");
-            if (d3.select(l['el']).attr('display') !== 'none')
-              self.update_ref(graph.word_info[j]['wordCloud'].bgHandle.node(), "plus");
+            if (d3.select(l['el']).attr('display') !== 'none') {
+              self.update_ref(self.graph.word_info[j]['wordCloud'].bgHandle.node(), "plus");
+              const ref = self.graph.word_info[j]['wordCloud'].bgHandle.property('ref');
+              console.log(`word ${j}'s ref is ${ref}`);
+            }
           })
         })
         .on('mouseleave', function(clst, i) {
           console.log('mouse leave');
           self.update_ref(d3.select(this).select('rect').node(), "minus");
           console.log(d3.select(this).select('rect').property('ref'));
-          graph.link_info[i].forEach((l, j) => {
+          self.graph.link_info[i].forEach((l, j) => {
             self.update_ref(l['el'], "minus");
-            if (d3.select(l['el']).attr('display') !== 'none')
-              self.update_ref(graph.word_info[j]['wordCloud'].bgHandle.node(), "minus");
+            if (d3.select(l['el']).attr('display') !== 'none') {
+              self.update_ref(self.graph.word_info[j]['wordCloud'].bgHandle.node(), "minus");
+              const ref = self.graph.word_info[j]['wordCloud'].bgHandle.property('ref');
+              console.log(`word ${j}'s ref is ${ref}`);
+            }
           })
         })
         .on('click', selectCluster)
@@ -1152,48 +1149,58 @@
       let word_info = graph.word_info;
       word_info.forEach((wclst, i) => {
         if (wclst['wordCloud']) {
+          const ref = parseInt(wclst['wordCloud'].bgHandle.property('ref'));
+          const selected = wclst['wordCloud'].bgHandle.property('selected');
+          const active = wclst['wordCloud'].bgHandle.classed('active');
           wclst['wordCloud']
             .draw([wclst.width/2, wclst.height/2])
-            .transform( 'translate(' + [wclst.top_left[0] + wclst.width/2, wclst.top_left[1] + wclst.height/2] + ')')
+            .transform( 'translate(' + [wclst.top_left[0] + wclst.width/2, wclst.top_left[1] + wclst.height/2] + ')');
+          wclst['wordCloud'].bgHandle.property('ref', ref)
+                              .property('selected', selected)
+                              .classed('wordcloud', true)
+                              .classed('active', active);
         } else {
           let tmp_g = g.append('g')
             .on('mouseenter', function () {
-              self.graph.link_info.forEach((ls) => {
+              self.graph.link_info.forEach((ls, j) => {
                 self.update_ref(ls[i]['el'], 'plus');
+                if (d3.select(ls[i]['el']).attr('display') !== 'none') {
+                  self.update_ref(d3.select(self.graph.state_info.state_cluster_info[j]['el']).select('rect').node(), 'plus');
+                }
               });
               self.update_ref(wclst['wordCloud'].bgHandle.node(), 'plus');
             })
             .on('mouseleave', function () {
-              self.graph.link_info.forEach((ls) => {
+              self.graph.link_info.forEach((ls, j) => {
                 self.update_ref(ls[i]['el'], 'minus');
+                if (d3.select(ls[i]['el']).attr('display') !== 'none') {
+                  self.update_ref(d3.select(self.graph.state_info.state_cluster_info[j]['el']).select('rect').node(), 'minus');
+                }
               });
               self.update_ref(wclst['wordCloud'].bgHandle.node(), 'minus');
             })
             .on('click', function () {
-              wclst['wordCloud'].selected = ~wclst['wordCloud'].selected;
-              self.graph.link_info.forEach((ls) => {
-                self.update_ref(ls[i]['el'], wclst['wordCloud'].selected ? 'plus' : 'minus');
+              // wclst['wordCloud'].selected = ~wclst['wordCloud'].selected;
+              wclst['wordCloud'].bgHandle.property('selected', ~wclst['wordCloud'].bgHandle.property('selected'))
+              self.graph.link_info.forEach((ls, j) => {
+                self.update_ref(ls[i]['el'], wclst['wordCloud'].bgHandle.property('selected') ? 'plus' : 'minus');
+                if (d3.select(ls[i]['el']).attr('display') !== 'none') {
+                  self.update_ref(d3.select(self.graph.state_info.state_cluster_info[j]['el']).select('rect').node(), wclst['wordCloud'].bgHandle.property('selected') ? 'plus' : 'minus');
+                }
               });
-              self.update_ref(wclst['wordCloud'].bgHandle.node(), wclst['wordCloud'].selected ? 'plus' : 'minus');
+              self.update_ref(wclst['wordCloud'].bgHandle.node(), wclst['wordCloud'].bgHandle.property('selected') ? 'plus' : 'minus');
             });
           let myWordCloud = new WordCloud(tmp_g, wclst.width/2, wclst.height/2, 'rect', this.compare)
             .transform( 'translate(' + [wclst.top_left[0] + wclst.width/2, wclst.top_left[1] + wclst.height/2] + ')')
             .color(this.params.posColor);
           myWordCloud.update(word_info[i].words_data);
           myWordCloud.bgHandle.property('ref', 0)
+                              .property('selected', false)
                               .classed('wordcloud', true);
           wclst['wordCloud'] = myWordCloud;
         }
 
       });
-
-      // function wordCloudHandle(wordCloud, i, isActive, changeStatus=false) {
-      //   if (changeStatus) {
-
-      //   }
-      //   if (wordCloud.selected)
-      //     wclst['wordCloud'].bgHandle.classed('wordcloud-active', isActive);
-      // }
     }
 
     erase_link() {
