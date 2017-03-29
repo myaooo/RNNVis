@@ -1161,14 +1161,20 @@
         } else {
           let tmp_g = g.append('g')
             .on('mouseenter', function () {
-              self.graph.link_info.forEach((ls) => {
+              self.graph.link_info.forEach((ls, j) => {
                 self.update_ref(ls[i]['el'], 'plus');
+                if (d3.select(ls[i]['el']).attr('display') !== 'none') {
+                  self.update_ref(d3.select(self.graph.state_info.state_cluster_info[j]['el']).select('rect').node(), 'plus');
+                }
               });
               self.update_ref(wclst['wordCloud'].bgHandle.node(), 'plus');
             })
             .on('mouseleave', function () {
-              self.graph.link_info.forEach((ls) => {
+              self.graph.link_info.forEach((ls, j) => {
                 self.update_ref(ls[i]['el'], 'minus');
+                if (d3.select(ls[i]['el']).attr('display') !== 'none') {
+                  self.update_ref(d3.select(self.graph.state_info.state_cluster_info[j]['el']).select('rect').node(), 'minus');
+                }
               });
               self.update_ref(wclst['wordCloud'].bgHandle.node(), 'minus');
             })
