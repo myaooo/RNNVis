@@ -88,7 +88,7 @@ def store_sst(data_path, name, split_scheme, upsert=False):
             label = [float(i) for i in label]
             label = [(0 if i <= 0.2 else 1 if i <= 0.4 else 2 if i <= 0.6 else 3 if i <= 0.8 else 4) for i in label]
             data_dict[set_name] = {'data': data, 'label': label, 'ids': ids}
-    store_dataset_by_default(name, data_dict)
+    store_dataset_by_default(name, data_dict, upsert)
 
 
 def store_imdb(data_path, name, n_words=100000, upsert=False):
@@ -109,7 +109,7 @@ def store_imdb(data_path, name, n_words=100000, upsert=False):
         # insertion('sentences', {'name': name, 'set': set_name},
         #           {'name': name, 'set': set_name, 'data': data, 'label': label, 'ids': ids})
         data_dict[set_name] = {'data': data, 'label': label, 'ids': ids}
-    store_dataset_by_default(name, data_dict)
+    store_dataset_by_default(name, data_dict, upsert)
 
 
 def store_yelp(data_path, name, n_words=10000, upsert=False):
@@ -120,19 +120,27 @@ def store_yelp(data_path, name, n_words=10000, upsert=False):
     with open(os.path.join(data_path, 'review_label.json'), 'r') as file:
         data = json.load(file)
     if name == 'yelp-2':
+        tmp_ = []
         for item in data:
+            if item['label'] == 3:
+                continue
             item['label'] = 0 if item['label'] < 3 else 1
-    training_data, validate_data, test_data = split(data, fractions=[0.8, 0.1, 0.1])
+            tmp_.append(item)
+        data = tmp_
+    training_data, validate_data, test_data = split(data, fractions=[0.8, 0.1, 0.1], shuffle=True)
     all_words = []
     reviews = []
     stars = []
     for item in training_data:
-        tokenized_review = list(itertools.chain.from_iterable(tokenize(item['review'])))
+        tokenized_review = list(itertools.chain.from_iterable(tokenize(item['review'], remove_punct=True)[0]))
         reviews.append(tokenized_review)
         stars.append(item['label'])
         all_words.extend(tokenized_review)
+    # for w in all_words:
+    #     if isinstance(w, list):
+    #         print("found a list" + str(w))
     word_to_id, counter, words = tokens2vocab(all_words)
-
+    n_words -= 1
     word_to_id = {k: v+1 for k, v in word_to_id.items() if v < n_words}
     word_to_id['<unk>'] = 0
 
@@ -148,7 +156,7 @@ def store_yelp(data_path, name, n_words=10000, upsert=False):
         reviews = []
         stars = []
         for item in _data:
-            tokenized_review = list(itertools.chain.from_iterable(tokenize(item['review'])))
+            tokenized_review = list(itertools.chain.from_iterable(tokenize(item['review'])[0]))
             reviews.append([word_to_id[t] if word_to_id.get(t) else 0 for t in tokenized_review])
             stars.append(item['label'])
         tmp_data.append((reviews, stars))
@@ -168,7 +176,7 @@ def store_yelp(data_path, name, n_words=10000, upsert=False):
         data_dict[data_names[i]] = {'data': data, 'label': label, 'ids': ids}
         insertion('sentences', {'name': name, 'set': data_names[i]},
                   {'name': name, 'set': data_names[i], 'data': data, 'label': label, 'ids': ids})
-    store_dataset_by_default(name, data_dict)
+    store_dataset_by_default(name, data_dict, upsert)
 
 
 def get_dataset_path(name):
