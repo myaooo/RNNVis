@@ -18,9 +18,9 @@ model:
   dataset: yelp-5
 train:
   epoch_num: 25
-  num_steps: 250
+  num_steps: 150
   batch_size: 32
-  keep_prob: 1
+  keep_prob: 0.7
   gradient_clip: global_norm
   gradient_clip_args:
     clip_norm: 1.0
