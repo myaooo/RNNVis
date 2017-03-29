@@ -36,7 +36,6 @@
   stroke: black;
   stroke-width: 1.0;
 }
-
 .wordcloud.active {
   stroke: 'black';
   stroke-width: 1.5;
@@ -106,7 +105,7 @@
       return this.width*0.18;
     }
     get unitHeight () {
-      return Math.max(3, Math.min(~~((this.width - 500)/500) + 4, 7));
+      return this._unitHeight ? this._unitHeight : Math.max(3, Math.min(~~((this.width - 500)/500) + 4, 7));
     }
     updateWidth(width) {
       if (typeof width === 'number')
@@ -143,6 +142,8 @@
     computeParams (clusterNum, clusterInterval2HeightRatio, clusterSizes, callTime = 0) {
       if (callTime > 5) return;
       const maxClusterSize = clusterSizes.reduce((a, b) => Math.max(a, b), 0);
+      const totalClusterSize = clusterSizes.reduce((a, b) => a+b, 0);
+      this._unitHeight = 3 + this.width / totalClusterSize / 2;
       this.wordCloudChordLength = this.height * this.wordCloudChordLength2ClientHeightRatio;
       this.clusterHeight = (this.wordCloudChordLength) /
         (clusterNum + clusterNum * clusterInterval2HeightRatio - clusterInterval2HeightRatio);
@@ -704,7 +705,7 @@
           bus.$emit(SELECT_SENTENCE_NODE, data, self.compare);
         }
         // console.log(data.el);
-        data.bg.classed('wordcloud-active', data.selected ? true : highlight);
+        data.bg.classed('active', data.selected ? true : highlight);
       }
 
       function flatten(arr) {
