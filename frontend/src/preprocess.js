@@ -113,13 +113,13 @@ export class CoClusterProcessor {
       this.correlation.forEach((strength_list, r_index) => {
         strength_list.forEach((s, c_index) => {
           let strength = this.strength_filter(s);
-          row_cluster_2_col_cluster[this.rawData.row[r_index]][this.rawData.col[c_index]] += strength;
-          row_cluster_2_col_single[this.rawData.row[r_index]][c_index] += strength;
-          row_single_2_col_cluster[r_index][this.rawData.col[c_index]] += strength;
+          row_cluster_2_col_cluster[this.rawData.row[r_index]][this.rawData.col[c_index]] += strength / (this.rowSizes[this.rowLabels[r_index]] * this.colSizes[this.colLabels[c_index]]);
+          row_cluster_2_col_single[this.rawData.row[r_index]][c_index] += strength / this.rowSizes[this.rowLabels[r_index]];
+          row_single_2_col_cluster[r_index][this.rawData.col[c_index]] += strength / this.colSizes[this.colLabels[c_index]];
           row_single_2_col_single[r_index][c_index] += strength;
         });
       });
-
+      
       this._aggregation_info = {
         row_cluster_2_col_cluster: row_cluster_2_col_cluster,
         row_single_2_col_cluster: row_single_2_col_cluster,

@@ -1,4 +1,8 @@
 <style>
+:root {
+  --positive-color: '#ff5b09';
+  --negative-color: '#09adff';
+}
 .hidden-cluster {
   stroke: black;
   stroke-opacity: 0.2;
@@ -19,15 +23,18 @@
   fill: none;
   opacity: 0.5;
 }
-.little-triangle {
-  fill: #1f77b4;
-}
 .link.active {
   opacity: 1;
 }
 .link {
   fill: none;
   opacity: 0.2;
+}
+.link.positive {
+  stroke: #ff5b09;
+}
+.link.negative {
+  stroke: #09adff;
 }
 .unit {
   stroke: 'none';
@@ -50,18 +57,29 @@
         <el-radio-button v-for="state in states" :label="state"></el-radio-button>
       </el-radio-group>
     </div>-->
-    <svg :id='svgId' :width='width' :height='height'> </svg>
+
+    <svg :id='svgId' :width='width' :height='height'>
+      <defs>
+        <linearGradient id="state-legend">
+          <stop class="stop1" offset="0%" stop-color='rgba(9, 173, 255, 1)'/>
+          <stop class="stop2" offset="50%" stop-color='rgba(128, 128, 128, 0.1)'/>
+          <stop class="stop3" offset="100%" stop-color='rgba(255, 91, 9, 1)'/>
+        </linearGradient>
+      </defs>
+    </svg>
   <!--</div>-->
 </template>
 
 <script>
   import * as d3 from 'd3';
-  import { bus, SELECT_MODEL, SELECT_STATE, CHANGE_LAYOUT, EVALUATE_SENTENCE, SELECT_UNIT, DESELECT_UNIT, CLOSE_SENTENCE, SELECT_SENTENCE_NODE} from '../event-bus';
+  import { bus, SELECT_MODEL, SELECT_STATE, CHANGE_LAYOUT, EVALUATE_SENTENCE, SELECT_UNIT, DESELECT_UNIT, CLOSE_SENTENCE, SELECT_SENTENCE_NODE, SELECT_COLOR} from '../event-bus';
   import { WordCloud } from '../layout/cloud.js';
   import { sentence } from '../layout/sentence.js';
 
   const colorHex = ['#33a02c','#1f78b4','#b15928','#fb9a99','#e31a1c','#6a3d9a','#ff7f00','#cab2d6','#ffff99','#a6cee3','#b2df8a','#fdbf6f'];
   const colorScheme = (i) => colorHex[i];
+  const positiveColor = '#ff5b09';
+  const negativeColor = '#09adff';
 
   class LayoutParamsConstructor {
     constructor(width=800, height=800){
@@ -433,6 +451,16 @@
           return;
         this.painter.deleteSentence(sentence);
       });
+
+      bus.$on(SELECT_COLOR, (newColor) => {
+        console.log(`color has changed to ${newColor}`);
+        d3.select(`#${this.svgId}`)
+          .selectAll('.link.positive')
+          .style('stroke', newColor[1]);
+        d3.select(`#${this.svgId}`)
+          .selectAll('.link.negative')
+          .style('stroke', newColor[0]);
+      })
     }
   }
 
@@ -536,9 +564,21 @@
 
     refreshStroke(controlStrength, linkFilterThreshold) {
       this.strokeWidth = function(t) {return Math.abs(t) * controlStrength};
+      this.sentenceStrokeWidth = function(t) {return Math.abs(t) * controlStrength * 3};
       this.strengthThresholdPercent = linkFilterThreshold;
       if (this.graph) {
         this.draw_link(this.hg, this.graph);
+
+        this.graph.sentence_info.forEach((si) => {
+          const strength_extent = d3.extent(this.flatten(si.links).map((l) => l.strength));
+          const max_strength = Math.max(Math.abs(strength_extent[0]), Math.abs(strength_extent[1]));
+          const strength_bound = this.strengthThresholdPercent.map((t) => t * max_strength);
+          si.links.forEach((ls) => {
+            ls.forEach((l) => {
+              l['el'].attr('display', (Math.abs(l.strength) < strength_bound[0] || Math.abs(l.strength) > strength_bound[1]) ? 'none' : '');
+            })
+          })
+        })
       }
     }
 
@@ -629,18 +669,23 @@
           };
         });
       });
-      links.forEach(function(ls) {
-        const strengthExtent = d3.extent(ls.map(l => Math.abs(l.strength)));
-        const filterStrength = strengthExtent[1] * self.sentenceWordThreshold;
-        ls.forEach((l) => {
-          l.strength = Math.abs(l.strength) < filterStrength ? 0 : l.strength;
-        });
-      });
+      // links.forEach(function(ls) {
+      //   const strengthExtent = d3.extent(ls.map(l => Math.abs(l.strength)));
+      //   const filterStrength = strengthExtent[1] * self.sentenceWordThreshold;
+      //   ls.forEach((l) => {
+      //     l.strength = Math.abs(l.strength) < filterStrength ? 0 : l.strength;
+      //   });
+      // });
 
-      const strengthes = flatten(links).map(d => {return Math.abs(d.strength)});
-      const scale = d3.scaleLinear()
-        .domain([0, d3.extent(strengthes)[1]])
-        .range([0, this.linkWidthRange[1]])
+      // const strengthes = flatten(links).map(d => {return Math.abs(d.strength)});
+      // const scale = d3.scaleLinear()
+      //   .domain([0, d3.extent(strengthes)[1]])
+      //   .range([0, this.linkWidthRange[1]])
+
+      
+      const strength_extent = d3.extent(this.flatten(links).map((l) => l.strength));
+      const max_strength = Math.max(Math.abs(strength_extent[0]), Math.abs(strength_extent[1]));
+      const strength_bound = this.strengthThresholdPercent.map((t) => t * max_strength);
 
       const lsg = sg.append('g');
       links.forEach(function(ls) {
@@ -648,13 +693,13 @@
           l['el'] = lsg.append('path')
                       .classed('active', false)
                       .classed('link', true)
-                      .classed(l.strength > 0 ? 'position' : 'negative', true)
+                      .classed(l.strength > 0 ? 'positive' : 'negative', true)
                       .attr('d', self.createLink(l))
-                      .attr('stroke-width', l.strength === 0 ? 0 : scale(Math.abs(l.strength)))
-                      .attr('stroke', l.strength > 0 ? self.linkColor[1] : self.linkColor[0])
+                      .attr('stroke-width', self.sentenceStrokeWidth(l.strength))
+                      // .attr('stroke', l.strength > 0 ? self.linkColor[1] : self.linkColor[0])
                       .attr('opacity', 0.2)
                       .attr('fill', 'none')
-                      // .attr('display', 'none')
+                      .attr('display', (Math.abs(l.strength) < strength_bound[0] || Math.abs(l.strength) > strength_bound[1]) ? 'none' : '')
                       .attr('hold', 'false');
         });
       });
@@ -670,11 +715,11 @@
       }
 
       function updateSentence(extent_) {
-        console.log(`extent_ is ${extent_}`);
+        // console.log(`extent_ is ${extent_}`);
         const words = record.tokens.slice(...extent_);
-        console.log(`words is ${words}`);
+        // console.log(`words is ${words}`);
         let scaleFactor = self.client_height / words.length / self.params.sentenceNodeWidth / 1.05;
-        console.log(`scaleFactor is ${scaleFactor}`);
+        // console.log(`scaleFactor is ${scaleFactor}`);
         scaleFactor = Math.min(scaleFactor, 1.5);
         const newHeight = scaleFactor * self.client_height;
         let translateY = (sent.getWordPos(extent_[0])[1] + sent.getWordPos(extent_[1])[1]) / 2;
@@ -717,12 +762,6 @@
         }
         // console.log(data.el);
         data.bg.classed('active', data.selected ? true : highlight);
-      }
-
-      function flatten(arr) {
-        return arr.reduce((acc, val) => {
-          return acc.concat(Array.isArray(val) ? flatten(val) : val);
-        }, []);
       }
     }
 
@@ -949,13 +988,16 @@
 
     render_state(data) {
       if (data.length) {
+        const extent = d3.extent(data);
+        console.log(`the extent of render state is ${extent}`);
         this.graph.state_info.state_info.forEach((s, i) => {
           d3.select(s['el'])
             .transition()
             .duration(300)
-            .attr('fill', data[i] > 0 ? this.unitRangeColor[1] : this.unitRangeColor[0])
+            .attr('fill', data[i] > 0 ? positiveColor : negativeColor)
             .attr('fill-opacity', Math.abs(data[i]))
         });
+
       } else {
         this.graph.state_info.state_info.forEach((s, i) => {
           d3.select(s['el'])
@@ -1021,6 +1063,28 @@
         .attr('y1', -1000)
         .attr('x2', 0)
         .attr('y2', 1000)
+        .attr('display', 'none');
+
+      // const color = ['#09adff', '#ffffff', '#ff5b09'];
+      // g.append('defs')
+      //   .append('linearGradient')
+      //   .attr('id', 'legend-state')
+      //   .attr('x1', '0').attr('y1', '0')
+      //   .attr('x2', '1').attr('y2', '0')
+      //   .selectAll('stop')
+      //   .data(d3.range(3)).enter()
+      //   .append('stop')
+      //   .attr('offset', d => d/2)
+      //   .attr('stop-color', d => color[d]);
+
+      g.append('rect')
+        .attr('id', 'color-legend')
+        .attr('x', -50)
+        .attr('y', -50)
+        .attr('width', 100)
+        .attr('height', 5)
+        .style('fill', 'url(#state-legend)');
+      
 
       const hiddenClusters = g.selectAll('g rect')
         .data(coCluster.colClusters, (clst, i) => Array.isArray(clst) ? (String(clst.length) + String(i)) : this.id); // matching function
@@ -1140,13 +1204,13 @@
       })
 
       // add
-      hiddenClusters.exit()
-        .transition()
-        .duration(400)
-        .style('fill-opacity', 1e-6)
-        .attr('width', 1)
-        .attr('height', 1)
-        .remove();
+      // hiddenClusters.exit()
+      //   .transition()
+      //   .duration(400)
+      //   .style('fill-opacity', 1e-6)
+      //   .attr('width', 1)
+      //   .attr('height', 1)
+      //   .remove();
     }
 
     sum(arr) {
@@ -1251,16 +1315,16 @@
           + " " + d.target.x + "," + d.target.y;
     }
 
+    flatten(arr) {
+      return arr.reduce((acc, val) => {
+        return acc.concat(Array.isArray(val) ? this.flatten(val) : val);
+      }, []);
+    }
+
     draw_link(g, graph) {
       const link_info = graph.link_info;
 
-      function flatten(arr) {
-        return arr.reduce((acc, val) => {
-          return acc.concat(Array.isArray(val) ? flatten(val) : val);
-        }, []);
-      }
-
-      const strength_extent = d3.extent(flatten(link_info).map((l) => l.strength));
+      const strength_extent = d3.extent(this.flatten(link_info).map((l) => l.strength));
       const max_strength = Math.max(Math.abs(strength_extent[0]), Math.abs(strength_extent[1]));
       const strength_bound = this.strengthThresholdPercent.map((t) => t * max_strength);
 
@@ -1280,11 +1344,12 @@
             let tmp_path = g.append('path')
               .classed('link', true)
               .classed('active', false)
+              .classed(l.strength > 0 ? 'positive' : 'negative', true)
               .property('ref', 0)
               .attr('d', this.createLink(l))
               .attr('stroke-width', this.strokeWidth(l.strength))
               .attr('opacity', 0.15)
-              .attr('stroke', l.strength > 0 ? this.linkColor[1] : this.linkColor[0])
+              // .attr('stroke', l.strength > 0 ? this.linkColor[1] : this.linkColor[0])
               .attr('display', (Math.abs(l.strength) < strength_bound[0] || Math.abs(l.strength) > strength_bound[1]) ? 'none' : '')
 
             l['el'] = tmp_path.node();
