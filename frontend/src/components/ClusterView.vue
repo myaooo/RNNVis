@@ -49,6 +49,11 @@
   stroke-opacity: 0.7;
 }
 
+.axis path, .axis tick, .axis line {
+  fill: none;
+  stroke: none;
+}
+
 </style>
 <template>
   <!--<div>-->
@@ -287,6 +292,9 @@
       linkFilterThreshold: function() {
         return this.layout.linkFilterThreshold;
       },
+      stateClip: function() {
+        return this.layout.stateClip;
+      },
       selectedWords: function() {
         return this.compare ? this.shared.selectedWords2 : this.shared.selectedWords;
       },
@@ -318,6 +326,10 @@
       clusterNum: function(clusterNum) {
         console.log(`${this.svgId} > layout changed. clusterNum: ${this.layout.clusterNum}`);
         this.maybeReload();
+      },
+      stateClip: function(newStateClip) {
+        console.log('state clip changed');
+        this.painter.changeStateClip(newStateClip);
       },
       mode: function(newMode) {
         this.params.mode = newMode;
@@ -531,9 +543,10 @@
       this.stateTranslateHis = [];
       this.sentenceTranslateHis = [this.params.sentenceInitTranslate[0],];
       this.sentences = [];
+      this.stateClip = 2;
 
       this.strokeWidth = function(t) { return Math.abs(t) * 0.01};
-
+      this.colorLegendAxis = null;
     }
     get dxOffset() {
       const adaptive = (this.client_width - this.client_height) / 4;
@@ -580,6 +593,37 @@
           })
         })
       }
+    }
+
+    changeStateClip(clip) {
+      if (!this.graph) {
+        return;
+      }
+      this.stateClip = clip;
+      const scale = d3.scaleLinear()
+                        .domain([-this.stateClip, 0, this.stateClip])
+                        .range([1, 0, 1]);
+      if (d3.select(this.graph.state_info.state_info[0]['el']).property('colored')) {
+        this.graph.state_info.state_info.forEach((s, i) => {
+          let tmp_s = d3.select(s['el']);
+          tmp_s
+            .transition()
+            .attr('fill', tmp_s.property('strength') > 0 ? positiveColor : negativeColor)
+            .attr('fill-opacity', scale(Math.abs(tmp_s.property('strength'))));
+            
+        });
+        this.axisScale.domain([-this.stateClip, this.stateClip]);
+        this.colorLegendAxis = d3.axisBottom()
+                          .tickValues([parseInt(-this.stateClip), 0, parseInt(this.stateClip)])
+                          .scale(this.axisScale);
+        // this.hg.select('#color-legend')
+        //        .select('g')
+        //        .remove();
+        this.hg.select('#color-legend')
+               .select('g')
+               .call(this.colorLegendAxis);
+      }
+      
     }
 
     deleteSentence(value) {
@@ -696,7 +740,6 @@
                       .classed(l.strength > 0 ? 'positive' : 'negative', true)
                       .attr('d', self.createLink(l))
                       .attr('stroke-width', self.sentenceStrokeWidth(l.strength))
-                      // .attr('stroke', l.strength > 0 ? self.linkColor[1] : self.linkColor[0])
                       .attr('opacity', 0.2)
                       .attr('fill', 'none')
                       .attr('display', (Math.abs(l.strength) < strength_bound[0] || Math.abs(l.strength) > strength_bound[1]) ? 'none' : '')
@@ -988,19 +1031,52 @@
 
     render_state(data) {
       if (data.length) {
-        const extent = d3.extent(data);
-        console.log(`the extent of render state is ${extent}`);
+        if (!this.hg.select('#color-legend').node()) {
+          const tmp_state = this.graph.state_info.state_cluster_info[this.graph.state_info.state_cluster_info.length - 1];
+          const tmp_g = this.hg.append('g')
+                            .attr('id', 'color-legend')
+                            .attr('transform', 'translate(' + [0, tmp_state.top_left[1] + tmp_state.height + 2 * this.params.clusterInterval] + ')');
+          const width = tmp_state.width;
+          const height = this.params.unitHeight * 2;
+          tmp_g.append('rect')
+          .attr('transform', 'translate(' + [-width / 2, 0] + ')')
+          .transition()
+          .attr('x', 0)
+          .attr('y', 0)
+          .attr('width', width)
+          .attr('height', this.params.unitHeight * 2)
+          .style('fill', 'url(#state-legend)');
+
+          this.axisScale = d3.scaleLinear().range([0, width]).domain([-this.stateClip, this.stateClip]);
+          this.colorLegendAxis = d3.axisBottom()
+                          .tickValues([parseInt(-this.stateClip), 0, parseInt(this.stateClip)])
+                          .scale(this.axisScale);
+          tmp_g.append('g')
+               .classed('axis', true)
+               .attr('transform', 'translate(' + [-width/2, 0] + ')')
+               .call(this.colorLegendAxis);
+        }
+
+        // const extent = d3.extent(data);
+        const scale = d3.scaleLinear()
+                        .domain([-this.stateClip, 0, this.stateClip])
+                        .range([1, 0, 1]);
+        // console.log(`the extent of render state is ${extent}`);
         this.graph.state_info.state_info.forEach((s, i) => {
           d3.select(s['el'])
+            .property('colored', true)
+            .property('strength', data[i])
             .transition()
             .duration(300)
             .attr('fill', data[i] > 0 ? positiveColor : negativeColor)
-            .attr('fill-opacity', Math.abs(data[i]))
+            .attr('fill-opacity', scale(Math.abs(data[i])));
         });
 
       } else {
+        this.hg.select('#color-legend').remove();
         this.graph.state_info.state_info.forEach((s, i) => {
           d3.select(s['el'])
+            .property('colored', false)
             .transition()
             .duration(400)
             .attr('fill', this.unitNormalColor)
@@ -1077,13 +1153,7 @@
       //   .attr('offset', d => d/2)
       //   .attr('stop-color', d => color[d]);
 
-      g.append('rect')
-        .attr('id', 'color-legend')
-        .attr('x', -50)
-        .attr('y', -50)
-        .attr('width', 100)
-        .attr('height', 5)
-        .style('fill', 'url(#state-legend)');
+      
       
 
       const hiddenClusters = g.selectAll('g rect')
