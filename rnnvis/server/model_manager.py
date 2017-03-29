@@ -34,6 +34,7 @@ class ModelManager(object):
         'PTB-GRU': {'config': 'gru.yml'},
         'PTB-SMALL': {'config': 'lstm-small-1.yml'},
         'PTB-RNN': {'config': 'rnn.yml'},
+        'PTB-LARGE': {'config': 'lstm-large.yml'},
         'YELP-GRU-1000': {'config': 'yelp-gru-1000.yml'},
         'YELP-GRU-200': {'config': 'yelp-gru-200.yml'},
         'YELP-GRU-50': {'config': 'yelp-gru-50.yml'},
