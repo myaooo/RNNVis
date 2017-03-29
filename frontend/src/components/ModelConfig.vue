@@ -21,12 +21,15 @@
           <el-radio-button v-for="state in states" :label="state">{{stateName(state)}}</el-radio-button>
         </el-radio-group>
       </el-form-item>
+      <el-form-item label="Layer" v-if="layerNum">
+        <el-input-number size="small" v-model="selectedLayer" :max="layerNum-1" style="width: 100px; margin-top: 5px"></el-input-number>
+      </el-form-item>
       <el-form-item label="POS Tag" v-if="states.length">
         <el-switch v-model="posSwitch" on-text="" off-text="">
         </el-switch>
-      </el-form-item>
-      <el-form-item label="Layer" v-if="layerNum">
-        <el-input-number size="small" v-model="selectedLayer" :max="layerNum-1" style="width: 100px; margin-top: 5px"></el-input-number>
+        <span class="align">Algin</span>
+        <el-switch v-model="mode" on-text="" off-text="" @change="layoutChange">
+        </el-switch>
       </el-form-item>
 
       <!--Sentence Editor-->
@@ -55,7 +58,7 @@
         <el-slider v-model="layout.clusterNum" :min="2" :max="20" style="width: 80%" @change="layoutChange"></el-slider>
       </el-form-item>
       <el-form-item label="Stroke Width" v-if="selectedState" style="margin-top: -7px; padding-bottom: -10px">
-        <el-slider v-model="layout.strokeControlStrength" :min="0" :max="0.02" :step="0.0001" style="width: 80%" @change="layoutChange"></el-slider>
+        <el-slider v-model="layout.strokeControlStrength" :min="0" :max="maxWidth" :step="0.0001" style="width: 80%" @change="layoutChange"></el-slider>
       </el-form-item>
       <el-form-item label="Link Filter" v-if="selectedState" style="margin-top: -7px">
         <el-slider v-model="layout.linkFilterThreshold" range show-stops :min="0" :max="1" :step="0.05" @change="layoutChange" style="width: 80%"></el-slider>
@@ -68,6 +71,10 @@
     margin-bottom: 5px;
     margin-top: -5px;
     font-size: 12px;
+  }
+
+  .align {
+    color: rgb(72, 87, 106);
   }
 
   .el-form-item__content{
@@ -120,10 +127,12 @@
            clusterNum: 10,
            strokeControlStrength: 0.01,
            linkFilterThreshold: [0.2, 1],
+           mode: 'height',
         },
         sentences: [],
         inputVisible: false,
         inputValue: '',
+        mode: false,
       };
     },
     props: {
@@ -146,6 +155,10 @@
       layerNum: function() {
         if (this.config) return this.config.LayerNum;
         return 0;
+      },
+      maxWidth: function() {
+        if (this.selectedModel.substring(0, 4) === 'YELP' || this.selectedModel.substring(0, 4) === 'IMDB') return 0.1;
+        return 0.02;
       }
     },
     watch: {
@@ -191,42 +204,19 @@
     methods: {
       stateName(state) {
         switch (state) {
-          case 'state_c': return 'c_state';
-          case 'state_h': return 'h_state';
-          case 'state': return 'h_state';
+          case 'state_c': return 'cell state';
+          case 'state_h': return 'hidden state';
+          case 'state': return 'hidden state';
           default: return 'Unknown';
         }
       },
       layoutChange() {
         console.log("Layout changed")
         // copy to a new one to force change
+        this.layout.mode = this.mode ? 'width' : 'height';
         const layout = Object.assign({}, this.layout)
         bus.$emit(CHANGE_LAYOUT, layout, this.compare);
       },
-      // strokeControlTypeChange() {
-      //   switch(this.layout.strokeControlType) {
-      //     case "Linear":
-      //       this.strokeControlStrengthMin = 0;
-      //       this.strokeControlStrengthMax = 0.02;
-      //       this.strokeControlStrengthStep = 0.0001;
-      //       break;
-      //     case "Logarithm":
-      //       this.strokeControlStrengthMin = 2;
-      //       this.strokeControlStrengthMax = 10;
-      //       this.strokeControlStrengthStep = 0.1;
-      //       break;
-      //     case "Exponential":
-      //       this.strokeControlStrengthMin = 1;
-      //       this.strokeControlStrengthMax = 1.002;
-      //       this.strokeControlStrengthStep = 0.0001;
-      //       break;
-      //     default:
-      //       console.log("The control type of " + controlType + " currently is not supported");
-      //       return;
-      //   }
-      //   const layout = Object.assign({}, this.layout)
-      //   bus.$emit(CHANGE_LAYOUT, layout, this.compare);
-      // },
       closeSentence(sentence) {
         const idx = this.sentences.indexOf(sentence);
         if (idx !== -1){

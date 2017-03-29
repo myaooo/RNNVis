@@ -335,9 +335,10 @@ function afterChangeWords(words) {
   words.forEach((word, i) => {
     word.color = state.color(i);
     activateText(word);
+    focusText(word);
   });
-  if (words.length)
-    focusText(words[0]);
+  // if (words.length)
+  //   focusText(words[0]);
 }
 
 function deactivateText(data) {

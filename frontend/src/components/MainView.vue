@@ -1,11 +1,12 @@
 <template>
   <div>
-    <h4 class="normal">Interpreter</h4>
+    <h4 class="normal">Main</h4>
     <hr>
     <cluster-view v-if="compare" :width="width/2-15" :height="height" :compare='true'> </cluster-view>
     <cluster-view :width="compare ? width/2-15 : width" :height="height" :compare='false'> </cluster-view>
 
     <!--<test-view> </test-view>-->
+      <!--<project-view> </project-view>-->
 
   </div>
 

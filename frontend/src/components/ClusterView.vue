@@ -1,16 +1,16 @@
 <style>
 .hidden-cluster {
-  stroke: gray;
-  stroke-opacity: 0.5;
-  stroke-width: 0.5;
-  fill: lightgray;
-  fill-opacity: 0.3;
+  stroke: black;
+  stroke-opacity: 0.2;
+  stroke-width: 1;
+  fill: gray;
+  fill-opacity: 0.1;
 }
 .hidden-cluster.active {
   stroke-width: 1.5;
-  stroke-opacity: 0.5;
+  stroke-opacity: 0.7;
   stroke: black;
-  fill-opacity: 0.3;
+  fill-opacity: 0.1;
 }
 #middle_line {
   stroke: lightskyblue;
@@ -36,10 +36,18 @@
   stroke: black;
   stroke-width: 1.0;
 }
+.wordcloud {
+  stroke: 'black';
+  stroke-width: 1;
+  fill: gray;
+  fill-opacity: 0.1;
+  stroke-opacity: 0.2;
+}
 
 .wordcloud.active {
   stroke: 'black';
   stroke-width: 1.5;
+  stroke-opacity: 0.7;
 }
 
 </style>
@@ -96,12 +104,16 @@
       this.width = width;
       this.height = height;
       this.sentenceBrushRectWidth = 10;
+      this.mode = 'width';
     }
+    // switchMode() {
+    //   this.mode = this.mode === 'height' ? 'width' : 'height';
+    // }
     get wordCloudWidth () {
-      return this.width*0.15;
+      return this.width*0.18;
     }
     get unitHeight () {
-      return Math.max(3, Math.min(~~((this.width - 400)/400) + 3, 6));
+      return Math.max(3, Math.min(~~((this.width - 500)/500) + 4, 7));
     }
     updateWidth(width) {
       if (typeof width === 'number')
@@ -109,7 +121,7 @@
     }
     updateHeight(height) {
       if (typeof height === 'number')
-        this.height = Math.min(Math.max(500, height), 1000);
+        this.height = Math.min(Math.max(400, height), 1000);
     }
     get unitWidth() {
       return this.unitHeight * this.unitWidthRatio;
@@ -122,7 +134,7 @@
     }
     get maxClusterWidth() {
       // const width = Math.max(this.width, 500);
-      return Math.min(this.width/3, 400);
+      return Math.min(this.width/3.5, 400);
     }
     get middleLineX() {
       // const width = Math.max(this.width, 500);
@@ -135,36 +147,53 @@
     get cluster2UnitRatio() {
       return (this.packNum + (this.packNum - 1 ) * this.unitMarginRatio + 2 * this.clusterMarginRatio );
     }
-    computeParams (clusterNum, clusterInterval2HeightRatio, maxClusterSize, callTime = 0) {
+    computeParams (clusterNum, clusterInterval2HeightRatio, clusterSizes, callTime = 0) {
       if (callTime > 5) return;
+      const maxClusterSize = clusterSizes.reduce((a, b) => Math.max(a, b), 0);
       this.wordCloudChordLength = this.height * this.wordCloudChordLength2ClientHeightRatio;
       this.clusterHeight = (this.wordCloudChordLength) /
         (clusterNum + clusterNum * clusterInterval2HeightRatio - clusterInterval2HeightRatio);
       this.packNum = ~~((this.clusterHeight / this.unitHeight + this.unitMarginRatio - 2 * this.clusterMarginRatio) / (1+this.unitMarginRatio));
       this.clusterHeight =  this.unitHeight * this.cluster2UnitRatio;
       this.clusterInterval = this.clusterHeight * clusterInterval2HeightRatio;
-      this.middleLineY = (this.height - this.clusterHeight * clusterNum - this.clusterInterval * (clusterNum - 1)) / 2;
+
       if (this.middleLineY < 0) {
-        callTime++;
-        this.computeParams(clusterNum, clusterInterval2HeightRatio-0.2, maxClusterSize, callTime);
+        // callTime++;
+        this.computeParams(clusterNum, clusterInterval2HeightRatio-0.2, clusterSizes, callTime+1);
       }
-      // this.wordCloudChord2CenterDistance = this.wordCloudChordLength / 2 / Math.tan(this.wordCloudArcDegree / 2 * Math.PI / 180);
-      // const unit2ClusterRatio = this.unit2ClusterRatio;
       const maxClusterWidth = Math.ceil(maxClusterSize / this.packNum) * (this.unitWidth + this.unitMargin);
       if (maxClusterWidth < 0.8 * this.maxClusterWidth) {
-        callTime++;
+        // callTime++;
         clusterInterval2HeightRatio += 0.2;
-        this.computeParams(clusterNum, clusterInterval2HeightRatio, maxClusterSize, callTime);
-        // maxClusterWidth = Math.ceil(maxClusterSize / this.packNum) * (this.unitWidth + this.unitMargin);
-        // console.log(maxClusterWidth);
+        this.computeParams(clusterNum, clusterInterval2HeightRatio, clusterSizes, callTime+1);
       }
       if (maxClusterWidth > this.maxClusterWidth) {
-        callTime++;
+        // callTime++;
         clusterInterval2HeightRatio -= 0.2;
-        this.computeParams(clusterNum, clusterInterval2HeightRatio, maxClusterSize, callTime);
-        // maxClusterWidth = Math.ceil(maxClusterSize / this.packNum) * (this.unitWidth + this.unitMargin);
-        // console.log(maxClusterWidth);
+        this.computeParams(clusterNum, clusterInterval2HeightRatio, clusterSizes, callTime+1);
       }
+      if (callTime > 0) return;
+      if (this.mode === 'height')
+        this.middleLineY = (this.height - this.clusterHeight * clusterNum - this.clusterInterval * (clusterNum - 1)) / 2;
+      else{
+        this.widthPackNum = Math.ceil(maxClusterSize / this.packNum * 0.6);
+        this.clusterWidth = this.widthPackNum * (this.unitWidth + this.unitMargin) - this.unitMargin + 2 * this.clusterMargin;
+        let heightSum = 0;
+        const heights = clusterSizes.forEach((size, i) => {
+
+          const pack = Math.ceil(size / this.widthPackNum);
+          heightSum += pack * (this.unitHeight + this.unitMargin) - this.unitMargin + 2 * this.clusterMargin;
+          // console.log(`pack ${pack}, widthPack ${this.widthPackNum}, size ${size}`);
+          // console.log(heightSum);
+
+        });
+        // const heightSum = heights.reduce((a, b) => a+b, 0);
+        this.clusterInterval = Math.floor((this.height - heightSum) / (clusterNum+2));
+        // console.log(`heightSum ${heightSum}, clusterInterval ${this.clusterInterval}`);
+        this.middleLineY = (this.height - heightSum - (clusterNum)*this.clusterInterval)/2;
+        // return;
+      }
+
 
     }
 
@@ -257,6 +286,9 @@
       },
       renderPos: function() {
         return this.compare ? this.shared.renderPos2 : this.shared.renderPos;
+      },
+      mode: function() {
+        return this.layout.mode;
       }
     },
     watch: {
@@ -278,10 +310,10 @@
         console.log(`${this.svgId} > layout changed. clusterNum: ${this.layout.clusterNum}`);
         this.maybeReload();
       },
-      // layout: function(layout) {
-      //   console.log(`${this.svgId} > layout changed. clusterNum: ${layout.clusterNum}`);
-      //   this.maybeReload();
-      // },
+      mode: function(newMode) {
+        this.params.mode = newMode;
+        this.maybeReload();
+      },
       selectedModel: function (newModel, oldModel) {
         console.log(`${this.svgId} > model changed to ${this.selectedModel}`);
         this.maybeReload();
@@ -728,7 +760,7 @@
         .call(brush.move, [0, rectSize[1] * dataLength])
     }
 
-    calculate_state_info(coCluster) {
+    calculate_state_info(coCluster, mode='width') {
       let state_loc = [];
       let state_cluster_loc = [];
       let little_triangle_loc = [];
@@ -744,21 +776,42 @@
 
       const stateClusters = coCluster.colClusters;
 
-      stateClusters.forEach((clst, i) => {
-        let width = Math.ceil(clst.length / packNum) * (unitWidth + unitMargin) - unitMargin + 2 * clusterMargin;
-        let height = clusterHeight;
-        let top_left = [-width / 2, i * (clusterHeight + clusterInterval)];
+      if (mode === 'height'){
+        stateClusters.forEach((clst, i) => {
+          let width = Math.ceil(clst.length / packNum) * (unitWidth + unitMargin) - unitMargin + 2 * clusterMargin;
+          let height = clusterHeight;
+          let top_left = [-width / 2, i * (height + clusterInterval)];
 
-        state_cluster_loc[i] = {top_left: top_left, width: width, height: height};
+          state_cluster_loc[i] = {top_left: top_left, width: width, height: height};
 
-        clst.forEach((c, j) => {
-          let s_width = unitWidth;
-          let s_height = unitHeight;
-          let s_top_left = [(~~(j/packNum)) * (unitMargin + unitWidth) + clusterMargin,
-            j%packNum * (unitHeight + unitMargin) + clusterMargin];
-          state_loc[c] = {top_left: s_top_left, width: s_width, height: s_height};
+          clst.forEach((c, j) => {
+            let s_width = unitWidth;
+            let s_height = unitHeight;
+            let s_top_left = [(~~(j/packNum)) * (unitMargin + unitWidth) + clusterMargin,
+              j%packNum * (unitHeight + unitMargin) + clusterMargin];
+            state_loc[c] = {top_left: s_top_left, width: s_width, height: s_height};
+          });
         });
-      });
+      } else if (mode === 'width') {
+        const width = this.params.clusterWidth;
+        const widthPackNum = this.params.widthPackNum;
+        let offset = 0;
+        stateClusters.forEach((clst, i) => {
+          let height = Math.ceil(clst.length / widthPackNum) * (unitHeight + unitMargin) - unitMargin + 2 * clusterMargin;
+          let top_left = [-width / 2, offset];
+          offset += (height + clusterInterval);
+          // let packNum =
+          state_cluster_loc[i] = {top_left: top_left, width: width, height: height};
+
+          clst.forEach((c, j) => {
+            let s_width = unitWidth;
+            let s_height = unitHeight;
+            let s_top_left = [(j%widthPackNum) * (unitMargin + unitWidth) + clusterMargin,
+              ~~(j/widthPackNum) * (unitHeight + unitMargin) + clusterMargin];
+            state_loc[c] = {top_left: s_top_left, width: s_width, height: s_height};
+          });
+        });
+      }
       return {state_cluster_info: state_cluster_loc, state_info: state_loc};
     }
 
@@ -1131,6 +1184,14 @@
         }
 
       });
+
+      // function wordCloudHandle(wordCloud, i, isActive, changeStatus=false) {
+      //   if (changeStatus) {
+
+      //   }
+      //   if (wordCloud.selected)
+      //     wclst['wordCloud'].bgHandle.classed('wordcloud-active', isActive);
+      // }
     }
 
     erase_link() {
@@ -1202,7 +1263,7 @@
               .property('ref', 0)
               .attr('d', this.createLink(l))
               .attr('stroke-width', this.strokeWidth(l.strength))
-              .attr('opacity', 0.3)
+              .attr('opacity', 0.15)
               .attr('stroke', l.strength > 0 ? this.linkColor[1] : this.linkColor[0])
               .attr('display', (Math.abs(l.strength) < strength_bound[0] || Math.abs(l.strength) > strength_bound[1]) ? 'none' : '')
 
@@ -1221,31 +1282,17 @@
       let clusterInterval2HeightRatio = 1;
       // console.log(coCluster);
       // console.log(`cluster number is ${nCluster}`);
-      this.params.computeParams(coCluster.labels.length, clusterInterval2HeightRatio, maxClusterSize);
-
-      let maxClusterWidth = Math.ceil(maxClusterSize / this.params.packNum) * (this.params.unitWidth + this.params.unitMargin);
-      while (maxClusterWidth < 0.4 * this.params.maxClusterWidth) {
-        clusterInterval2HeightRatio += 0.2;
-        this.params.computeParams(coCluster.labels.length, clusterInterval2HeightRatio);
-        maxClusterWidth = Math.ceil(maxClusterSize / this.params.packNum) * (this.params.unitWidth + this.params.unitMargin);
-        // console.log(maxClusterWidth);
-      }
-      while (maxClusterWidth > this.params.maxClusterWidth) {
-        clusterInterval2HeightRatio -= 0.2;
-        this.params.computeParams(coCluster.labels.length, clusterInterval2HeightRatio);
-        maxClusterWidth = Math.ceil(maxClusterSize / this.params.packNum) * (this.params.unitWidth + this.params.unitMargin);
-        // console.log(maxClusterWidth);
-      }
+      this.params.computeParams(coCluster.labels.length, clusterInterval2HeightRatio, coCluster.colSizes);
       // this.dx = this.params.wordCloudChord2ClusterDistance - (this.params.wordCloudChord2CenterDistance - maxClusterWidth / 2);
       this.dx = this.stateClusterWordCloudDX;
       this.dy = this.params.wordCloudChordLength / 2.0 - this.middle_line_y / 2;
-      console.log(`maxClusterWidth is ${maxClusterWidth}`);
+      // console.log(`maxClusterWidth is ${maxClusterWidth}`);
       // console.log(`wordCloudChord2CenterDistance is ${this.params.wordCloudChord2CenterDistance}`);
       console.log(`dx is ${this.dx}, dy is ${this.dy}`);
 
       // this.dx = 0, this.dy = chordLength / 2;
       const coClusterAggregation = coCluster.aggregation_info;
-      let state_info = this.calculate_state_info(coCluster);
+      let state_info = this.calculate_state_info(coCluster, this.params.mode);
 
       self.graph = {
         state_info: state_info,

@@ -207,7 +207,8 @@
           this.chart
             .line(sortIdx.map((i) => wordData.mean[i]), (d, i) => i*interval, (d) => { return d; })
             .attr('stroke-width', 1)
-            .attr('stroke', wordData.color);
+            .attr('stroke', wordData.color)
+            .attr('stroke-opacity', 0.7);
           if(wordData.range1){
             this.chart
               .area(sortIdx.map((i) => wordData.range1[i]), (d, i) => i*interval, (d) => d[0], (d) => d[1])
