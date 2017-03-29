@@ -120,6 +120,16 @@ export class CoClusterProcessor {
         });
       });
 
+      row_cluster_2_col_cluster.forEach((row, r) => {
+        const rowSize = this.rowSizes[r];
+        if (!rowSize) return;
+        row.forEach((s, c) => {
+          const colSize = this.colSizes[c];
+          if (!colSize) return;
+          row[c] = s / (rowSize * colSize);
+        });
+      });
+
       this._aggregation_info = {
         row_cluster_2_col_cluster: row_cluster_2_col_cluster,
         row_single_2_col_cluster: row_single_2_col_cluster,

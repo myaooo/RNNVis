@@ -389,20 +389,21 @@ class SentenceLayout{
     const fontSize = this.params.wordSize;
     const labelSize = this.params.labelSize;
     const valRange = [this.params.avgValueRange[1], this.params.avgValueRange[0]];
+    const wordX = this.compare ? (4 + width) : (-2-fontSize);
     el.selectAll('text')
       .data(valRange).enter()
       .append('text')
-      .attr('x', -2)
-      .attr('y', (d, i) => i*(height-4)+5)
-      .attr('text-anchor', 'end')
+      .attr('x', this.compare ? (width + 2) : -2)
+      .attr('y', (d, i) => i * (height - 4) + 5)
+      .attr('text-anchor', this.compare ? 'start' : 'end')
       .attr('font-size', labelSize)
       .text((d) => d);
 
     el.append('text')
-      .attr('x', -2-fontSize)
+      .attr('x', wordX)
       .attr('y', (height/2))
       .attr('text-anchor', 'middle')
-      .attr('transform', 'rotate(' + [90, -2-fontSize, (height/2)] + ')')
+      .attr('transform', 'rotate(' + [90, wordX, (height/2)] + ')')
       .attr('font-size', fontSize)
       .text(data.word);
 

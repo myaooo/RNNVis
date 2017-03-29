@@ -82,7 +82,7 @@
       this.littleTriangleHeight = 5;
       this.strengthThresholdPercent = [0.2, 1];
       this.wordSize2StrengthRatio = 3;
-      this.dxShrinkFactor = 0.08;
+      this.dxShrinkFactor = 0.1;
       this.spacePerSentence = 2/20;
       this.sentenceNodeWidth = 100;
       this.sentenceInitTranslate = [50, 10]
@@ -102,7 +102,8 @@
     //   this.mode = this.mode === 'height' ? 'width' : 'height';
     // }
     get wordCloudWidth () {
-      return this.width*0.18;
+      return this.width*0.3;
+      // return this.width*0.18;
     }
     get unitHeight () {
       return this._unitHeight ? this._unitHeight : Math.max(3, Math.min(~~((this.width - 500)/500) + 4, 7));
@@ -113,7 +114,7 @@
     }
     updateHeight(height) {
       if (typeof height === 'number')
-        this.height = Math.min(Math.max(400, height), 1000);
+        this.height = Math.min(Math.max(200, height), 1000);
     }
     get unitWidth() {
       return this.unitHeight * this.unitWidthRatio;
@@ -170,7 +171,7 @@
       if (this.mode === 'height')
         this.middleLineY = (this.height - this.clusterHeight * clusterNum - this.clusterInterval * (clusterNum - 1)) / 2;
       else{
-        this.widthPackNum = Math.ceil(maxClusterSize / this.packNum * 0.6);
+        this.widthPackNum = ~~(this.width/5.5/(this.unitWidth+this.unitMargin));
         this.clusterWidth = this.widthPackNum * (this.unitWidth + this.unitMargin) - this.unitMargin + 2 * this.clusterMargin;
         let heightSum = 0;
         const heights = clusterSizes.forEach((size, i) => {

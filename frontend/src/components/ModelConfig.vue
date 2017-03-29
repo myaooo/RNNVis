@@ -58,7 +58,7 @@
         <el-slider v-model="layout.clusterNum" :min="2" :max="20" style="width: 80%" @change="layoutChange"></el-slider>
       </el-form-item>
       <el-form-item label="Stroke Width" v-if="selectedState" style="margin-top: -7px; padding-bottom: -10px">
-        <el-slider v-model="layout.strokeControlStrength" :min="0" :max="maxWidth" :step="0.0001" style="width: 80%" @change="layoutChange"></el-slider>
+        <el-slider v-model="layout.strokeControlStrength" :min="0" :max="maxWidth" :step="0.1" style="width: 80%" @change="layoutChange"></el-slider>
       </el-form-item>
       <el-form-item label="Link Filter" v-if="selectedState" style="margin-top: -7px">
         <el-slider v-model="layout.linkFilterThreshold" range show-stops :min="0" :max="1" :step="0.05" @change="layoutChange" style="width: 80%"></el-slider>
@@ -125,7 +125,7 @@
         config: null,
         layout: {
            clusterNum: 10,
-           strokeControlStrength: 0.01,
+           strokeControlStrength: 5,
            linkFilterThreshold: [0.2, 1],
            mode: 'height',
         },
@@ -157,8 +157,8 @@
         return 0;
       },
       maxWidth: function() {
-        if (this.selectedModel.substring(0, 4) === 'YELP' || this.selectedModel.substring(0, 4) === 'IMDB') return 0.1;
-        return 0.02;
+        if (this.selectedModel.substring(0, 4) === 'YELP' || this.selectedModel.substring(0, 4) === 'IMDB') return 20;
+        return 40;
       }
     },
     watch: {
