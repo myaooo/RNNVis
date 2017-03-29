@@ -66,12 +66,9 @@
   class LayoutParamsConstructor {
     constructor(width=800, height=800){
       this.unitWidthRatio = 1.0;
-      // this.unitHeight = 4;
-      // this.unitMarginSuppose = 2;
       this.unitMarginRatio = 0.5;
       this.clusterMarginRatio = 0.7;
       this.wordCloudArcDegree = 110;
-      // this.wordCloudNormalRadius = 60;
       this.wordCloudHightlightRatio = 1.5;
       this.wordCloudPaddingLength = 5;
       this.wordCloudChord2ClusterDistance = 50;
@@ -533,6 +530,10 @@
       return this.params.middleLineY;
     }
 
+    get nSentence() {
+      return this.sentences.length;
+    }
+
     refreshStroke(controlStrength, linkFilterThreshold) {
       this.strokeWidth = function(t) {return Math.abs(t) * controlStrength};
       this.strengthThresholdPercent = linkFilterThreshold;
@@ -647,16 +648,26 @@
           l['el'] = lsg.append('path')
                       .classed('active', false)
                       .classed('link', true)
+                      .classed(l.strength > 0 ? 'position' : 'negative', true)
                       .attr('d', self.createLink(l))
                       .attr('stroke-width', l.strength === 0 ? 0 : scale(Math.abs(l.strength)))
                       .attr('stroke', l.strength > 0 ? self.linkColor[1] : self.linkColor[0])
                       .attr('opacity', 0.2)
                       .attr('fill', 'none')
-                      .attr('display', 'none')
-                      .attr('hold', 'false')
+                      // .attr('display', 'none')
+                      .attr('hold', 'false');
         });
       });
       self.graph.sentence_info.push({sentence: sent, links: links, value: value, group: sg, record: record, sentenceRecord: sentenceRecord});
+      if (this.sentences.length > 1) {
+        self.graph.sentence_info.forEach((si) => {
+          si.links.forEach((ls) => {
+            ls.forEach((l) => {
+              l['el'].attr('display', 'none');
+            });
+          });
+        });
+      }
 
       function updateSentence(extent_) {
         console.log(`extent_ is ${extent_}`);
@@ -693,7 +704,7 @@
           }
           if (l['el'].attr('hold') !== 'true') {
             l['el'].classed('active', highlight)
-            .attr('display', highlight ? '' : 'none');
+            .attr('display', highlight || self.sentences.length < 2 ? '' : 'none');
           } else {
             l['el'].classed('active', true)
             .attr('display', '');
