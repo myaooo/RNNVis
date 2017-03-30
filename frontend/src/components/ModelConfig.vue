@@ -27,7 +27,7 @@
       <el-form-item label="POS Tag" v-if="states.length">
         <el-switch v-model="posSwitch" on-text="" off-text="">
         </el-switch>
-        <span class="align">Algin</span>
+        <span class="align" style='margin-left: 30px'>Align</span>
         <el-switch v-model="mode" on-text="" off-text="" @change="layoutChange">
         </el-switch>
       </el-form-item>

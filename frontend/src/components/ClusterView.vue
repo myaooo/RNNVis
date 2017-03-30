@@ -545,7 +545,8 @@
       this.sentences = [];
       this.stateClip = 2;
 
-      this.strokeWidth = function(t) { return Math.abs(t) * 0.01};
+      this.strokeWidth = function(t) { return Math.abs(t) * 8};
+      this.sentenceStrokeWidth = function(t) {return Math.abs(t) * 24};
       this.colorLegendAxis = null;
     }
     get dxOffset() {
@@ -588,10 +589,11 @@
           const strength_bound = this.strengthThresholdPercent.map((t) => t * max_strength);
           si.links.forEach((ls) => {
             ls.forEach((l) => {
-              l['el'].attr('display', (Math.abs(l.strength) < strength_bound[0] || Math.abs(l.strength) > strength_bound[1]) ? 'none' : '');
-            })
-          })
-        })
+              l['el'].attr('display', (Math.abs(l.strength) < strength_bound[0] || Math.abs(l.strength) > strength_bound[1]) ? 'none' : '')
+                     .attr('stroke-width', this.sentenceStrokeWidth(l.strength));
+            });
+          });
+        });
       }
     }
 
@@ -615,6 +617,7 @@
         this.axisScale.domain([-this.stateClip, this.stateClip]);
         this.colorLegendAxis = d3.axisBottom()
                           .tickValues([parseInt(-this.stateClip), 0, parseInt(this.stateClip)])
+                          .tickFormat(d3.format('.' + d3.precisionFixed(1) + 'f'))
                           .scale(this.axisScale);
         // this.hg.select('#color-legend')
         //        .select('g')
@@ -694,6 +697,7 @@
         .coCluster(this.graph.coCluster)
         .words(record.tokens)
         .mouseoverCallback(highlightSentenceLinkByNodeIndex)
+        .barMouseoverCallback(barHighlightState)
         .draw();
 
       const links = [];
@@ -792,10 +796,10 @@
           }
           if (l['el'].attr('hold') !== 'true') {
             l['el'].classed('active', highlight)
-            .attr('display', highlight || self.sentences.length < 2 ? '' : 'none');
+            // .attr('display', highlight || (self.sentences.length < 2 && l['el'].attr('display') !== 'none') ? '' : 'none');
           } else {
             l['el'].classed('active', true)
-            .attr('display', '');
+            // .attr('display', '');
           }
 
         });
@@ -803,8 +807,12 @@
           data.selected = !data.selected;
           bus.$emit(SELECT_SENTENCE_NODE, data, self.compare);
         }
-        // console.log(data.el);
         data.bg.classed('active', data.selected ? true : highlight);
+      }
+
+      function barHighlightState(state_index, highlight) {
+        console.log('state ' + state_index + ' is hover on or out');
+        self.update_ref(d3.select(self.graph.state_info.state_cluster_info[state_index]['el']).select('rect').node(), highlight ? 'plus' : 'minus');
       }
     }
 
@@ -1035,7 +1043,7 @@
           const tmp_state = this.graph.state_info.state_cluster_info[this.graph.state_info.state_cluster_info.length - 1];
           const tmp_g = this.hg.append('g')
                             .attr('id', 'color-legend')
-                            .attr('transform', 'translate(' + [0, tmp_state.top_left[1] + tmp_state.height + 2 * this.params.clusterInterval] + ')');
+                            .attr('transform', 'translate(' + [0, tmp_state.top_left[1] + tmp_state.height + 1 * this.params.clusterInterval] + ')');
           const width = tmp_state.width;
           const height = this.params.unitHeight * 2;
           tmp_g.append('rect')
@@ -1050,6 +1058,7 @@
           this.axisScale = d3.scaleLinear().range([0, width]).domain([-this.stateClip, this.stateClip]);
           this.colorLegendAxis = d3.axisBottom()
                           .tickValues([parseInt(-this.stateClip), 0, parseInt(this.stateClip)])
+                          .tickFormat(d3.format('.' + d3.precisionFixed(1) + 'f'))
                           .scale(this.axisScale);
           tmp_g.append('g')
                .classed('axis', true)
