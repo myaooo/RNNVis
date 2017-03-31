@@ -31,7 +31,7 @@
     name: 'InfoBoard',
     data(){
       return {
-        width: 0,
+        // width: 0,
         chart: null,
         labelBoard: null,
         shared: bus.state,
@@ -87,7 +87,7 @@
         return this.type === 'word' ? (this.compare ? this.shared.selectedNode2 : this.shared.selectedNode) : 0;
       },
       width: function() {
-        return this.height * 3;
+        return this.height * 2.4;
       }
     },
     watch: {
@@ -211,18 +211,22 @@
             .line(sortIdx.map((i) => wordData.mean[i]), (d, i) => i*interval, (d) => { return d; })
             .attr('stroke-width', 1)
             .attr('stroke', wordData.color)
-            .attr('stroke-opacity', 0.7);
+            .attr('stroke-opacity', 0.6);
           if(wordData.range1){
             this.chart
               .area(sortIdx.map((i) => wordData.range1[i]), (d, i) => i*interval, (d) => d[0], (d) => d[1])
               .attr('fill', wordData.color)
-              .attr('fill-opacity', 0.2);
+              .attr('fill-opacity', 0.15)
+              .attr('stroke', wordData.color)
+              .attr('stroke-opacity', 0.1);
           }
           if(wordData.range2){
             this.chart
               .area(sortIdx.map((i) => wordData.range2[i]), (d, i) => i*interval, (d) => d[0], (d) => d[1])
               .attr('fill', wordData.color)
-              .attr('fill-opacity', 0.1);
+              .attr('fill-opacity', 0.15)
+              .attr('stroke', wordData.color)
+              .attr('stroke-opacity', 0.05);
           }
           // draw labels
           this.labelBoard.append('rect')

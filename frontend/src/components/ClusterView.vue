@@ -1,4 +1,8 @@
 <style>
+:root {
+  --positive-color: '#ff5b09';
+  --negative-color: '#09adff';
+}
 .hidden-cluster {
   stroke: black;
   stroke-opacity: 0.2;
@@ -19,15 +23,18 @@
   fill: none;
   opacity: 0.5;
 }
-.little-triangle {
-  fill: #1f77b4;
-}
 .link.active {
   opacity: 1;
 }
 .link {
   fill: none;
   opacity: 0.2;
+}
+.link.positive {
+  stroke: #ff5b09;
+}
+.link.negative {
+  stroke: #09adff;
 }
 .unit {
   stroke: 'none';
@@ -42,6 +49,11 @@
   stroke-opacity: 0.7;
 }
 
+.axis path, .axis tick, .axis line {
+  fill: none;
+  stroke: none;
+}
+
 </style>
 <template>
   <!--<div>-->
@@ -50,28 +62,36 @@
         <el-radio-button v-for="state in states" :label="state"></el-radio-button>
       </el-radio-group>
     </div>-->
-    <svg :id='svgId' :width='width' :height='height'> </svg>
+
+    <svg :id='svgId' :width='width' :height='height'>
+      <defs>
+        <linearGradient id="state-legend">
+          <stop class="stop1" offset="0%" stop-color='rgba(9, 173, 255, 1)'/>
+          <stop class="stop2" offset="50%" stop-color='rgba(128, 128, 128, 0.1)'/>
+          <stop class="stop3" offset="100%" stop-color='rgba(255, 91, 9, 1)'/>
+        </linearGradient>
+      </defs>
+    </svg>
   <!--</div>-->
 </template>
 
 <script>
   import * as d3 from 'd3';
-  import { bus, SELECT_MODEL, SELECT_STATE, CHANGE_LAYOUT, EVALUATE_SENTENCE, SELECT_UNIT, DESELECT_UNIT, CLOSE_SENTENCE, SELECT_SENTENCE_NODE} from '../event-bus';
+  import { bus, SELECT_MODEL, SELECT_STATE, CHANGE_LAYOUT, EVALUATE_SENTENCE, SELECT_UNIT, DESELECT_UNIT, CLOSE_SENTENCE, SELECT_SENTENCE_NODE, SELECT_COLOR} from '../event-bus';
   import { WordCloud } from '../layout/cloud.js';
   import { sentence } from '../layout/sentence.js';
 
   const colorHex = ['#33a02c','#1f78b4','#b15928','#fb9a99','#e31a1c','#6a3d9a','#ff7f00','#cab2d6','#ffff99','#a6cee3','#b2df8a','#fdbf6f'];
   const colorScheme = (i) => colorHex[i];
+  const positiveColor = '#ff5b09';
+  const negativeColor = '#09adff';
 
   class LayoutParamsConstructor {
     constructor(width=800, height=800){
       this.unitWidthRatio = 1.0;
-      // this.unitHeight = 4;
-      // this.unitMarginSuppose = 2;
       this.unitMarginRatio = 0.5;
       this.clusterMarginRatio = 0.7;
       this.wordCloudArcDegree = 110;
-      // this.wordCloudNormalRadius = 60;
       this.wordCloudHightlightRatio = 1.5;
       this.wordCloudPaddingLength = 5;
       this.wordCloudChord2ClusterDistance = 50;
@@ -82,7 +102,7 @@
       this.littleTriangleHeight = 5;
       this.strengthThresholdPercent = [0.2, 1];
       this.wordSize2StrengthRatio = 3;
-      this.dxShrinkFactor = 0.1;
+      this.dxShrinkFactor = 0.07;
       this.spacePerSentence = 2/20;
       this.sentenceNodeWidth = 100;
       this.sentenceInitTranslate = [50, 10]
@@ -102,8 +122,8 @@
     //   this.mode = this.mode === 'height' ? 'width' : 'height';
     // }
     get wordCloudWidth () {
-      return this.width*0.3;
-      // return this.width*0.18;
+      // return this.width*0.3;
+      return this.width*0.15;
     }
     get unitHeight () {
       return this._unitHeight ? this._unitHeight : Math.max(3, Math.min(~~((this.width - 500)/500) + 4, 7));
@@ -141,10 +161,11 @@
       return (this.packNum + (this.packNum - 1 ) * this.unitMarginRatio + 2 * this.clusterMarginRatio );
     }
     computeParams (clusterNum, clusterInterval2HeightRatio, clusterSizes, callTime = 0) {
-      if (callTime > 5) return;
+      if (callTime > 10) return;
       const maxClusterSize = clusterSizes.reduce((a, b) => Math.max(a, b), 0);
       const totalClusterSize = clusterSizes.reduce((a, b) => a+b, 0);
-      this._unitHeight = 4 + this.width / totalClusterSize / 2;
+      this._unitHeight = Math.min(~~this.width/50, 3 + ~~(this.width / totalClusterSize));
+      // console.log(this);
       this.wordCloudChordLength = this.height * this.wordCloudChordLength2ClientHeightRatio;
       this.clusterHeight = (this.wordCloudChordLength) /
         (clusterNum + clusterNum * clusterInterval2HeightRatio - clusterInterval2HeightRatio);
@@ -273,6 +294,9 @@
       linkFilterThreshold: function() {
         return this.layout.linkFilterThreshold;
       },
+      stateClip: function() {
+        return this.layout.stateClip;
+      },
       selectedWords: function() {
         return this.compare ? this.shared.selectedWords2 : this.shared.selectedWords;
       },
@@ -304,6 +328,10 @@
       clusterNum: function(clusterNum) {
         console.log(`${this.svgId} > layout changed. clusterNum: ${this.layout.clusterNum}`);
         this.maybeReload();
+      },
+      stateClip: function(newStateClip) {
+        console.log('state clip changed');
+        this.painter.changeStateClip(newStateClip);
       },
       mode: function(newMode) {
         this.params.mode = newMode;
@@ -437,6 +465,16 @@
           return;
         this.painter.deleteSentence(sentence);
       });
+
+      bus.$on(SELECT_COLOR, (newColor) => {
+        console.log(`color has changed to ${newColor}`);
+        d3.select(`#${this.svgId}`)
+          .selectAll('.link.positive')
+          .style('stroke', newColor[1]);
+        d3.select(`#${this.svgId}`)
+          .selectAll('.link.negative')
+          .style('stroke', newColor[0]);
+      })
     }
   }
 
@@ -507,13 +545,15 @@
       this.stateTranslateHis = [];
       this.sentenceTranslateHis = [this.params.sentenceInitTranslate[0],];
       this.sentences = [];
+      this.stateClip = 2;
 
       this.strokeWidth = function(t) { return Math.abs(t) * 0.01};
-
+      this.colorLegendAxis = null;
     }
     get dxOffset() {
       const adaptive = (this.client_width - this.client_height) / 4;
-      return Math.max(adaptive, 0);
+      // return Math.max(adaptive, 0);
+      return 0;
     }
     get stateClusterWordCloudDX () {
       return this.client_width * ( - this.params.dxShrinkFactor * this.sentences.length) + this.dxOffset;
@@ -534,12 +574,59 @@
       return this.params.middleLineY;
     }
 
+    get nSentence() {
+      return this.sentences.length;
+    }
+
     refreshStroke(controlStrength, linkFilterThreshold) {
       this.strokeWidth = function(t) {return Math.abs(t) * controlStrength};
+      this.sentenceStrokeWidth = function(t) {return Math.abs(t) * controlStrength * 3};
       this.strengthThresholdPercent = linkFilterThreshold;
       if (this.graph) {
         this.draw_link(this.hg, this.graph);
+
+        this.graph.sentence_info.forEach((si) => {
+          const strength_extent = d3.extent(this.flatten(si.links).map((l) => l.strength));
+          const max_strength = Math.max(Math.abs(strength_extent[0]), Math.abs(strength_extent[1]));
+          const strength_bound = this.strengthThresholdPercent.map((t) => t * max_strength);
+          si.links.forEach((ls) => {
+            ls.forEach((l) => {
+              l['el'].attr('display', (Math.abs(l.strength) < strength_bound[0] || Math.abs(l.strength) > strength_bound[1]) ? 'none' : '');
+            })
+          })
+        })
       }
+    }
+
+    changeStateClip(clip) {
+      if (!this.graph) {
+        return;
+      }
+      this.stateClip = clip;
+      const scale = d3.scaleLinear()
+                        .domain([-this.stateClip, 0, this.stateClip])
+                        .range([1, 0, 1]);
+      if (d3.select(this.graph.state_info.state_info[0]['el']).property('colored')) {
+        this.graph.state_info.state_info.forEach((s, i) => {
+          let tmp_s = d3.select(s['el']);
+          tmp_s
+            .transition()
+            .attr('fill', tmp_s.property('strength') > 0 ? positiveColor : negativeColor)
+            .attr('fill-opacity', scale(Math.abs(tmp_s.property('strength'))));
+
+        });
+        this.axisScale.domain([-this.stateClip, this.stateClip]);
+        this.colorLegendAxis = d3.axisBottom()
+                          .tickValues([parseInt(-this.stateClip), 0, parseInt(this.stateClip)])
+                          .scale(this.axisScale);
+        // this.hg.select('#color-legend')
+        //        .select('g')
+        //        .remove();
+        this.hg.select('#color-legend')
+               .select('g')
+               .call(this.colorLegendAxis);
+      }
+
     }
 
     deleteSentence(value) {
@@ -629,18 +716,23 @@
           };
         });
       });
-      links.forEach(function(ls) {
-        const strengthExtent = d3.extent(ls.map(l => Math.abs(l.strength)));
-        const filterStrength = strengthExtent[1] * self.sentenceWordThreshold;
-        ls.forEach((l) => {
-          l.strength = Math.abs(l.strength) < filterStrength ? 0 : l.strength;
-        });
-      });
+      // links.forEach(function(ls) {
+      //   const strengthExtent = d3.extent(ls.map(l => Math.abs(l.strength)));
+      //   const filterStrength = strengthExtent[1] * self.sentenceWordThreshold;
+      //   ls.forEach((l) => {
+      //     l.strength = Math.abs(l.strength) < filterStrength ? 0 : l.strength;
+      //   });
+      // });
 
-      const strengthes = flatten(links).map(d => {return Math.abs(d.strength)});
-      const scale = d3.scaleLinear()
-        .domain([0, d3.extent(strengthes)[1]])
-        .range([0, this.linkWidthRange[1]])
+      // const strengthes = flatten(links).map(d => {return Math.abs(d.strength)});
+      // const scale = d3.scaleLinear()
+      //   .domain([0, d3.extent(strengthes)[1]])
+      //   .range([0, this.linkWidthRange[1]])
+
+
+      const strength_extent = d3.extent(this.flatten(links).map((l) => l.strength));
+      const max_strength = Math.max(Math.abs(strength_extent[0]), Math.abs(strength_extent[1]));
+      const strength_bound = this.strengthThresholdPercent.map((t) => t * max_strength);
 
       const lsg = sg.append('g');
       links.forEach(function(ls) {
@@ -648,23 +740,32 @@
           l['el'] = lsg.append('path')
                       .classed('active', false)
                       .classed('link', true)
+                      .classed(l.strength > 0 ? 'positive' : 'negative', true)
                       .attr('d', self.createLink(l))
-                      .attr('stroke-width', l.strength === 0 ? 0 : scale(Math.abs(l.strength)))
-                      .attr('stroke', l.strength > 0 ? self.linkColor[1] : self.linkColor[0])
+                      .attr('stroke-width', self.sentenceStrokeWidth(l.strength))
                       .attr('opacity', 0.2)
                       .attr('fill', 'none')
-                      .attr('display', 'none')
-                      .attr('hold', 'false')
+                      .attr('display', (Math.abs(l.strength) < strength_bound[0] || Math.abs(l.strength) > strength_bound[1]) ? 'none' : '')
+                      .attr('hold', 'false');
         });
       });
       self.graph.sentence_info.push({sentence: sent, links: links, value: value, group: sg, record: record, sentenceRecord: sentenceRecord});
+      if (this.sentences.length > 1) {
+        self.graph.sentence_info.forEach((si) => {
+          si.links.forEach((ls) => {
+            ls.forEach((l) => {
+              l['el'].attr('display', 'none');
+            });
+          });
+        });
+      }
 
       function updateSentence(extent_) {
-        console.log(`extent_ is ${extent_}`);
+        // console.log(`extent_ is ${extent_}`);
         const words = record.tokens.slice(...extent_);
-        console.log(`words is ${words}`);
+        // console.log(`words is ${words}`);
         let scaleFactor = self.client_height / words.length / self.params.sentenceNodeWidth / 1.05;
-        console.log(`scaleFactor is ${scaleFactor}`);
+        // console.log(`scaleFactor is ${scaleFactor}`);
         scaleFactor = Math.min(scaleFactor, 1.5);
         const newHeight = scaleFactor * self.client_height;
         let translateY = (sent.getWordPos(extent_[0])[1] + sent.getWordPos(extent_[1])[1]) / 2;
@@ -694,7 +795,7 @@
           }
           if (l['el'].attr('hold') !== 'true') {
             l['el'].classed('active', highlight)
-            .attr('display', highlight ? '' : 'none');
+            .attr('display', highlight || self.sentences.length < 2 ? '' : 'none');
           } else {
             l['el'].classed('active', true)
             .attr('display', '');
@@ -707,12 +808,6 @@
         }
         // console.log(data.el);
         data.bg.classed('active', data.selected ? true : highlight);
-      }
-
-      function flatten(arr) {
-        return arr.reduce((acc, val) => {
-          return acc.concat(Array.isArray(val) ? flatten(val) : val);
-        }, []);
       }
     }
 
@@ -758,7 +853,7 @@
     calculate_state_info(coCluster, mode='width') {
       let state_loc = [];
       let state_cluster_loc = [];
-      let little_triangle_loc = [];
+      // let little_triangle_loc = [];
 
       const clusterHeight = this.params.clusterHeight;
       const packNum = this.params.packNum;
@@ -837,8 +932,8 @@
           }
         });
       }
-      console.log("need to highlight ");
-      console.log(highlight_clouds);
+      // console.log("need to highlight ");
+      // console.log(highlight_clouds);
       highlight_clouds = new Set(highlight_clouds);
       let word_info = [];
       let wd_height = wordClusters.map((d, i) => {
@@ -939,16 +1034,52 @@
 
     render_state(data) {
       if (data.length) {
+        if (!this.hg.select('#color-legend').node()) {
+          const tmp_state = this.graph.state_info.state_cluster_info[this.graph.state_info.state_cluster_info.length - 1];
+          const tmp_g = this.hg.append('g')
+                            .attr('id', 'color-legend')
+                            .attr('transform', 'translate(' + [0, tmp_state.top_left[1] + tmp_state.height + 2 * this.params.clusterInterval] + ')');
+          const width = tmp_state.width;
+          const height = this.params.unitHeight * 2;
+          tmp_g.append('rect')
+          .attr('transform', 'translate(' + [-width / 2, 0] + ')')
+          .transition()
+          .attr('x', 0)
+          .attr('y', 0)
+          .attr('width', width)
+          .attr('height', this.params.unitHeight * 2)
+          .style('fill', 'url(#state-legend)');
+
+          this.axisScale = d3.scaleLinear().range([0, width]).domain([-this.stateClip, this.stateClip]);
+          this.colorLegendAxis = d3.axisBottom()
+                          .tickValues([parseInt(-this.stateClip), 0, parseInt(this.stateClip)])
+                          .scale(this.axisScale);
+          tmp_g.append('g')
+               .classed('axis', true)
+               .attr('transform', 'translate(' + [-width/2, 0] + ')')
+               .call(this.colorLegendAxis);
+        }
+
+        // const extent = d3.extent(data);
+        const scale = d3.scaleLinear()
+                        .domain([-this.stateClip, 0, this.stateClip])
+                        .range([1, 0, 1]);
+        // console.log(`the extent of render state is ${extent}`);
         this.graph.state_info.state_info.forEach((s, i) => {
           d3.select(s['el'])
+            .property('colored', true)
+            .property('strength', data[i])
             .transition()
             .duration(300)
-            .attr('fill', data[i] > 0 ? this.unitRangeColor[1] : this.unitRangeColor[0])
-            .attr('fill-opacity', Math.abs(data[i]))
+            .attr('fill', data[i] > 0 ? positiveColor : negativeColor)
+            .attr('fill-opacity', scale(Math.abs(data[i])));
         });
+
       } else {
+        this.hg.select('#color-legend').remove();
         this.graph.state_info.state_info.forEach((s, i) => {
           d3.select(s['el'])
+            .property('colored', false)
             .transition()
             .duration(400)
             .attr('fill', this.unitNormalColor)
@@ -1011,6 +1142,22 @@
         .attr('y1', -1000)
         .attr('x2', 0)
         .attr('y2', 1000)
+        .attr('display', 'none');
+
+      // const color = ['#09adff', '#ffffff', '#ff5b09'];
+      // g.append('defs')
+      //   .append('linearGradient')
+      //   .attr('id', 'legend-state')
+      //   .attr('x1', '0').attr('y1', '0')
+      //   .attr('x2', '1').attr('y2', '0')
+      //   .selectAll('stop')
+      //   .data(d3.range(3)).enter()
+      //   .append('stop')
+      //   .attr('offset', d => d/2)
+      //   .attr('stop-color', d => color[d]);
+
+
+
 
       const hiddenClusters = g.selectAll('g rect')
         .data(coCluster.colClusters, (clst, i) => Array.isArray(clst) ? (String(clst.length) + String(i)) : this.id); // matching function
@@ -1130,13 +1277,13 @@
       })
 
       // add
-      hiddenClusters.exit()
-        .transition()
-        .duration(400)
-        .style('fill-opacity', 1e-6)
-        .attr('width', 1)
-        .attr('height', 1)
-        .remove();
+      // hiddenClusters.exit()
+      //   .transition()
+      //   .duration(400)
+      //   .style('fill-opacity', 1e-6)
+      //   .attr('width', 1)
+      //   .attr('height', 1)
+      //   .remove();
     }
 
     sum(arr) {
@@ -1241,16 +1388,16 @@
           + " " + d.target.x + "," + d.target.y;
     }
 
+    flatten(arr) {
+      return arr.reduce((acc, val) => {
+        return acc.concat(Array.isArray(val) ? this.flatten(val) : val);
+      }, []);
+    }
+
     draw_link(g, graph) {
       const link_info = graph.link_info;
 
-      function flatten(arr) {
-        return arr.reduce((acc, val) => {
-          return acc.concat(Array.isArray(val) ? flatten(val) : val);
-        }, []);
-      }
-
-      const strength_extent = d3.extent(flatten(link_info).map((l) => l.strength));
+      const strength_extent = d3.extent(this.flatten(link_info).map((l) => l.strength));
       const max_strength = Math.max(Math.abs(strength_extent[0]), Math.abs(strength_extent[1]));
       const strength_bound = this.strengthThresholdPercent.map((t) => t * max_strength);
 
@@ -1270,11 +1417,12 @@
             let tmp_path = g.append('path')
               .classed('link', true)
               .classed('active', false)
+              .classed(l.strength > 0 ? 'positive' : 'negative', true)
               .property('ref', 0)
               .attr('d', this.createLink(l))
               .attr('stroke-width', this.strokeWidth(l.strength))
               .attr('opacity', 0.15)
-              .attr('stroke', l.strength > 0 ? this.linkColor[1] : this.linkColor[0])
+              // .attr('stroke', l.strength > 0 ? this.linkColor[1] : this.linkColor[0])
               .attr('display', (Math.abs(l.strength) < strength_bound[0] || Math.abs(l.strength) > strength_bound[1]) ? 'none' : '')
 
             l['el'] = tmp_path.node();
@@ -1289,7 +1437,7 @@
       // console.log(coCluster.colClusters.length);
       const maxClusterSize = coCluster.colSizes.reduce((a, b) => Math.max(a,b));
       const nCluster = coCluster.labels.length;
-      let clusterInterval2HeightRatio = 1;
+      let clusterInterval2HeightRatio = 1.0;
       // console.log(coCluster);
       // console.log(`cluster number is ${nCluster}`);
       this.params.computeParams(coCluster.labels.length, clusterInterval2HeightRatio, coCluster.colSizes);

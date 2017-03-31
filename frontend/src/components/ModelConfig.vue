@@ -61,8 +61,16 @@
         <el-slider v-model="layout.strokeControlStrength" :min="0" :max="maxWidth" :step="0.1" style="width: 80%" @change="layoutChange"></el-slider>
       </el-form-item>
       <el-form-item label="Link Filter" v-if="selectedState" style="margin-top: -7px">
-        <el-slider v-model="layout.linkFilterThreshold" range show-stops :min="0" :max="1" :step="0.05" @change="layoutChange" style="width: 80%"></el-slider>
+        <el-slider v-model="layout.linkFilterThreshold" range :min="0" :max="1" :step="0.0001" @change="layoutChange" style="width: 80%"></el-slider>
       </el-form-item>
+      <el-form-item label="State Clip" v-if="selectedState" style="margin-top: -7px">
+        <el-slider v-model="layout.stateClip" :min="0" :max="10" :step="1" @change="layoutChange" style="width: 80%"></el-slider>
+      </el-form-item>
+      <!--Color Picker for temporal use-->
+      <!--<el-form-item label="colorPicker" v-if="selectedState">
+        <el-color-picker label="positive" v-model="color[1]" @change="colorChange"></el-color-picker>
+        <el-color-picker label="negative" v-model="color[0]" @change="colorChange"></el-color-picker>
+      </el-form-item>-->
     </el-form>
   </div>
 </template>
@@ -110,7 +118,7 @@
   }
 </style>
 <script>
-  import { bus, SELECT_MODEL, SELECT_STATE, SELECT_LAYER, CHANGE_LAYOUT, EVALUATE_SENTENCE, CLOSE_SENTENCE } from '../event-bus';
+  import { bus, SELECT_MODEL, SELECT_STATE, SELECT_LAYER, CHANGE_LAYOUT, EVALUATE_SENTENCE, CLOSE_SENTENCE, SELECT_COLOR} from '../event-bus';
 
   export default {
     name: 'ModelConfig',
@@ -125,14 +133,16 @@
         config: null,
         layout: {
            clusterNum: 10,
-           strokeControlStrength: 5,
+           strokeControlStrength: 8,
            linkFilterThreshold: [0.2, 1],
+           stateClip: 2,
            mode: 'height',
         },
         sentences: [],
         inputVisible: false,
         inputValue: '',
         mode: false,
+        color: ['#09adff', '#ff5b09'],
       };
     },
     props: {
@@ -157,8 +167,8 @@
         return 0;
       },
       maxWidth: function() {
-        if (this.selectedModel.substring(0, 4) === 'YELP' || this.selectedModel.substring(0, 4) === 'IMDB') return 20;
-        return 40;
+        // if (this.selectedModel.substring(0, 4) === 'YELP' || this.selectedModel.substring(0, 4) === 'IMDB') return 100;
+        return 20;
       }
     },
     watch: {
@@ -240,6 +250,11 @@
         this.inputVisible = false;
         this.inputValue = '';
       },
+
+      colorChange(color) {
+        bus.$emit(SELECT_COLOR, this.color);
+        // console.log('color changed to ' + color);
+      }
     },
     mounted() {
       // this.activeSentences = this.sentences.map((d, i) => {
