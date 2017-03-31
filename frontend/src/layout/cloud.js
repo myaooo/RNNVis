@@ -16,7 +16,8 @@ const bgLayout = {
 
 const wordLayout = {
   'font': 'Arial',
-  'fontSize': [9, 17],
+  'fontSize': [12, 24],
+  // 'fontSize': [9, 17],
   'fontWeight': [300, 400, 500, 600],
   'padding': 0,
   'opacity': 0.7,
