@@ -133,11 +133,7 @@
         config: null,
         layout: {
            clusterNum: 10,
-<<<<<<< HEAD
            strokeControlStrength: 8,
-=======
-           strokeControlStrength: 5,
->>>>>>> dev
            linkFilterThreshold: [0.2, 1],
            stateClip: 2,
            mode: 'height',
@@ -171,13 +167,8 @@
         return 0;
       },
       maxWidth: function() {
-<<<<<<< HEAD
         if (this.selectedModel.substring(0, 4) === 'YELP' || this.selectedModel.substring(0, 4) === 'IMDB') return 100;
         return 20;
-=======
-        if (this.selectedModel.substring(0, 4) === 'YELP' || this.selectedModel.substring(0, 4) === 'IMDB') return 20;
-        return 40;
->>>>>>> dev
       }
     },
     watch: {
