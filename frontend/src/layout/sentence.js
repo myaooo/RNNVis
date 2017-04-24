@@ -32,6 +32,7 @@ class SentenceLayout{
     this.type = 'bar2';
     this.compare = compare;
     this._mouseoverCallback = function(_) {console.log(_)};
+    this._barMouseoverCallback = function(_) {console.log(_)};
     this.transform();
     // each data in data list has 3 handles after drawing:
     // el: the group holding all elements of a word
@@ -40,6 +41,9 @@ class SentenceLayout{
   }
   mouseoverCallback(func) {
     return arguments.length ? (this._mouseoverCallback = func, this) : this._mouseoverCallback;
+  }
+  barMouseoverCallback(func) {
+    return arguments.length ? (this._barMouseoverCallback = func, this) : this._barMouseoverCallback;
   }
   size(size){
     return arguments.length ? (this._size = size, this) : this._size;
@@ -310,7 +314,9 @@ class SentenceLayout{
     const gSelector = el.selectAll('g')
       .data(data.data);
     const gCurrent = gSelector.enter()
-      .append('g');
+      .append('g')
+      .on('mouseenter' , function(d, i) {self._barMouseoverCallback(i, true); })
+      .on('mouseleave' , function(d, i) {self._barMouseoverCallback(i, false); });
     const cur = gCurrent.append('rect')
       .attr('x', (d, i) => unitWidth*i)
       .attr('y', (d) => height/2 - scaleHeight(d.currents[0] / d.size))

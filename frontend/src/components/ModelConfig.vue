@@ -27,7 +27,7 @@
       <el-form-item label="POS Tag" v-if="states.length">
         <el-switch v-model="posSwitch" on-text="" off-text="">
         </el-switch>
-        <span class="align">Algin</span>
+        <span class="align" style='margin-left: 30px'>Align</span>
         <el-switch v-model="mode" on-text="" off-text="" @change="layoutChange">
         </el-switch>
       </el-form-item>
@@ -132,11 +132,13 @@
         posSwitch: false,
         config: null,
         layout: {
-           clusterNum: 10,
-           strokeControlStrength: 8,
-           linkFilterThreshold: [0.2, 1],
-           stateClip: 2,
-           mode: 'height',
+           clusterNum: 2,
+           strokeControlStrength: 100,
+          //  strokeControlStrength: 8,
+           linkFilterThreshold: [0, 1],
+          //  linkFilterThreshold: [0.2, 1],
+           stateClip: 1,
+           mode: 'width',
         },
         sentences: [],
         inputVisible: false,

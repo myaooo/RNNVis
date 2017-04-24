@@ -86,9 +86,6 @@
       selectedNode: function() {
         return this.type === 'word' ? (this.compare ? this.shared.selectedNode2 : this.shared.selectedNode) : 0;
       },
-      width: function() {
-        return this.height * 2.4;
-      }
     },
     watch: {
       width: function () {

@@ -43,7 +43,9 @@ class ModelManager(object):
     @property
     @lru_cache(maxsize=2)
     def available_models(self):
-        return list(self._available_models.keys())
+        models = list(self._available_models.keys())
+        models.sort()
+        return models
 
     def get_config_filename(self, name):
         """

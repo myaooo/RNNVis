@@ -95,14 +95,15 @@
       this.wordCloudHightlightRatio = 1.5;
       this.wordCloudPaddingLength = 5;
       this.wordCloudChord2ClusterDistance = 50;
-      this.wordCloudChordLength2ClientHeightRatio = 0.9;
+      this.wordCloudChordLength2ClientHeightRatio = 0.8;
       this.wordCloudChord2stateClusterHeightRatio = 1.1;
       this.wordCloudWidth2HeightRatio = 1 / 0.5;
       this.littleTriangleWidth = 5;
       this.littleTriangleHeight = 5;
       this.strengthThresholdPercent = [0.2, 1];
       this.wordSize2StrengthRatio = 3;
-      this.dxShrinkFactor = 0.07;
+      // this.dxShrinkFactor = 0.1;
+      this.dxShrinkFactor = 0.04;
       this.spacePerSentence = 2/20;
       this.sentenceNodeWidth = 100;
       this.sentenceInitTranslate = [50, 10]
@@ -123,7 +124,7 @@
     // }
     get wordCloudWidth () {
       // return this.width*0.3;
-      return this.width*0.15;
+      return this.width*0.18;
     }
     get unitHeight () {
       return this._unitHeight ? this._unitHeight : Math.max(3, Math.min(~~((this.width - 500)/500) + 4, 7));
@@ -164,8 +165,8 @@
       if (callTime > 10) return;
       const maxClusterSize = clusterSizes.reduce((a, b) => Math.max(a, b), 0);
       const totalClusterSize = clusterSizes.reduce((a, b) => a+b, 0);
-      this._unitHeight = Math.min(~~this.width/50, 3 + ~~(this.width / totalClusterSize));
-      // console.log(this);
+      // this._unitHeight = 4 + this.width / totalClusterSize / 4;
+      this._unitHeight = 3 + this.width / totalClusterSize / 3;
       this.wordCloudChordLength = this.height * this.wordCloudChordLength2ClientHeightRatio;
       this.clusterHeight = (this.wordCloudChordLength) /
         (clusterNum + clusterNum * clusterInterval2HeightRatio - clusterInterval2HeightRatio);
@@ -342,6 +343,7 @@
         this.maybeReload();
       },
       selectedWords: function (words) {
+        // console.log('select word ' + words);
         if (words.length === 0) {
           this.painter.render_state([]);
           return;
@@ -354,7 +356,9 @@
         const p = bus.loadStatistics(model, state, layer)
           .then(() => {
             const statistics = bus.getStatistics(model, state, layer);
-            const wordsStatistics = statistics.statOfWord(this.selectedWords[0].text).mean;
+            const wordsStatistics = statistics.statOfWord(this.selectedWords[this.selectedWords.length-1].text).mean;
+            // const wordsStatistics = statistics.statOfWord(this.selectedWords[0].text).mean;
+            // console.log('click word ' + this.selectedWords[0].text);
             this.painter.render_state(wordsStatistics);
           });
       },
@@ -547,7 +551,8 @@
       this.sentences = [];
       this.stateClip = 2;
 
-      this.strokeWidth = function(t) { return Math.abs(t) * 0.01};
+      this.strokeWidth = function(t) { return Math.abs(t) * 8};
+      this.sentenceStrokeWidth = function(t) {return Math.abs(t) * 24};
       this.colorLegendAxis = null;
     }
     get dxOffset() {
@@ -580,7 +585,7 @@
 
     refreshStroke(controlStrength, linkFilterThreshold) {
       this.strokeWidth = function(t) {return Math.abs(t) * controlStrength};
-      this.sentenceStrokeWidth = function(t) {return Math.abs(t) * controlStrength * 3};
+      this.sentenceStrokeWidth = function(t) {return Math.abs(t) * controlStrength / 3};
       this.strengthThresholdPercent = linkFilterThreshold;
       if (this.graph) {
         this.draw_link(this.hg, this.graph);
@@ -591,10 +596,11 @@
           const strength_bound = this.strengthThresholdPercent.map((t) => t * max_strength);
           si.links.forEach((ls) => {
             ls.forEach((l) => {
-              l['el'].attr('display', (Math.abs(l.strength) < strength_bound[0] || Math.abs(l.strength) > strength_bound[1]) ? 'none' : '');
-            })
-          })
-        })
+              l['el'].attr('display', (Math.abs(l.strength) < strength_bound[0] || Math.abs(l.strength) > strength_bound[1]) ? 'none' : '')
+                     .attr('stroke-width', this.sentenceStrokeWidth(l.strength));
+            });
+          });
+        });
       }
     }
 
@@ -618,6 +624,7 @@
         this.axisScale.domain([-this.stateClip, this.stateClip]);
         this.colorLegendAxis = d3.axisBottom()
                           .tickValues([parseInt(-this.stateClip), 0, parseInt(this.stateClip)])
+                          .tickFormat(d3.format('.' + d3.precisionFixed(1) + 'f'))
                           .scale(this.axisScale);
         // this.hg.select('#color-legend')
         //        .select('g')
@@ -697,6 +704,7 @@
         .coCluster(this.graph.coCluster)
         .words(record.tokens)
         .mouseoverCallback(highlightSentenceLinkByNodeIndex)
+        .barMouseoverCallback(barHighlightState)
         .draw();
 
       const links = [];
@@ -782,7 +790,7 @@
             l.source.y = actualY;
             l['el']
               .transition()
-              .attr('d', self.createLink(l));
+              .attr('d', (actualY > 0 && actualY < self.client_height) ? self.createLink(l) : '');
           })
         })
       }
@@ -795,7 +803,7 @@
           }
           if (l['el'].attr('hold') !== 'true') {
             l['el'].classed('active', highlight)
-            .attr('display', highlight || self.sentences.length < 2 ? '' : 'none');
+            .attr('display', highlight || (self.sentences.length < 2 && l['el'].attr('display') !== 'none') ? '' : 'none');
           } else {
             l['el'].classed('active', true)
             .attr('display', '');
@@ -806,8 +814,12 @@
           data.selected = !data.selected;
           bus.$emit(SELECT_SENTENCE_NODE, data, self.compare);
         }
-        // console.log(data.el);
         data.bg.classed('active', data.selected ? true : highlight);
+      }
+
+      function barHighlightState(state_index, highlight) {
+        console.log('state ' + state_index + ' is hover on or out');
+        self.update_ref(d3.select(self.graph.state_info.state_cluster_info[state_index]['el']).select('rect').node(), highlight ? 'plus' : 'minus');
       }
     }
 
@@ -850,7 +862,7 @@
         .call(brush.move, [0, rectSize[1] * dataLength])
     }
 
-    calculate_state_info(coCluster, mode='width') {
+    calculate_state_info(coCluster, mode='height') {
       let state_loc = [];
       let state_cluster_loc = [];
       // let little_triangle_loc = [];
@@ -938,14 +950,14 @@
       let word_info = [];
       let wd_height = wordClusters.map((d, i) => {
         if (highlight_clouds.size === 0) {
-          return d.length;
-          // return Math.sqrt(d.length);
+          // return d.length;
+          return Math.sqrt(d.length);
         } else if (!highlight_clouds.has(i)) {
-          // return Math.sqrt(d.length);
-          return d.length;
+          return Math.sqrt(d.length);
+          // return d.length;
         } else {
-          return d.length * this.params.wordCloudHightlightRatio;
-          // return Math.sqrt(d.length) * this.params.wordCloudHightlightRatio;
+          // return d.length * this.params.wordCloudHightlightRatio;
+          return Math.sqrt(d.length) * this.params.wordCloudHightlightRatio;
         }
       });
 
@@ -1038,21 +1050,25 @@
           const tmp_state = this.graph.state_info.state_cluster_info[this.graph.state_info.state_cluster_info.length - 1];
           const tmp_g = this.hg.append('g')
                             .attr('id', 'color-legend')
-                            .attr('transform', 'translate(' + [0, tmp_state.top_left[1] + tmp_state.height + 2 * this.params.clusterInterval] + ')');
+                            .attr('transform', 'translate(' + [0, tmp_state.top_left[1] + tmp_state.height + 0.6 * this.params.clusterInterval] +
+                              ')' + (this.compare ? 'scale(-1, 1)' : ''));
           const width = tmp_state.width;
-          const height = this.params.unitHeight * 2;
+          // console.log('unitHeight is ' + this.params.unitHeight);
+          const height = 3.8 * 2;
+          // const height = this.params.unitHeight * 2;
           tmp_g.append('rect')
           .attr('transform', 'translate(' + [-width / 2, 0] + ')')
           .transition()
           .attr('x', 0)
           .attr('y', 0)
           .attr('width', width)
-          .attr('height', this.params.unitHeight * 2)
+          .attr('height', height)
           .style('fill', 'url(#state-legend)');
 
           this.axisScale = d3.scaleLinear().range([0, width]).domain([-this.stateClip, this.stateClip]);
           this.colorLegendAxis = d3.axisBottom()
                           .tickValues([parseInt(-this.stateClip), 0, parseInt(this.stateClip)])
+                          .tickFormat(d3.format('.' + d3.precisionFixed(1) + 'f'))
                           .scale(this.axisScale);
           tmp_g.append('g')
                .classed('axis', true)
