@@ -5,7 +5,7 @@ For example usage, see the main function below
 
 import pickle
 from functools import lru_cache
-from collections import Counter
+from collections import Counter, defaultdict
 
 import numpy as np
 from scipy.spatial.distance import pdist, squareform
@@ -42,13 +42,23 @@ def get_empirical_strength(data_name, model_name, state_name, layer=-1, top_k=10
     tmp_file = get_path(_tmp_dir, tmp_file)
 
     def cal_fn():
-        words, states = load_words_and_state(data_name, model_name, state_name, diff=True)
-        id_to_states = sort_by_id(words, states)
+        # words, states = load_words_and_state(data_name, model_name, state_name, diff=True)
+        id_to_states = load_sorted_words_states(data_name, model_name, state_name, diff=True)
         return cal_empirical_strength(id_to_states[:top], lambda state_mat: np.mean(state_mat, axis=0))
 
     id_strengths = maybe_calculate(tmp_file, cal_fn)
 
     return [id_strengths[i][layer] for i in range(top_k)]
+
+
+@lru_cache(maxsize=128)
+def get_an_empirical_strength(data_name, model_name, state_name, layer, k):
+    id_to_states = load_sorted_words_states(data_name, model_name, state_name, diff=True)
+    strength_list = cal_empirical_strength([id_to_states[k]], lambda state_mat: np.mean(state_mat, axis=0))
+    strength = strength_list[0]
+    if np.max(np.abs(strength)) > 1e-8:
+        return strength[layer]
+    return None
 
 
 def strength2json(strength_list, words, labels=None, path=None):
@@ -182,6 +192,29 @@ def load_words_and_state(data_name, model_name, state_name, diff=True):
     return words, states
 
 
+@lru_cache(maxsize=32)
+def load_sorted_words_states(data_name, model_name, state_name, diff=True):
+    """
+    A wrapper function that wraps fetch_states and sort them according to ids,
+        and cached the results in .pkl file for latter use
+    :param data_name:
+    :param model_name:
+    :param state_name:
+    :param diff:
+    :return: a pair of two list (word_list, states_list)
+    """
+    states_file = '-'.join([data_name, model_name, 'words', state_name, 'sorted']) + ('-diff' if diff else '') + '.pkl'
+    states_file = get_path(_tmp_dir, states_file)
+
+    def cal_fn():
+        words, states = fetch_states(data_name, model_name, state_name, diff)
+        return sort_by_id(words, states)
+
+    id_states = maybe_calculate(states_file, cal_fn)
+    return id_states
+
+
+@lru_cache(maxsize=32)
 def get_state_statistics(data_name, model_name, state_name, diff=True, layer=-1, top_k=500, k=None):
     """
     Get state statistics, i.e. states mean reaction, 25~75 reaction range, 9~91 reaction range regarding top_k words
@@ -203,49 +236,64 @@ def get_state_statistics(data_name, model_name, state_name, diff=True, layer=-1,
             'words': [top_k,], a list of words.
         }
     """
-    top = 100 if top_k <= 100 else 500 if top_k <= 500 else 1000
     if k is not None:
-        top_k = top_k if top_k > k else k
-    tmp_file = '-'.join([data_name, model_name, state_name, 'statistics', str(top)]) \
+        # top_k = top_k if top_k > k else k
+        start = (k // 100) * 100
+        end = (k // 100 + 1) * 100
+    else:
+        start = 0
+        end = 100 if top_k <= 100 else 500 if top_k <= 500 else 1000
+    cal_range = range(start, end)
+
+    tmp_file = '-'.join([data_name, model_name, state_name, 'statistics', str(start), str(end)]) \
                + ('-diff' if diff else '') + '.pkl'
     tmp_file = get_path(_tmp_dir, tmp_file)
 
-    def cal_fn():
-        _words, states = load_words_and_state(data_name, model_name, state_name, diff)
-        _id_to_states = sort_by_id(_words, states)
-        id_to_states = []
+    def cal_fn(data_name_, model_name_, state_name_, diff_, range_):
+        # _words, states = load_words_and_state(data_name_, model_name_, state_name_, diff_)
+        id_to_states = load_sorted_words_states(data_name_, model_name_, state_name_, diff_)
+        _words = get_datasets_by_name(data_name_, ['id_to_word'])['id_to_word']
         words = []
-        _words = get_datasets_by_name(data_name, ['id_to_word'])['id_to_word']
-        for i in range(top):
-            if _id_to_states[i] is not None:  # remove empty ones
-                id_to_states.append(_id_to_states[i])
-                words.append(_words[i])
-        layer_num = states[0].shape[0]
+        state_shape = id_to_states[0][0].shape
+        dtype = id_to_states[0][0].dtype
+        layer_num = state_shape[0]
         stats_list = []
-        for id_to_state in id_to_states:
+        for i in range_:
+            id_to_state = id_to_states[i]
             if id_to_state is None:  # some words may be seen in test set
-                states = [np.zeros(states[0].shape, states[0].dtype)]  # use zeros as placeholder
+                states = [np.zeros(state_shape, dtype)]  # use zeros as placeholder
             else:
                 states = id_to_state
             stats_list.append(cal_state_statistics(states))
+            words.append(_words[i])
         stats_layer_wise = []
         for layer_ in range(layer_num):
             stats = {}
             for field in stats_list[0][layer_].keys():
-                value = np.vstack([stats[layer_][field] for stats in stats_list])
+                value = np.vstack([stat[layer_][field] for stat in stats_list])
                 stats[field] = value
             stats['freqs'] = np.array([len(id_state) if id_state is not None else 0 for id_state in id_to_states])
             stats_layer_wise.append(stats)
         return stats_layer_wise, words
 
-    layer_wise_stats, words = maybe_calculate(tmp_file, cal_fn)
+    layer_wise_stats, words = maybe_calculate(tmp_file, cal_fn, data_name, model_name, state_name, diff, cal_range)
     stats = layer_wise_stats[layer]
     if k is None:
-        stats = {key: value[:top_k].tolist() for key, value in stats.items()}
+        # stats = {key: value[:(top_k)].tolist() for key, value in stats.items()}
+        results = defaultdict(list)
+        for i in range(end):
+            if len(results['freqs']) == top_k:
+                break
+            if stats['freqs'][i] == 0:
+                continue
+            for key, value in stats.items():
+                results[key].append(value[i].tolist())
+            results['words'].append(words[i])
+
     else:
-        stats = {key: value[k].tolist() for key, value in stats.items()}
-    stats['words'] = words[:top_k]
-    return stats
+        results = {key: value[k-start].tolist() for key, value in stats.items()}
+        results['words'] = words[k-start]
+    return results
 
 
 def get_co_cluster(data_name, model_name, state_name, n_clusters, layer=-1, top_k=100,

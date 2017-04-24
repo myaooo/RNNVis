@@ -19,7 +19,7 @@ export class CoClusterProcessor {
   }
   get labels() {
     if (this.hasData && !this._labels) {
-      this._labels = [...new Set(this.colLabels)];
+      this._labels = [...new Set([...(this.colLabels), ...(this.rowLabels)])];
       if (this.sortBy === 'col')
         this._labels.sort((a, b) => this.colSizes[a] - this.colSizes[b]);
       else if (this.sortBy === 'row')
@@ -62,6 +62,7 @@ export class CoClusterProcessor {
     return dataService.getCoCluster(this.modelName, this.stateName, this.nCluster, this.params, (response) => {
       if (response.status === 200) {
         this.rawData = response.data;
+        console.log(this);
       } else {
         throw response;
       }
@@ -112,9 +113,9 @@ export class CoClusterProcessor {
       this.correlation.forEach((strength_list, r_index) => {
         strength_list.forEach((s, c_index) => {
           let strength = this.strength_filter(s);
-          row_cluster_2_col_cluster[this.rawData.row[r_index]][this.rawData.col[c_index]] += strength;
-          row_cluster_2_col_single[this.rawData.row[r_index]][c_index] += strength;
-          row_single_2_col_cluster[r_index][this.rawData.col[c_index]] += strength;
+          row_cluster_2_col_cluster[this.rawData.row[r_index]][this.rawData.col[c_index]] += strength / (this.rowSizes[this.rowLabels[r_index]] * this.colSizes[this.colLabels[c_index]]);
+          row_cluster_2_col_single[this.rawData.row[r_index]][c_index] += strength / this.rowSizes[this.rowLabels[r_index]];
+          row_single_2_col_cluster[r_index][this.rawData.col[c_index]] += strength / this.colSizes[this.colLabels[c_index]];
           row_single_2_col_single[r_index][c_index] += strength;
         });
       });

@@ -45,7 +45,12 @@
     },
     methods: {
       getAvailableModels() {
+        console.log("getting available models...");
         bus.loadAvailableModels();
+        if(this.shared.availableModels) return;
+        setTimeout(() => {
+          this.getAvailableModels();
+        }, 2000);
       },
       modelColor(i) {
         return i === 1 ? 'primary' : 'success';

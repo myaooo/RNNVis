@@ -24,7 +24,7 @@ def main(args=None):
     args = parser.parse_args(args)
 
     if args.method == 'server':
-        app.run(debug=args.debug)
+        app.run(debug=args.debug, threaded=True)
     elif args.method == 'seeddb':
         seed_db(args.force)
         print("Seeding Done.")

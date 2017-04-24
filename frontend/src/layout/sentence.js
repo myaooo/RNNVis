@@ -7,11 +7,13 @@ const layoutParams = {
   radiusScale: 1.5,
   widthScale: 1.5,
   avgValueRange: [-0.5, 0.5],
-  rulerScale: 0.3,
-  markerWidthScale: 0.8,
-  markerHeightScale: 0.4,
+  rulerScale: 0.2,
+  markerWidthScale: 0.6,
+  markerHeightScale: 0.3,
   wordSize: 12,
   labelSize: 10,
+  negColor: '#09adff',
+  posColor: '#ff5b09',
 };
 
 // example usage:
@@ -30,6 +32,7 @@ class SentenceLayout{
     this.type = 'bar2';
     this.compare = compare;
     this._mouseoverCallback = function(_) {console.log(_)};
+    this._barMouseoverCallback = function(_) {console.log(_)};
     this.transform();
     // each data in data list has 3 handles after drawing:
     // el: the group holding all elements of a word
@@ -38,6 +41,9 @@ class SentenceLayout{
   }
   mouseoverCallback(func) {
     return arguments.length ? (this._mouseoverCallback = func, this) : this._mouseoverCallback;
+  }
+  barMouseoverCallback(func) {
+    return arguments.length ? (this._barMouseoverCallback = func, this) : this._barMouseoverCallback;
   }
   size(size){
     return arguments.length ? (this._size = size, this) : this._size;
@@ -272,33 +278,45 @@ class SentenceLayout{
     return el;
   }
 
-  drawOneWordBar2(el, data, t) {
+  drawOneWordBar2(el, data, t, paintColor = false) {
     const self = this;
     const height = this.nodeHeight;
     const width = this.nodeWidth;
     const color = this.params.color;
-    console.log(data);
+    // console.log(data);
     const scaleHeight = this.scaleHeight;
     const unitWidth = this.nodeWidth / data.data.length;
+    const posColor = this.params.posColor;
+    const negColor = this.params.negColor;
 
-    el.on('mouseover', function() {self._mouseoverCallback(t, true)})
-      .on('mouseleave', function() {self._mouseoverCallback(t, false)})
-      .on('click', function() {self._mouseoverCallback(t, false, true)});
+    el.on('mouseover', function() {
+        // el.attr('class')
+        self._mouseoverCallback(data, t, true)
+      })
+      .on('mouseleave', function() {
+        self._mouseoverCallback(data, t, false);
+      })
+      .on('click', function() {
+        self._mouseoverCallback(data, t, false, true);
+      });
     // bounding box
     const bg = el.append('rect')
       .attr('x', 0)
       .attr('y', 0)
       .attr('width', width)
       .attr('height', height)
-      .attr('stroke', 'gray')
-      .attr('stroke-width', 1)
+      .attr('stroke', 'black')
+      .attr('stroke-width', 1.0)
+      .attr('stroke-opacity', 0.3)
       .attr('fill', 'white')
       .attr('fill-opacity', 0);
 
     const gSelector = el.selectAll('g')
       .data(data.data);
     const gCurrent = gSelector.enter()
-      .append('g');
+      .append('g')
+      .on('mouseenter' , function(d, i) {self._barMouseoverCallback(i, true); })
+      .on('mouseleave' , function(d, i) {self._barMouseoverCallback(i, false); });
     const cur = gCurrent.append('rect')
       .attr('x', (d, i) => unitWidth*i)
       .attr('y', (d) => height/2 - scaleHeight(d.currents[0] / d.size))
@@ -306,9 +324,20 @@ class SentenceLayout{
       .attr('height', (d) => scaleHeight((d.currents[0]-d.currents[1]) / d.size))
       .attr('fill', (d, j) => color(j))
     gCurrent.style('fill-opacity', 0.4)
-      .style('stroke', 'gray')
       // .style('stroke-opacity', 0.5)
-      .style('stroke-width', 0.5);
+      .attr('stroke', 'black')
+      .attr('stroke-width', 1.0)
+      .attr('stroke-opacity', 0.5);
+
+    gCurrent.append('path')
+      .attr('d', (d, i) => 'M ' + (unitWidth*i) + ' ' + (height/2 - scaleHeight(d.currents[0] / d.size))
+        + ' H ' + (unitWidth * (i+1) ))
+      .attr('stroke-width', 2);
+
+    gCurrent.append('path')
+      .attr('d', (d, i) => 'M ' + (unitWidth*i) + ' ' + (height/2 - scaleHeight(d.currents[1] / d.size))
+        + ' H ' + (unitWidth * (i+1) ))
+      .attr('stroke-width', 2);
 
     const gUpdated1 = gSelector.enter()
       .append('g');
@@ -318,12 +347,20 @@ class SentenceLayout{
       .attr('width', (d) => unitWidth)
       .attr('height', (d) => scaleHeight(Math.abs(d.updateds[1]) / d.size))
       .attr('transform', (d) => d.updateds[1] < 0 ? ('translate(' + [0, -scaleHeight(Math.abs(d.updateds[1]) / d.size) ] + ')') : '')
-      .attr('fill', (d, j) => d.updateds[1] > 0 ? 'none' : color(j))
-      .style('stroke-opacity', (d, j) => d.updateds[1] > 0 ? 1.0 : 1.0);
+      .style('fill-opacity', 0.4);
+    if (paintColor) {
+      updated1.attr('fill', (d, j) => {
+        return d.updateds[1] > 0 ? 'none' : color(j);
+      });
+    } else {
+      updated1.attr('fill', (d, i) => {
+        return d.updateds[1] > 0 ? posColor : negColor;
+      });
+      cur.attr('fill', (d, j) => '#bbb');
+    }
     gUpdated1 //.style('fill-opacity', 0.8)
       .style('stroke-width', 0.5)
-      .style('stroke', 'gray')
-      .style('fill-opacity', 0.3);
+      .style('stroke', 'none');
 
 
     const gUpdated2 = gSelector.enter()
@@ -334,12 +371,21 @@ class SentenceLayout{
       .attr('width', (d) => unitWidth)
       .attr('height', (d) => scaleHeight(Math.abs(d.updateds[0]) / d.size))
       .attr('transform', (d) => d.updateds[0] < 0 ? ('translate(' + [0, -scaleHeight(Math.abs(d.updateds[0]) / d.size) ] + ')') : '')
-      .attr('fill', (d, j) => d.updateds[0] < 0 ? 'none' : color(j))
+      // .attr('fill', (d, j) => d.updateds[0] < 0 ? 'none' : color(j))
       .style('stroke-opacity', (d, j) => d.updateds[1] < 0 ? 1.0 : 1.0);
+    if (paintColor) {
+      updated2.attr('fill', (d, j) => {
+        return d.updateds[0] < 0 ? 'none' : color(j);
+      });
+    } else {
+      updated2.attr('fill', (d, i) => {
+        return d.updateds[0] < 0 ? negColor : posColor;
+      });
+    }
     gUpdated2 //.style('fill-opacity', 0.8)
       .style('stroke-width', 0.5)
-      .style('stroke', 'gray')
-      .style('fill-opacity', 0.5);
+      .style('stroke', 'none')
+      .style('fill-opacity', 0.4);
 
 
     el.append('path').attr('d', 'M0 ' + height/2 + ' H ' + width)
@@ -348,20 +394,22 @@ class SentenceLayout{
     // append labels
     const fontSize = this.params.wordSize;
     const labelSize = this.params.labelSize;
+    const valRange = [this.params.avgValueRange[1], this.params.avgValueRange[0]];
+    const wordX = this.compare ? (4 + width) : (-2-fontSize);
     el.selectAll('text')
-      .data(this.params.avgValueRange).enter()
+      .data(valRange).enter()
       .append('text')
-      .attr('x', -2)
-      .attr('y', (d, i) => i*(height-4)+5)
-      .attr('text-anchor', 'end')
+      .attr('x', this.compare ? (width + 2) : -2)
+      .attr('y', (d, i) => i * (height - 4) + 5)
+      .attr('text-anchor', this.compare ? 'start' : 'end')
       .attr('font-size', labelSize)
       .text((d) => d);
 
     el.append('text')
-      .attr('x', -2-fontSize)
+      .attr('x', wordX)
       .attr('y', (height/2))
       .attr('text-anchor', 'middle')
-      .attr('transform', 'rotate(' + [90, -2-fontSize, (height/2)] + ')')
+      .attr('transform', 'rotate(' + [90, wordX, (height/2)] + ')')
       .attr('font-size', fontSize)
       .text(data.word);
 
@@ -373,13 +421,16 @@ class SentenceLayout{
     updated2.each(function(d) { d.els[2] = this; });
     data.els = [cur, updated1, updated2];
     data.el = el; // bind group
+    data.bg = bg;
     return el;
   }
 
-  drawOneConnection2(el, data, t) {
+  drawOneConnection2(el, data, t, paintColor=false) {
     const height = this.nodeInterval;
     // const width = this.nodeWidth;
-    const color = this.params.color;
+    const color = paintColor ? this.params.color : (i) => {
+      return data.data[i].currents[0] + data.data[i].currents[1] > 0 ? this.params.posColor : this.params.negColor;
+    };
     // console.log(data);
     // const scaleHeight = this.scaleHeight;
     const unitWidth = this.nodeWidth / data.data.length;
@@ -508,6 +559,13 @@ class SentenceLayout{
       });
     });
 
+    const updatedData = sentence.map((word, t)=>{
+      if (t === 0) return word;
+      return word.map((v, j) => {
+        return v - sentence[t-1][j];
+      });
+    })
+
     const infoPositive = new Array(len);
     const infoNegative = new Array(len);
     const infoCurrent = new Array(len);
@@ -563,6 +621,7 @@ class SentenceLayout{
         const updatedPositive = positive - prevPositive;
         const updatedNegative = negative - prevNegative;
         const updated = updatedPositive + updatedNegative;
+        const size = clustersSize[i];
         return {
           currents: [positive, negative],
           current: current,
@@ -581,6 +640,7 @@ class SentenceLayout{
       return {
         word: word,
         data: data,
+        response: updatedData[t],
       };
     });
     return dataList;
@@ -592,7 +652,7 @@ class SentenceLayout{
     if (!this._strengthByCluster) {
       this._strengthByCluster = this._dataList.map((word, i) => {
         return word.data.map((clst, j) => {
-          return clst.updated;
+          return clst.size === 0 ? 0 : clst.updated / clst.size;
         });
       });
     }

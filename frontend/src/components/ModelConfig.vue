@@ -21,12 +21,15 @@
           <el-radio-button v-for="state in states" :label="state">{{stateName(state)}}</el-radio-button>
         </el-radio-group>
       </el-form-item>
+      <el-form-item label="Layer" v-if="layerNum">
+        <el-input-number size="small" v-model="selectedLayer" :max="layerNum-1" style="width: 100px; margin-top: 5px"></el-input-number>
+      </el-form-item>
       <el-form-item label="POS Tag" v-if="states.length">
         <el-switch v-model="posSwitch" on-text="" off-text="">
         </el-switch>
-      </el-form-item>
-      <el-form-item label="Layer" v-if="layerNum">
-        <el-input-number size="small" v-model="selectedLayer" :max="layerNum-1" style="width: 100px; margin-top: 10px"></el-input-number>
+        <span class="align" style='margin-left: 30px'>Align</span>
+        <el-switch v-model="mode" on-text="" off-text="" @change="layoutChange">
+        </el-switch>
       </el-form-item>
 
       <!--Sentence Editor-->
@@ -54,6 +57,20 @@
       <el-form-item label="Cluster Num" v-if="selectedState">
         <el-slider v-model="layout.clusterNum" :min="2" :max="20" style="width: 80%" @change="layoutChange"></el-slider>
       </el-form-item>
+      <el-form-item label="Stroke Width" v-if="selectedState" style="margin-top: -7px; padding-bottom: -10px">
+        <el-slider v-model="layout.strokeControlStrength" :min="0" :max="maxWidth" :step="0.1" style="width: 80%" @change="layoutChange"></el-slider>
+      </el-form-item>
+      <el-form-item label="Link Filter" v-if="selectedState" style="margin-top: -7px">
+        <el-slider v-model="layout.linkFilterThreshold" range :min="0" :max="1" :step="0.0001" @change="layoutChange" style="width: 80%"></el-slider>
+      </el-form-item>
+      <el-form-item label="State Clip" v-if="selectedState" style="margin-top: -7px">
+        <el-slider v-model="layout.stateClip" :min="0" :max="10" :step="1" @change="layoutChange" style="width: 80%"></el-slider>
+      </el-form-item>
+      <!--Color Picker for temporal use-->
+      <!--<el-form-item label="colorPicker" v-if="selectedState">
+        <el-color-picker label="positive" v-model="color[1]" @change="colorChange"></el-color-picker>
+        <el-color-picker label="negative" v-model="color[0]" @change="colorChange"></el-color-picker>
+      </el-form-item>-->
     </el-form>
   </div>
 </template>
@@ -62,6 +79,14 @@
     margin-bottom: 5px;
     margin-top: -5px;
     font-size: 12px;
+  }
+
+  .align {
+    color: rgb(72, 87, 106);
+  }
+
+  .el-form-item__content{
+    line-height: 30px !important;
   }
 
   label {
@@ -93,7 +118,7 @@
   }
 </style>
 <script>
-  import { bus, SELECT_MODEL, SELECT_STATE, SELECT_LAYER, CHANGE_LAYOUT, EVALUATE_SENTENCE, CLOSE_SENTENCE } from '../event-bus';
+  import { bus, SELECT_MODEL, SELECT_STATE, SELECT_LAYER, CHANGE_LAYOUT, EVALUATE_SENTENCE, CLOSE_SENTENCE, SELECT_COLOR} from '../event-bus';
 
   export default {
     name: 'ModelConfig',
@@ -106,10 +131,20 @@
         selectedLayer: null,
         posSwitch: false,
         config: null,
-        layout: { clusterNum: 10 },
+        layout: {
+           clusterNum: 2,
+           strokeControlStrength: 100,
+          //  strokeControlStrength: 8,
+           linkFilterThreshold: [0, 1],
+          //  linkFilterThreshold: [0.2, 1],
+           stateClip: 1,
+           mode: 'width',
+        },
         sentences: [],
         inputVisible: false,
         inputValue: '',
+        mode: false,
+        color: ['#09adff', '#ff5b09'],
       };
     },
     props: {
@@ -132,6 +167,10 @@
       layerNum: function() {
         if (this.config) return this.config.LayerNum;
         return 0;
+      },
+      maxWidth: function() {
+        // if (this.selectedModel.substring(0, 4) === 'YELP' || this.selectedModel.substring(0, 4) === 'IMDB') return 100;
+        return 20;
       }
     },
     watch: {
@@ -151,6 +190,7 @@
               };
               this.posSwitch = false;
               this.selectedLayer = this.config.LayerNum - 1;
+              this.sentences = [];
               bus.$emit(SELECT_MODEL, this.selectedModel, this.compare);
               bus.$emit(CHANGE_LAYOUT, this.layout, this.compare);
             }
@@ -176,15 +216,16 @@
     methods: {
       stateName(state) {
         switch (state) {
-          case 'state_c': return 'c_state';
-          case 'state_h': return 'h_state';
-          case 'state': return 'h_state';
+          case 'state_c': return 'cell state';
+          case 'state_h': return 'hidden state';
+          case 'state': return 'hidden state';
           default: return 'Unknown';
         }
       },
       layoutChange() {
         console.log("Layout changed")
         // copy to a new one to force change
+        this.layout.mode = this.mode ? 'width' : 'height';
         const layout = Object.assign({}, this.layout)
         bus.$emit(CHANGE_LAYOUT, layout, this.compare);
       },
@@ -211,6 +252,11 @@
         this.inputVisible = false;
         this.inputValue = '';
       },
+
+      colorChange(color) {
+        bus.$emit(SELECT_COLOR, this.color);
+        // console.log('color changed to ' + color);
+      }
     },
     mounted() {
       // this.activeSentences = this.sentences.map((d, i) => {

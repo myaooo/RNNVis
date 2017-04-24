@@ -59,9 +59,10 @@ def model_generate():
     return result
 
 
-@app.route('/models/record_default/<string:model>', methods=['POST', 'GET'])
-def model_record_default(model):
+@app.route('/models/record-default', methods=['POST', 'GET'])
+def model_record_default():
     dataset = request.args.get('set', 'test')
+    model = request.args.get('model', '')
     force = bool(request.args.get('force', False))
     result = _manager.model_record_default(model, dataset, force)
 
@@ -219,7 +220,7 @@ def word_statistics():
     layer = int(request.args.get('layer', -1))
     word = request.args.get('word')  # required
     try:
-        results = _manager.state_statistics(model, state_name, True, layer, 100, word)
+        results = _manager.state_statistics(model, state_name, True, layer, None, word)
         if results is None:
             return 'Cannot find model with name {:s}'.format(model), 404
         return jsonify(results)
