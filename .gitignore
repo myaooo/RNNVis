@@ -23,6 +23,7 @@ var/
 .installed.cfg
 *.egg
 data/sentiment_prediction
+data/stanfordSentimentTreebank
 __MACOSX
 *.pkl
 *.pkl.gz
