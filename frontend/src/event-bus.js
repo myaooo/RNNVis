@@ -1,7 +1,7 @@
 import Vue from 'vue';
-import dataService from './services/dataService';
+import dataService from './service/dataService';
 import * as d3 from 'd3';
-import { CoClusterProcessor, SentenceRecord, StateStatistics } from './preprocess'
+import { CoClusterProcessor, SentenceRecord, StateStatistics } from './service/preprocess'
 
 // event definitions goes here
 const SELECT_MODEL = 'SELECT_MODEL';

@@ -22,7 +22,7 @@ var/
 *.egg-info/
 .installed.cfg
 *.egg
-cached_data/sentiment_prediction
+data/sentiment_prediction
 __MACOSX
 *.pkl
 *.pkl.gz

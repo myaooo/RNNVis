@@ -19,15 +19,15 @@ from rnnvis.rnn.generator import Generator
 from rnnvis.rnn.losses import softmax
 from rnnvis.rnn.varlen_support import sequence_length, last_relevant
 
-BasicRNNCell = tf.nn.rnn_cell.BasicRNNCell
-BasicLSTMCell = tf.nn.rnn_cell.BasicLSTMCell
-LSTMCell = tf.nn.rnn_cell.LSTMCell
-GRUCell = tf.nn.rnn_cell.GRUCell
-MultiRNNCell = tf.nn.rnn_cell.MultiRNNCell
-DropOutWrapper = tf.nn.rnn_cell.DropoutWrapper
-# EmbeddingWrapper = tf.nn.rnn_cell.EmbeddingWrapper
-InputProjectionWrapper = tf.nn.rnn_cell.InputProjectionWrapper
-OutputProjectionWrapper = tf.nn.rnn_cell.OutputProjectionWrapper
+BasicRNNCell = tf.contrib.rnn.BasicRNNCell
+BasicLSTMCell = tf.contrib.rnn.BasicLSTMCell
+LSTMCell = tf.contrib.rnn.LSTMCell
+GRUCell = tf.contrib.rnn.GRUCell
+MultiRNNCell = tf.contrib.rnn.MultiRNNCell
+DropOutWrapper = tf.contrib.rnn.DropoutWrapper
+# EmbeddingWrapper = tf.contrib.rnn.EmbeddingWrapper
+InputProjectionWrapper = tf.contrib.rnn.InputProjectionWrapper
+OutputProjectionWrapper = tf.contrib.rnn.OutputProjectionWrapper
 
 tf.GraphKeys.INPUTS = 'my_inputs'
 
@@ -223,7 +223,7 @@ class RNNModel(object):
         # state is tuple
         for i, s in enumerate(self.state):
             # s is tuple
-            if isinstance(s, tf.nn.rnn_cell.LSTMStateTuple):
+            if isinstance(s, tf.contrib.rnn.LSTMStateTuple):
                 feed_dict[s.c] = state[i].c
                 feed_dict[s.h] = state[i].h
             else:
@@ -393,7 +393,7 @@ class RNN(object):
     def add_cell(self, cell, *args, **kwargs):
         """
         A helper function to use for create RNN cells under specific TensorFlow VariableScope
-        :param cell: should be subclasses of tf.nn.rnn_cell.BasicRNNCell
+        :param cell: should be subclasses of tf.contrib.rnn.BasicRNNCell
         :param args: the arguments used to create the cell
         :param kwargs: the arguments used to create the cell
         :return: a cell managed under scope
@@ -443,7 +443,7 @@ class RNN(object):
         if self.loss_func is None:
             raise ValueError("loss_func is None, call set_loss_func first!")
         # This operation creates no tf.Variables, no need for using variable scope
-        self._cell = tf.nn.rnn_cell.MultiRNNCell(cells=self.cell_list)
+        self._cell = tf.contrib.rnn.MultiRNNCell(cells=self.cell_list)
         # All done
         self.is_compiled = True
 

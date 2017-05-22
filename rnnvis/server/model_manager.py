@@ -22,7 +22,6 @@ from rnnvis.datasets.text_processor import tokenize
 from rnnvis.db.db_helper import query_evals
 
 _config_dir = 'config/model'
-_data_dir = 'cached_data'
 _model_dir = 'models'
 
 

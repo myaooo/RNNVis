@@ -314,9 +314,9 @@ if __name__ == "__main__":
     # processor = PlainTextProcessor('../../cached_data/tinyshakespeare.txt')
     # processor.tag_rare_word(2, 10000)
     # processor.save()
-    processor = SSTProcessor(get_path('./cached_data/stanfordSentimentTreebank', 'datasetSentences.txt'),
-                             get_path('./cached_data/stanfordSentimentTreebank', 'dictionary.txt'),
-                             get_path('./cached_data/stanfordSentimentTreebank', 'sentiment_lables.txt'))
+    processor = SSTProcessor(get_path('./data/stanfordSentimentTreebank', 'datasetSentences.txt'),
+                             get_path('./data/stanfordSentimentTreebank', 'dictionary.txt'),
+                             get_path('./data/stanfordSentimentTreebank', 'sentiment_lables.txt'))
     # tokens = processor.tokens
     # processor.ids = None
     # word_to_id = processor.word_to_id

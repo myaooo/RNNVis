@@ -145,7 +145,7 @@ def seed_db(force=False):
     with open(config_dir, 'r') as f:
         config = yaml.safe_load(f)['datasets']
     for seed in config:
-        data_dir = get_path('cached_data', seed['dir'])
+        data_dir = get_path('data', seed['dir'])
         print('seeding {:s} data'.format(seed['name']))
         if seed['type'] == 'ptb':
             store_ptb(data_dir, seed['name'], force)

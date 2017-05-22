@@ -180,7 +180,7 @@ def store_yelp(data_path, name, n_words=10000, upsert=False):
 
 
 def get_dataset_path(name):
-    return os.path.join('cached_data', 'sentiment_prediction', name)
+    return os.path.join('data', 'sentiment_prediction', name)
 
 
 def seed_db(force=False):
@@ -193,7 +193,7 @@ def seed_db(force=False):
         config = yaml.safe_load(f)['datasets']
     for seed in config:
         print('seeding {:s} data'.format(seed['name']))
-        data_dir = get_path('cached_data', seed['dir'])
+        data_dir = get_path('data', seed['dir'])
         seed['scheme'].update({'upsert': force})
         if seed['type'] == 'sst':
             store_sst(data_dir, seed['name'], **seed['scheme'])

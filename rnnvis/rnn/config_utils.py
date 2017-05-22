@@ -54,10 +54,10 @@ def get_dtype(dtype):
 
 
 __str2cell = {
-    'BasicLSTM': tf.nn.rnn_cell.BasicLSTMCell,
-    'BasicRNN': tf.nn.rnn_cell.BasicRNNCell,
-    'LSTM': tf.nn.rnn_cell.LSTMCell,
-    'GRU': tf.nn.rnn_cell.GRUCell
+    'BasicLSTM': rnn.BasicLSTMCell,
+    'BasicRNN': rnn.BasicRNNCell,
+    'LSTM': rnn.LSTMCell,
+    'GRU': rnn.GRUCell
 }
 
 

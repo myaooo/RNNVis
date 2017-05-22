@@ -23,4 +23,4 @@ def download_sst(path):
 
 
 if __name__ == '__main__':
-    download_sst(get_path('cached_data/'))
+    download_sst(get_path('data/'))

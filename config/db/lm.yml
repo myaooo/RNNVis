@@ -1,6 +1,6 @@
 datasets:
   # Datasets and path configurations. Used for initializing the db
-  # The default base dir for all datasets is under cached_data/
+  # The default base dir for all datasets is under data/
   - name: ptb
     type: ptb
     dir: simple-examples/data

@@ -36,9 +36,9 @@
 </style>
 <script>
   // import ModelView from 'components/ModelView';
-  import ProjectView from 'components/ProjectView';
-  import TestView from 'components/TestView';
-  import ArcView from 'components/ArcView';
+  // import ProjectView from 'components/ProjectView';
+  // import TestView from 'components/TestView';
+  // import ArcView from 'components/ArcView';
   import ClusterView from 'components/ClusterView';
   import { bus } from '../event-bus';
 
@@ -76,9 +76,9 @@
       }
     },
     components: {
-      ProjectView,
-      TestView,
-      ArcView,
+      // ProjectView,
+      // TestView,
+      // ArcView,
       ClusterView,
     },
     mounted() {

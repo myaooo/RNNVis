@@ -18,7 +18,7 @@
   import * as d3 from 'd3';
   import { Chart } from '../layout/chart';
   import { bus, SELECT_UNIT, SELECT_WORD, SELECT_LAYER } from '../event-bus';
-  import dataServices from '../services/dataService.js'
+  import dataServices from '../service/dataService.js'
 
   const layoutParams = {
     lineLength: 30,
