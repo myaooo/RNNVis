@@ -6,7 +6,7 @@ import hashlib
 import os
 import yaml
 from functools import lru_cache
-from _thread import start_new_thread
+from multiprocessing import Process
 
 
 from rnnvis.rnn.rnn import RNN
@@ -69,7 +69,7 @@ class ModelManager(object):
             config_file = get_path(_config_dir, self._available_models[name]['config'])
             model, train_config = build_model(config_file)
             model.add_generator()
-            model.add_evaluator(1, 1, 100, True, log_gates=True, log_pos=True)
+            model.add_evaluator(1, 1, 100, True, log_gates=False, log_pos=True)
             if not train:
                 # If not training, the model should already be trained
                 assert_path_exists(get_path(_model_dir, model.name))
@@ -185,7 +185,10 @@ class ModelManager(object):
             except:
                 print("ERROR: Fail to evaluate given sequence!")
                 raise
-        start_new_thread(record_thread, (self,))
+
+        p = Process(target=record_thread, args=(self,))
+        p.start()
+        p.join()
         return self.record_flag[record_name]
 
     def model_sentences_to_ids(self, name, sentences):
