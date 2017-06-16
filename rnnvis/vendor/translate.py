@@ -45,6 +45,7 @@ import tensorflow as tf
 from rnnvis.vendor import data_utils
 from rnnvis.vendor import seq2seq_model
 
+from rnnvis.procedures import init_tf_environ
 from rnnvis.utils.io_utils import before_save
 
 tf.app.flags.DEFINE_float("learning_rate", 0.5, "Learning rate.")
@@ -72,8 +73,8 @@ tf.app.flags.DEFINE_boolean("decode", False,
                             "Set to True for interactive decoding.")
 tf.app.flags.DEFINE_boolean("self_test", False,
                             "Run a self-test if this is set to True.")
-tf.app.flags.DEFINE_boolean("use_fp16", False,
-                            "Train using fp16 instead of fp32.")
+# tf.app.flags.DEFINE_boolean("use_fp16", False,
+#                             "Train using fp16 instead of fp32.")
 tf.app.flags.DEFINE_boolean("use_lstm", True, "use LSTM.")
 
 FLAGS = tf.app.flags.FLAGS
@@ -322,6 +323,7 @@ def main(_):
     elif FLAGS.decode:
         decode()
     else:
+        init_tf_environ(1)
         train()
 
 
