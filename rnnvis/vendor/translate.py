@@ -42,20 +42,22 @@ import numpy as np
 from six.moves import xrange  # pylint: disable=redefined-builtin
 import tensorflow as tf
 
-import data_utils
-import seq2seq_model
+from rnnvis.vendor import data_utils
+from rnnvis.vendor import seq2seq_model
+
+from rnnvis.utils.io_utils import before_save
 
 tf.app.flags.DEFINE_float("learning_rate", 0.5, "Learning rate.")
-tf.app.flags.DEFINE_float("learning_rate_decay_factor", 0.99,
+tf.app.flags.DEFINE_float("learning_rate_decay_factor", 0.98,
                           "Learning rate decays by this much.")
 tf.app.flags.DEFINE_float("max_gradient_norm", 5.0,
                           "Clip gradients to this norm.")
 tf.app.flags.DEFINE_integer("batch_size", 64,
                             "Batch size to use during training.")
-tf.app.flags.DEFINE_integer("size", 1024, "Size of each model layer.")
-tf.app.flags.DEFINE_integer("num_layers", 3, "Number of layers in the model.")
-tf.app.flags.DEFINE_integer("from_vocab_size", 40000, "English vocabulary size.")
-tf.app.flags.DEFINE_integer("to_vocab_size", 40000, "French vocabulary size.")
+tf.app.flags.DEFINE_integer("size", 512, "Size of each model layer.")
+tf.app.flags.DEFINE_integer("num_layers", 2, "Number of layers in the model.")
+tf.app.flags.DEFINE_integer("from_vocab_size", 10000, "English vocabulary size.")
+tf.app.flags.DEFINE_integer("to_vocab_size", 10000, "French vocabulary size.")
 tf.app.flags.DEFINE_string("data_dir", "/tmp", "Data directory")
 tf.app.flags.DEFINE_string("train_dir", "/tmp", "Training directory.")
 tf.app.flags.DEFINE_string("from_train_data", None, "Training data.")
@@ -64,7 +66,7 @@ tf.app.flags.DEFINE_string("from_dev_data", None, "Training data.")
 tf.app.flags.DEFINE_string("to_dev_data", None, "Training data.")
 tf.app.flags.DEFINE_integer("max_train_data_size", 0,
                             "Limit on the size of training data (0: no limit).")
-tf.app.flags.DEFINE_integer("steps_per_checkpoint", 200,
+tf.app.flags.DEFINE_integer("steps_per_checkpoint", 400,
                             "How many training steps to do per checkpoint.")
 tf.app.flags.DEFINE_boolean("decode", False,
                             "Set to True for interactive decoding.")
@@ -72,6 +74,7 @@ tf.app.flags.DEFINE_boolean("self_test", False,
                             "Run a self-test if this is set to True.")
 tf.app.flags.DEFINE_boolean("use_fp16", False,
                             "Train using fp16 instead of fp32.")
+tf.app.flags.DEFINE_boolean("use_lstm", True, "use LSTM.")
 
 FLAGS = tf.app.flags.FLAGS
 
@@ -79,6 +82,8 @@ FLAGS = tf.app.flags.FLAGS
 # See seq2seq_model.Seq2SeqModel for details of how they work.
 _buckets = [(5, 10), (10, 15), (20, 25), (40, 50)]
 
+def config_proto():
+    return tf.ConfigProto(device_count={"GPU": 1}, allow_soft_placement=True)
 
 def read_data(source_path, target_path, max_size=None):
     """Read data from source and target files and put into buckets.
@@ -131,6 +136,7 @@ def create_model(session, forward_only):
         FLAGS.batch_size,
         FLAGS.learning_rate,
         FLAGS.learning_rate_decay_factor,
+        use_lstm=FLAGS.use_lstm,
         forward_only=forward_only,
         dtype=dtype)
     ckpt = tf.train.get_checkpoint_state(FLAGS.train_dir)
@@ -171,7 +177,7 @@ def train():
         from_train, _, from_dev, _, _, _ = data_utils.prepare_wmt_data(
             FLAGS.data_dir, FLAGS.from_vocab_size, FLAGS.to_vocab_size)
 
-    with tf.Session() as sess:
+    with tf.Session(config=config_proto()) as sess:
         # Create model.
         print("Creating %d layers of %d units." % (FLAGS.num_layers, FLAGS.size))
         model = create_model(sess, False)
@@ -224,6 +230,7 @@ def train():
                 previous_losses.append(loss)
                 # Save checkpoint and zero timer and loss.
                 checkpoint_path = os.path.join(FLAGS.train_dir, "translate.ckpt")
+                before_save(checkpoint_path)
                 model.saver.save(sess, checkpoint_path, global_step=model.global_step)
                 step_time, loss = 0.0, 0.0
                 # Run evals on development set and print their perplexity.
@@ -242,7 +249,7 @@ def train():
 
 
 def decode():
-    with tf.Session() as sess:
+    with tf.Session(config=config_proto()) as sess:
         # Create model and load parameters.
         model = create_model(sess, True)
         model.batch_size = 1  # We decode one sentence at a time.
@@ -251,7 +258,7 @@ def decode():
         en_vocab_path = os.path.join(FLAGS.data_dir,
                                      "vocab%d.from" % FLAGS.from_vocab_size)
         fr_vocab_path = os.path.join(FLAGS.data_dir,
-                                     "vocab%d.to" % FLAGS.to_vocab_size)
+                                     "vocab%d.from" % FLAGS.to_vocab_size)
         en_vocab, _ = data_utils.initialize_vocabulary(en_vocab_path)
         _, rev_fr_vocab = data_utils.initialize_vocabulary(fr_vocab_path)
 
@@ -291,11 +298,11 @@ def decode():
 
 def self_test():
     """Test the translation model."""
-    with tf.Session() as sess:
+    with tf.Session(config=config_proto()) as sess:
         print("Self-test for neural translation model.")
         # Create model with vocabularies of 10, 2 small buckets, 2 layers of 32.
         model = seq2seq_model.Seq2SeqModel(10, 10, [(3, 3), (6, 6)], 32, 2,
-                                           5.0, 32, 0.3, 0.99, num_samples=8)
+                                           5.0, 32, 0.3, 0.99, num_samples=8, use_lstm=FLAGS.use_lstm)
         sess.run(tf.global_variables_initializer())
 
         # Fake data set for both the (3, 3) and (6, 6) bucket.
