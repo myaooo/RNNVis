@@ -25,7 +25,7 @@ import numpy as np
 from six.moves import xrange  # pylint: disable=redefined-builtin
 import tensorflow as tf
 
-from . import data_utils
+from rnnvis.vendor import data_utils
 
 
 class Seq2SeqModel(object):
@@ -315,3 +315,6 @@ class Seq2SeqModel(object):
                     batch_weight[batch_idx] = 0.0
             batch_weights.append(batch_weight)
         return batch_encoder_inputs, batch_decoder_inputs, batch_weights
+
+    def evaluate_and_record(self, sess, inputs, targets, recorder, verbose=True, refresh_state=False):
+        pass

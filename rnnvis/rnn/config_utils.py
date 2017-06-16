@@ -7,6 +7,7 @@ import os
 import yaml
 import tensorflow as tf
 from . import rnn
+from . import constant
 from . import trainer
 from . import losses
 
@@ -54,10 +55,10 @@ def get_dtype(dtype):
 
 
 __str2cell = {
-    'BasicLSTM': rnn.BasicLSTMCell,
-    'BasicRNN': rnn.BasicRNNCell,
-    'LSTM': rnn.LSTMCell,
-    'GRU': rnn.GRUCell
+    'BasicLSTM': constant.BasicLSTMCell,
+    'BasicRNN': constant.BasicRNNCell,
+    'LSTM': constant.LSTMCell,
+    'GRU': constant.GRUCell
 }
 
 
@@ -71,10 +72,10 @@ def get_rnn_cell(cell):
         if cell in __str2cell:
             return __str2cell[cell]
     try:
-        if issubclass(cell, tf.nn.rnn_cell.RNNCell):
+        if issubclass(cell, tf.contrib.rnn.RNNCell):
             return cell
     finally:
-        return tf.nn.rnn_cell.BasicLSTMCell
+        return constant.BasicLSTMCell
 
 
 def get_loss_func(loss_func):

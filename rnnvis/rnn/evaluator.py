@@ -8,6 +8,7 @@ from functools import reduce
 import tensorflow as tf
 import numpy as np
 
+from rnnvis.rnn import constant
 from rnnvis.rnn import rnn
 from rnnvis.datasets.data_utils import Feeder
 from rnnvis.rnn.eval_recorder import Recorder
@@ -40,7 +41,7 @@ class Evaluator(object):
         if log_state:
             for s in self.model.final_state:
                 # s is tuple
-                if isinstance(s, tf.nn.rnn_cell.LSTMStateTuple):
+                if isinstance(s, constant.LSTMStateTuple):
                     summary_ops['state_c'].append(s.c)
                     summary_ops['state_h'].append(s.h)
                 else:
@@ -59,24 +60,25 @@ class Evaluator(object):
             inputs_gradients = tf.gradients(self.model.loss, self.model.inputs)
             summary_ops['inputs_gradients'] = inputs_gradients
         if log_gates:
-            gates = self.model.get_gate_tensor()
-            if gates is None:
-                print("WARN: No gates tensor available, Are you using RNN?")
-            else:
-                # inputs = self.model.inputs
-                gate_ops = defaultdict(list)
-                for gate in gates:
-                    if isinstance(gate, tuple):  # LSTM gates are a tuple of (i, f, o)
-                        gate_ops['gate_i'].append(tf.sigmoid(gate[0]))
-                        gate_ops['gate_f'].append(tf.sigmoid(gate[1]))
-                        gate_ops['gate_o'].append(tf.sigmoid(gate[2]))
-                    else: # GRU only got one gate z
-                        gate_ops['gate'].append(gate)
-                for name, gate in gate_ops.items():
-                    # states is a list of tensor of shape [batch_size, n_units],
-                    # we want the stacked shape to be [batch_size, n_layer, n_units]
-                    summary_ops[name] = tf.stack(gate, axis=1)
-                # summary_ops.update(gate_ops)
+            raise NotImplementedError("Gates not supported now due to api change of TensorFlow")
+            # gates = self.model.get_gate_tensor()
+            # if gates is None:
+            #     print("WARN: No gates tensor available, Are you using RNN?")
+            # else:
+            #     # inputs = self.model.inputs
+            #     gate_ops = defaultdict(list)
+            #     for gate in gates:
+            #         if isinstance(gate, tuple):  # LSTM gates are a tuple of (i, f, o)
+            #             gate_ops['gate_i'].append(tf.sigmoid(gate[0]))
+            #             gate_ops['gate_f'].append(tf.sigmoid(gate[1]))
+            #             gate_ops['gate_o'].append(tf.sigmoid(gate[2]))
+            #         else: # GRU only got one gate z
+            #             gate_ops['gate'].append(gate)
+            #     for name, gate in gate_ops.items():
+            #         # states is a list of tensor of shape [batch_size, n_units],
+            #         # we want the stacked shape to be [batch_size, n_layer, n_units]
+            #         summary_ops[name] = tf.stack(gate, axis=1)
+            #     # summary_ops.update(gate_ops)
         self.summary_ops = summary_ops
         self.pos_tagger = None
         if log_pos:
@@ -187,7 +189,7 @@ class Evaluator(object):
             embedding = sess.run(inputs, {self.model.input_holders: np.array([embedding]).reshape(1, 1)})
         with sess.as_default():
             for state in self.model.final_state:
-                if isinstance(state, tf.nn.rnn_cell.LSTMStateTuple):
+                if isinstance(state, constant.LSTMStateTuple):
                     salience['state_c'].append(cal_jacobian(state.c, inputs, embedding, feed_dict, y_or_x))
                     salience['state_h'].append(cal_jacobian(state.h, inputs, embedding, feed_dict, y_or_x))
                 else:

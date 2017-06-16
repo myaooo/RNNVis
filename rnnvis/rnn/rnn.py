@@ -11,6 +11,7 @@ import numpy as np
 
 from rnnvis.datasets.data_utils import Feeder
 from rnnvis.utils.io_utils import get_path, before_save
+from rnnvis.rnn.constant import DropOutWrapper, MultiRNNCell
 from rnnvis.rnn.command_utils import data_type, config_proto
 from rnnvis.rnn.evaluator import Evaluator
 from rnnvis.rnn.eval_recorder import StateRecorder
@@ -19,17 +20,7 @@ from rnnvis.rnn.generator import Generator
 from rnnvis.rnn.losses import softmax
 from rnnvis.rnn.varlen_support import sequence_length, last_relevant
 
-BasicRNNCell = tf.contrib.rnn.BasicRNNCell
-BasicLSTMCell = tf.contrib.rnn.BasicLSTMCell
-LSTMCell = tf.contrib.rnn.LSTMCell
-GRUCell = tf.contrib.rnn.GRUCell
-MultiRNNCell = tf.contrib.rnn.MultiRNNCell
-DropOutWrapper = tf.contrib.rnn.DropoutWrapper
-# EmbeddingWrapper = tf.contrib.rnn.EmbeddingWrapper
-InputProjectionWrapper = tf.contrib.rnn.InputProjectionWrapper
-OutputProjectionWrapper = tf.contrib.rnn.OutputProjectionWrapper
 
-tf.GraphKeys.INPUTS = 'my_inputs'
 
 _input_and_global = [tf.GraphKeys.GLOBAL_VARIABLES, tf.GraphKeys.INPUTS]
 
@@ -80,17 +71,17 @@ class RNNModel(object):
                     self.inputs = tf.nn.dropout(self.inputs, keep_prob)
                 # Call TF api to create recurrent neural network
                 self.input_length = sequence_length(self.inputs)
-                if dynamic:
-                    self.outputs, self.final_state = \
-                        tf.nn.dynamic_rnn(self.cell, self.inputs, sequence_length=self.input_length,
-                                          initial_state=self.state, dtype=data_type(), time_major=False)
-                else:
-                    inputs = [self.inputs[:, i] for i in range(num_steps)]
-                    # Since we do not want it to be dynamic, sequence length is not fed,
-                    # so that evaluator can fetch gate tensor values.
-                    outputs, self.final_state = \
-                        tf.nn.rnn(self.cell, inputs, initial_state=self.state, dtype=data_type())
-                    self.outputs = tf.stack(outputs, axis=1)
+                # if dynamic:
+                self.outputs, self.final_state = \
+                    tf.nn.dynamic_rnn(self.cell, self.inputs, sequence_length=self.input_length,
+                                      initial_state=self.state, dtype=data_type(), time_major=False)
+                # else:
+                #     inputs = [self.inputs[:, i] for i in range(num_steps)]
+                #     # Since we do not want it to be dynamic, sequence length is not fed,
+                #     # so that evaluator can fetch gate tensor values.
+                #     outputs, self.final_state = \
+                #         tf.nn.static_rnn(self.cell, inputs, initial_state=self.state, dtype=data_type())
+                #     self.outputs = tf.stack(outputs, axis=1)
                 if rnn.use_last_output:
                     self.outputs = last_relevant(self.outputs, self.input_length)
                     target_shape = [batch_size] + list(rnn.target_shape)[1:]
