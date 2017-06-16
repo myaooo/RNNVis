@@ -1,13 +1,17 @@
 import tensorflow as tf
 
+from rnnvis.vendor.seq2seq_model import Seq2SeqModel
+
 from rnnvis.rnn.rnn import RNNModel, RNN, DropOutWrapper, MultiRNNCell, _input_and_global
 from rnnvis.rnn.varlen_support import sequence_length, last_relevant
 from rnnvis.rnn.command_utils import data_type
+from rnnvis.rnn.eval_recorder import Recorder
 
 
-class Seq2Seq():
+class Seq2SeqEvaluator():
 
-    def __init__(self, rnn, batch_size, num_steps, keep_prob=None, name=None, dynamic=True):
+    def __init__(self, model, batch_size=1, num_steps=1, record_every=1, log_state=True, log_input=False,
+                 log_output=True, log_gradients=False, log_pos=False, dynamic=True):
         """
         Create an unrolled rnn model with TF tensors
         :param rnn:
@@ -16,8 +20,8 @@ class Seq2Seq():
         :param keep_prob:
         :param name:
         """
-        assert isinstance(rnn, RNN)
-        self._rnn = rnn
+        assert isinstance(model, Seq2SeqModel)
+        self.model = model
         self._cell = rnn.cell
         self.batch_size = batch_size
         self.num_steps = num_steps

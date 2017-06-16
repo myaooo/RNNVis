@@ -1,6 +1,9 @@
 <template>
   <div>
+    <el-tooltip placement="top" :open-delay="500">
+    <div slot="content">{{ headerText }}</div>
     <h4 class="normal">{{ header }}</h4>
+    </el-tooltip>
     <hr>
     <svg :id='svgId' :width='width' :height='height'> </svg>
     <svg :id='svgId+"2"' :width='width' :height='30'> </svg>
@@ -40,6 +43,7 @@
         wordsStatistics: null,
         unitsStatistics: null,
         top_k: 4,
+        width: 300,
       };
     },
     props: {
@@ -64,6 +68,12 @@
       header: function() {
         const typeStr = this.type === 'state' ? 'Hidden State' : 'Word';
         return 'Info: ' + (this.shared.compare ? ('[' + this.selectedModel + '] ' + typeStr) : typeStr);
+      },
+      headerText: function() {
+        switch (this.type) {
+          case 'state': return "Highly sensitive words of selected hidden units";
+          default: return "The distribution of model's updates on hidden states";
+        }
       },
       svgId: function () {
         return this.id + '-svg';

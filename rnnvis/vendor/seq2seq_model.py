@@ -27,6 +27,33 @@ import tensorflow as tf
 
 from rnnvis.vendor import data_utils
 
+from rnnvis.rnn.command_utils import data_type
+
+
+def create_model(session, options, buckets, forward_only):
+    """Create translation model and initialize or load parameters in session."""
+    dtype = data_type()
+    model = Seq2SeqModel(
+        options.from_vocab_size,
+        options.to_vocab_size,
+        buckets,
+        options.size,
+        options.num_layers,
+        options.max_gradient_norm,
+        options.batch_size,
+        options.learning_rate,
+        options.learning_rate_decay_factor,
+        use_lstm=options.use_lstm,
+        forward_only=forward_only,
+        dtype=dtype)
+    ckpt = tf.train.get_checkpoint_state(options.train_dir)
+    if ckpt and tf.train.checkpoint_exists(ckpt.model_checkpoint_path):
+        print("Reading model parameters from %s" % ckpt.model_checkpoint_path)
+        model.saver.restore(session, ckpt.model_checkpoint_path)
+    else:
+        print("Created model with fresh parameters.")
+        session.run(tf.global_variables_initializer())
+    return model
 
 class Seq2SeqModel(object):
     """Sequence-to-sequence model with attention and for multiple buckets.

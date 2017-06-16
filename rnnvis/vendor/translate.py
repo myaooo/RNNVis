@@ -43,7 +43,7 @@ from six.moves import xrange  # pylint: disable=redefined-builtin
 import tensorflow as tf
 
 from rnnvis.vendor import data_utils
-from rnnvis.vendor import seq2seq_model
+from rnnvis.vendor.seq2seq_model import Seq2SeqModel, create_model
 
 from rnnvis.procedures import init_tf_environ
 from rnnvis.utils.io_utils import before_save
@@ -124,32 +124,6 @@ def read_data(source_path, target_path, max_size=None):
     return data_set
 
 
-def create_model(session, forward_only):
-    """Create translation model and initialize or load parameters in session."""
-    dtype = tf.float16 if FLAGS.use_fp16 else tf.float32
-    model = seq2seq_model.Seq2SeqModel(
-        FLAGS.from_vocab_size,
-        FLAGS.to_vocab_size,
-        _buckets,
-        FLAGS.size,
-        FLAGS.num_layers,
-        FLAGS.max_gradient_norm,
-        FLAGS.batch_size,
-        FLAGS.learning_rate,
-        FLAGS.learning_rate_decay_factor,
-        use_lstm=FLAGS.use_lstm,
-        forward_only=forward_only,
-        dtype=dtype)
-    ckpt = tf.train.get_checkpoint_state(FLAGS.train_dir)
-    if ckpt and tf.train.checkpoint_exists(ckpt.model_checkpoint_path):
-        print("Reading model parameters from %s" % ckpt.model_checkpoint_path)
-        model.saver.restore(session, ckpt.model_checkpoint_path)
-    else:
-        print("Created model with fresh parameters.")
-        session.run(tf.global_variables_initializer())
-    return model
-
-
 def train():
     """Train a en->fr translation model using WMT data."""
     from_train = None
@@ -181,7 +155,7 @@ def train():
     with tf.Session(config=config_proto()) as sess:
         # Create model.
         print("Creating %d layers of %d units." % (FLAGS.num_layers, FLAGS.size))
-        model = create_model(sess, False)
+        model = create_model(sess, FLAGS, _buckets, False)
 
         # Read data into buckets and compute their sizes.
         print("Reading development and training data (limit: %d)."
@@ -252,7 +226,7 @@ def train():
 def decode():
     with tf.Session(config=config_proto()) as sess:
         # Create model and load parameters.
-        model = create_model(sess, True)
+        model = create_model(sess, FLAGS, _buckets, True)
         model.batch_size = 1  # We decode one sentence at a time.
 
         # Load vocabularies.
@@ -302,8 +276,8 @@ def self_test():
     with tf.Session(config=config_proto()) as sess:
         print("Self-test for neural translation model.")
         # Create model with vocabularies of 10, 2 small buckets, 2 layers of 32.
-        model = seq2seq_model.Seq2SeqModel(10, 10, [(3, 3), (6, 6)], 32, 2,
-                                           5.0, 32, 0.3, 0.99, num_samples=8, use_lstm=FLAGS.use_lstm)
+        model = Seq2SeqModel(10, 10, [(3, 3), (6, 6)], 32, 2,
+                             5.0, 32, 0.3, 0.99, num_samples=8, use_lstm=FLAGS.use_lstm)
         sess.run(tf.global_variables_initializer())
 
         # Fake data set for both the (3, 3) and (6, 6) bucket.
