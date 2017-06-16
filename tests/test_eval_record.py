@@ -25,7 +25,7 @@ if __name__ == '__main__':
 
     model, train_config = build_model(config_path(), True)
 
-    model.add_evaluator(10, 1, train_config.num_steps, True, False, False, False, log_gates=True, log_pos=True)
+    model.add_evaluator(10, 1, train_config.num_steps, True, False, False, False, log_gates=False, log_pos=True)
     model.restore()
 
     # scripts that eval and record states

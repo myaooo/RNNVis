@@ -1,5 +1,5 @@
 model:
-  name: LSTM-SMALL
+  name: LSTM-TINY
   initializer_name: random_uniform
   initializer_args:
     minval: -0.1
@@ -11,11 +11,10 @@ model:
   cell_type: BasicLSTM
   cells:
     - num_units: 50
-    - num_units: 50
   loss_func: sequence_loss
-  dataset: tinyshakespeare
+  dataset: ptb
 train:
-  epoch_num: 10
+  epoch_num: 5
   num_steps: 10
   batch_size: 20
   keep_prob: 1.0

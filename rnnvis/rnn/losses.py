@@ -37,7 +37,7 @@ def sequence_loss(outputs, targets):
         flatten_shape = tf.shape(targets)
     else:
         raise ValueError("outputs must be 2D or 3D tensor!")
-    _loss = tf.nn.seq2seq.sequence_loss([outputs], [targets], [tf.ones(flatten_shape, dtype=outputs.dtype)])
+    _loss = tf.contrib.legacy_seq2seq.sequence_loss([outputs], [targets], [tf.ones(flatten_shape, dtype=outputs.dtype)])
     return _loss
 
 
