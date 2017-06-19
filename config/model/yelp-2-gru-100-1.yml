@@ -1,5 +1,5 @@
 model:
-  name: YELP-2-GRU-50-1
+  name: YELP-2-GRU-100-1
   initializer_name: random_uniform
   initializer_args:
     minval: -0.05
@@ -9,17 +9,17 @@ model:
   vocab_size: 10000
   target_size: 2
   use_last_output: True
-  embedding_size: 50
+  embedding_size: 400
   cell_type: GRU
   cells:
-    - num_units: 50
+    - num_units: 100
   loss_func: sentence_loss
   dataset: yelp-2
 train:
-  epoch_num: 4
+  epoch_num: 5
   num_steps: 100
   batch_size: 32
-  keep_prob: 1.0
+  keep_prob: 0.8
   gradient_clip: global_norm
   gradient_clip_args:
     clip_norm: 1.0

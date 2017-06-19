@@ -21,7 +21,7 @@ if __name__ == '__main__':
 
     model, train_config = build_model(config_path(), True)
 
-    model.add_evaluator(10, 1, 1, True, False, False, False, log_gates=True)
+    model.add_evaluator(10, 1, 1, True, False, False, False, log_gates=False)
     model.restore()
 
     print('Preparing data')
