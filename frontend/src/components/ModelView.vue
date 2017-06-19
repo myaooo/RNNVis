@@ -7,7 +7,10 @@
       <hr v-if="compare">
       <model-config v-if="compare" :compare="true" :toggle="toggleCompare"> </model-config>
       <hr>
+      <el-tooltip placement="top" :open-delay="500">
+      <div slot="content">click to add another model for comparison</div>
       <el-button @click="toggleCompare" size="small">Compare Model</el-button>
+      </el-tooltip>
     </div>
   </div>
 </template>
@@ -75,50 +78,6 @@
         }
       }
     },
-    watch: {
-      // selectedModel: function(selectedModel){
-      //   bus.loadModelConfig(selectedModel) // make sure the bus has got the config data
-      //     .then(() => {
-      //       const states = bus.availableStates(selectedModel);
-      //       if (states){
-      //         this.states = states;
-      //         this.selectedState = null; // reset
-      //         const config = bus.state.modelConfigs[selectedModel];
-      //         this.config = {
-      //           Cell: config.model.cell_type,
-      //           LayerNum: config.model.cells.length,
-      //           LayerSize: config.model.cells[0].num_units,
-      //         };
-      //       // this.configTree = json2tree(config).children;
-      //         bus.$emit(SELECT_MODEL, this.selectedModel, this.selectedModel2);
-      //       }
-      //     });
-      // },
-      // selectedModels: function(selectedModels){
-      //   if (!selectedModel) return;
-      //   bus.loadModelConfig(selectedModel) // make sure the bus has got the config data
-      //     .then(() => {
-      //       const states = bus.availableStates(selectedModel);
-      //       if (states){
-      //         this.states2 = states;
-      //         this.selectedState2 = null; // reset
-      //       // const config = bus.state.modelConfigs[selectedModel];
-      //       // this.configTree = json2tree(config).children;
-      //         bus.$emit(SELECT_MODEL, this.selectedModel, this.selectedModel2);
-      //       }
-      //     });
-      // },
-      // selectedState: function (newState) {
-      //   if (newState === 'state' || newState === 'state_c' || newState === 'state_h') {
-      //     bus.$emit(SELECT_STATE, this.selectedState, this.selectedState2);
-      //   }
-      // },
-      // selectedState2: function (newState) {
-      //   if (newState === 'state' || newState === 'state_c' || newState === 'state_h') {
-      //     bus.$emit(SELECT_STATE, this.selectedState, this.selectedState2);
-      //   }
-      // },
-    }
   }
 
   function json2tree(json){

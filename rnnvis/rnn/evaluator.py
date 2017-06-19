@@ -91,7 +91,7 @@ class Evaluator(object):
                 if len(tokens) != len(ids):
                     raise ValueError('Evaluator: tokens length {:d} and ids length {:d} mismatch'
                                      .format(len(tokens), len(ids)))
-                tokens_tags = nltk.pos_tag(tokens, tagset='universal', lang='eng')
+                tokens_tags = nltk.pos_tag(tokens, tagset='universal')
                 _, tags = zip(*tokens_tags)
                 return tags
             self.pos_tagger = tagger

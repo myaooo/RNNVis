@@ -3,6 +3,7 @@
 import Vue from 'vue';
 import ElementUI from 'element-ui';
 import 'theme/index.css';
+import '../node_modules/intro.js/introjs.css';
 import App from './App';
 
 Vue.use(ElementUI);

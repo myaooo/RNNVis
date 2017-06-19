@@ -34,6 +34,8 @@
 
       <!--Sentence Editor-->
       <el-form-item label="Sentences" v-if="selectedModel">
+        <el-tooltip placement="top" :open-delay="500">
+        <div slot="content">click to input a sentence<br/>for the model to evaluate on</div>
         <el-input
           class="input-new-tag"
           v-if="inputVisible"
@@ -45,6 +47,7 @@
         >
         </el-input>
         <el-button v-else class="button-new-tag" size="small" @click="showInput">+ New Sentence</el-button>
+        </el-tooltip>
       </el-form-item>
       <div class="sentence-container" v-if="sentences.length">
         <el-tag v-for="sentence in sentences" :closable="true" @close="closeSentence(sentence)" :type="colorType">
@@ -55,16 +58,22 @@
 
       <!--Controls for the layout-->
       <el-form-item label="Cluster Num" v-if="selectedState">
+        <el-tooltip placement="top" :open-delay="500">
+        <div slot="content">slide to adjust cluster number</div>
         <el-slider v-model="layout.clusterNum" :min="2" :max="20" style="width: 80%" @change="layoutChange"></el-slider>
+        </el-tooltip>
       </el-form-item>
+
       <el-form-item label="Stroke Width" v-if="selectedState" style="margin-top: -7px; padding-bottom: -10px">
-        <el-slider v-model="layout.strokeControlStrength" :min="0" :max="maxWidth" :step="0.1" style="width: 80%" @change="layoutChange"></el-slider>
+        <el-slider v-model="layout.strokeControlStrength" :min="0" :max="maxWidth" :step="1" style="width: 80%" @change="layoutChange"></el-slider>
       </el-form-item>
+
       <el-form-item label="Link Filter" v-if="selectedState" style="margin-top: -7px">
         <el-slider v-model="layout.linkFilterThreshold" range :min="0" :max="1" :step="0.0001" @change="layoutChange" style="width: 80%"></el-slider>
       </el-form-item>
+
       <el-form-item label="State Clip" v-if="selectedState" style="margin-top: -7px">
-        <el-slider v-model="layout.stateClip" :min="0" :max="10" :step="1" @change="layoutChange" style="width: 80%"></el-slider>
+        <el-slider v-model="layout.stateClip" :min="1" :max="5" :step="1" @change="layoutChange" style="width: 80%"></el-slider>
       </el-form-item>
       <!--Color Picker for temporal use-->
       <!--<el-form-item label="colorPicker" v-if="selectedState">
@@ -132,8 +141,8 @@
         posSwitch: false,
         config: null,
         layout: {
-           clusterNum: 2,
-           strokeControlStrength: 100,
+           clusterNum: 5,
+           strokeControlStrength: 50,
           //  strokeControlStrength: 8,
            linkFilterThreshold: [0, 1],
           //  linkFilterThreshold: [0.2, 1],
@@ -143,7 +152,7 @@
         sentences: [],
         inputVisible: false,
         inputValue: '',
-        mode: false,
+        mode: true,
         color: ['#09adff', '#ff5b09'],
       };
     },
@@ -170,7 +179,7 @@
       },
       maxWidth: function() {
         // if (this.selectedModel.substring(0, 4) === 'YELP' || this.selectedModel.substring(0, 4) === 'IMDB') return 100;
-        return 20;
+        return 100;
       }
     },
     watch: {

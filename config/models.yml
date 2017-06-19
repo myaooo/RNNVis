@@ -5,7 +5,7 @@
 'PTB-GRU':
   'config': gru.yml
 'PTB-LSTM-SMALL':
-  'config': lstm-small-1.yml
+  'config': lstm-small.yml
 'PTB-LSTM-MEDIUM':
   'config': lstm.yml
 'PTB-LSTM-LARGE':
