@@ -17,34 +17,6 @@ from rnnvis.datasets import imdb
 from rnnvis.db.db_helper import insert_one_if_not_exists, replace_one_if_exists, \
     store_dataset_by_default, dataset_inserted
 
-# db_name = 'sentiment_prediction'
-# # db definition
-# collections = {
-#     'word_to_id': {'name': (str, 'unique', 'name of the dataset'),
-#                    'data': (str, '', 'a json str, encoding word to id mapping')},
-#     'id_to_word': {'name': (str, 'unique', 'name of the dataset'),
-#                    'data': (list, '', 'a list of str')},
-#     'sentences': {'name': (str, '', 'name of the dataset'),
-#                   'data': (list, '', 'a list of lists, each list as a sentence of word_ids, data of sst'),
-#                   'set': (str, '', 'should be train, valid or test'),
-#                   'ids': (list, '', 'the indices in SST')},
-#     'eval': {'name': (str, '', 'name of the dataset'),
-#              'tag': (str, 'unique', 'a unique tag of hash of the evaluating text sequence'),
-#              'data': (list, '', 'a list of word_ids (int), eval text'),
-#              'model': (str, '', 'the identifier of the model that the sequence evaluated on'),
-#              'records': (list, '', 'a list of ObjectIds of the records')},
-#     'record': {'word_id': (int, '', 'word_id in the word_to_id values'),
-#                'state': (np.ndarray, 'optional', 'hidden state np.ndarray'),
-#                'state_c': (np.ndarray, 'optional', 'hidden state np.ndarray'),
-#                'state_h': (np.ndarray, 'optional', 'hidden state np.ndarray'),
-#                'output': (np.ndarray, '', 'raw output (unprojected)')},
-#     'model': {'name': (str, '', 'identifier of a trained model'),
-#               'data_name': (str, '', 'name of the datasets that the model uses')}
-# }
-
-# db_hdlr = mongo[db_name]
-
-
 def store_sst(data_path, name, split_scheme, upsert=False):
     """
     Process and store the ptb datasets to db

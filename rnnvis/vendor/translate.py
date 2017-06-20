@@ -27,22 +27,19 @@ See the following papers for more information on neural translation models.
  * http://arxiv.org/abs/1409.0473
  * http://arxiv.org/abs/1412.2007
 """
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
 
 import math
 import os
-import random
+# import random
 import sys
 import time
 import logging
 
 import numpy as np
-from six.moves import xrange  # pylint: disable=redefined-builtin
 import tensorflow as tf
 
 from rnnvis.vendor import data_utils
+from rnnvis.vendor.data_utils import read_data
 from rnnvis.vendor.seq2seq_model import Seq2SeqModel, create_model
 
 from rnnvis.procedures import init_tf_environ
@@ -84,47 +81,9 @@ FLAGS = tf.app.flags.FLAGS
 # _buckets = [(5, 10), (10, 15), (20, 25), (40, 50)]
 bucket = (30, 30)
 
+
 def config_proto():
     return tf.ConfigProto(device_count={"GPU": 1}, allow_soft_placement=True)
-
-def read_data(source_path, target_path, max_size=None):
-    """Read data from source and target files and put into buckets.
-
-    Args:
-      source_path: path to the files with token-ids for the source language.
-      target_path: path to the file with token-ids for the target language;
-        it must be aligned with the source file: n-th line contains the desired
-        output for n-th line from the source_path.
-      max_size: maximum number of lines to read, all other will be ignored;
-        if 0 or None, data files will be read completely (no limit).
-
-    Returns:
-      data_set: a list of length len(_buckets); data_set[n] contains a list of
-        (source, target) pairs read from the provided data files that fit
-        into the n-th bucket, i.e., such that len(source) < _buckets[n][0] and
-        len(target) < _buckets[n][1]; source and target are lists of token-ids.
-    """
-    # data_set = [[] for _ in _buckets]
-    data_set = []
-    with tf.gfile.GFile(source_path, mode="r") as source_file:
-        with tf.gfile.GFile(target_path, mode="r") as target_file:
-            source, target = source_file.readline(), target_file.readline()
-            counter = 0
-            while source and target and (not max_size or counter < max_size):
-                counter += 1
-                if counter % 100000 == 0:
-                    print("  reading data line %d" % counter)
-                    sys.stdout.flush()
-                source_ids = [int(x) for x in source.split()]
-                target_ids = [int(x) for x in target.split()]
-                target_ids.append(data_utils.EOS_ID)
-                data_set.append([source_ids, target_ids])
-                # for bucket_id, (source_size, target_size) in enumerate(_buckets):
-                #     if len(source_ids) < source_size and len(target_ids) < target_size:
-                #         data_set[bucket_id].append([source_ids, target_ids])
-                #         break
-                source, target = source_file.readline(), target_file.readline()
-    return data_set
 
 
 def train():
@@ -163,8 +122,8 @@ def train():
         # Read data into buckets and compute their sizes.
         print("Reading development and training data (limit: %d)."
               % FLAGS.max_train_data_size)
-        dev_set = read_data(from_dev, from_dev)
-        train_set = read_data(from_train, from_train, FLAGS.max_train_data_size)
+        dev_set = read_data(from_dev)
+        train_set = read_data(from_train, FLAGS.max_train_data_size)
         # train_bucket_sizes = [len(train_set[b]) for b in xrange(len(_buckets))]
         # train_total_size = float(sum(train_bucket_sizes))
 
@@ -181,7 +140,7 @@ def train():
         while True:
             # Choose a bucket according to data distribution. We pick a random number
             # in [0, 1] and use the corresponding interval in train_buckets_scale.
-            random_number_01 = np.random.random_sample()
+            # random_number_01 = np.random.random_sample()
             # bucket_id = min([i for i in xrange(len(train_buckets_scale))
             #                  if train_buckets_scale[i] > random_number_01])
 
@@ -189,7 +148,7 @@ def train():
             start_time = time.time()
             encoder_inputs, decoder_inputs, target_weights = model.get_batch(
                 train_set)
-            _, step_loss, _ = model.step(sess, encoder_inputs, decoder_inputs,
+            _, step_loss, _, _ = model.step(sess, encoder_inputs, decoder_inputs,
                                          target_weights, False)
             step_time += (time.time() - start_time) / FLAGS.steps_per_checkpoint
             loss += step_loss / FLAGS.steps_per_checkpoint
@@ -217,7 +176,7 @@ def train():
                     print("  eval: empty bucket")
                     continue
                 encoder_inputs, decoder_inputs, target_weights = model.get_batch(dev_set)
-                _, eval_loss, _ = model.step(sess, encoder_inputs, decoder_inputs,
+                _, eval_loss, _, _ = model.step(sess, encoder_inputs, decoder_inputs,
                                              target_weights, True)
                 eval_ppx = math.exp(float(eval_loss)) if eval_loss < 300 else float(
                     "inf")
@@ -259,7 +218,7 @@ def decode():
             encoder_inputs, decoder_inputs, target_weights = model.get_batch(
                 [(token_ids, [])])
             # Get output logits for the sentence.
-            _, _, output_logits = model.step(sess, encoder_inputs, decoder_inputs,
+            _, _, output_logits, _ = model.step(sess, encoder_inputs, decoder_inputs,
                                              target_weights, True)
             # This is a greedy decoder - outputs are just argmaxes of output_logits.
             outputs = [int(np.argmax(logit, axis=1)) for logit in output_logits]
@@ -285,7 +244,7 @@ def self_test():
         # Fake data set for both the (3, 3) and (6, 6) bucket.
         data_set = [([1, 1], [2, 2]), ([3, 3], [4]), ([5], [6]),
                     ([1, 1, 1, 1, 1], [2, 2, 2, 2, 2]), ([3, 3, 3], [5, 6])]
-        for _ in xrange(5):  # Train the fake model for 5 steps.
+        for _ in range(5):  # Train the fake model for 5 steps.
             # bucket_id = random.choice([0, 1])
             encoder_inputs, decoder_inputs, target_weights = model.get_batch(
                 data_set)
