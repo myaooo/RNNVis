@@ -75,8 +75,8 @@ def gunzip_file(gz_path, new_path):
 
 def get_wmt_enfr_train_set(directory):
     """Download the WMT en-fr training corpus to directory unless it's there."""
-    train_path = os.path.join(directory, "giga-fren.release2.fixed")
-    # train_path = os.path.join(directory, "newstest2013")
+    # train_path = os.path.join(directory, "giga-fren.release2.fixed")
+    train_path = os.path.join(directory, "newstest2013")
     if not (gfile.Exists(train_path + ".fr") and gfile.Exists(train_path + ".en")):
         corpus_file = maybe_download(directory, "training-giga-fren.tar",
                                      WMT_ENFR_TRAIN_URL)
