@@ -177,9 +177,9 @@ def initialize_vocabulary(vocabulary_path):
     """
     if gfile.Exists(vocabulary_path):
         rev_vocab = []
-        with gfile.GFile(vocabulary_path, mode="rb") as f:
+        with open(vocabulary_path, mode="rb") as f:
             rev_vocab.extend(f.readlines())
-        rev_vocab = [tf.compat.as_bytes(line.strip()) for line in rev_vocab]
+        rev_vocab = [line.strip().decode('utf-8') for line in rev_vocab]
         vocab = dict([(x, y) for (y, x) in enumerate(rev_vocab)])
         return vocab, rev_vocab
     else:
@@ -194,7 +194,7 @@ def sentence_to_token_ids(sentence, vocabulary,
     ["I", "have", "a", "dog"] and with vocabulary {"I": 1, "have": 2,
     "a": 4, "dog": 7"} this function will return [1, 2, 4, 7].
 
-    Args:
+    Args:z
       sentence: the sentence in bytes format to convert to token-ids.
       vocabulary: a dictionary mapping tokens to integers.
       tokenizer: a function to use to tokenize each sentence;
