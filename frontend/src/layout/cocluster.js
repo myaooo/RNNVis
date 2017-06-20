@@ -85,7 +85,7 @@ export class LayoutParamsConstructor {
     const maxClusterSize = clusterSizes.reduce((a, b) => Math.max(a, b), 0);
     const totalClusterSize = clusterSizes.reduce((a, b) => a+b, 0);
     // this._unitHeight = 4 + this.width / totalClusterSize / 4;
-    // this._unitHeight = 3 + this.width / totalClusterSize / 3;
+    this._unitHeight = 3 + this.width / totalClusterSize / 3;
     this.wordCloudChordLength = this.height * this.wordCloudChordLength2ClientHeightRatio;
     this.clusterHeight = (this.wordCloudChordLength) /
       (clusterNum + clusterNum * clusterInterval2HeightRatio - clusterInterval2HeightRatio);
