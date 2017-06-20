@@ -315,7 +315,7 @@ def prepare_data(data_dir, from_train_path, from_dev_path, from_vocabulary_size,
     # data_to_token_ids(to_dev_path, to_dev_ids_path, to_vocab_path, tokenizer)
     data_to_token_ids(from_dev_path, from_dev_ids_path, from_vocab_path, tokenizer)
 
-    return from_train_ids_path. from_dev_ids_path, from_vocab_path
+    return from_train_ids_path, from_dev_ids_path, from_vocab_path
 
 
 def read_data(source_path, max_size=None):
