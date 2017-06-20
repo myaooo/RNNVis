@@ -95,8 +95,10 @@ def store_yelp(data_path, name, n_words=10000, upsert=False):
         negatives = []
         for item in data:
             if item['label'] < 3:
+                item['label'] = 0
                 negatives.append(item)
             elif item['label'] > 3:
+                item['label'] = 1
                 positives.append(item)
         print("{0} positive reviews, {1} negative reviews".format(len(positives), len(negatives)))
         if len(positives) < len(negatives):
