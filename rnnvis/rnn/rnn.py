@@ -551,6 +551,7 @@ class RNN(object):
                                             verbose=verbose, refresh_state=self.use_last_output)
                     losses.append(loss)
                     accs.append(accs)
+                    self.save(step=i)
                     if i > early_stop:
                         threshold = 5e-5
                         abs_diff = [abs(losses[j] - losses[i-early_stop]) for j in range(i+1-early_stop, i+1)]
@@ -607,7 +608,7 @@ class RNN(object):
         with self.graph.as_default():
             return func(self.sess, *args, **kwargs)
 
-    def save(self, path=None):
+    def save(self, path=None, step=None):
         """
         Save the model to a given path
         :param path:
@@ -619,7 +620,7 @@ class RNN(object):
         before_save(path)
         # with self.sess as sess:
         #     self.supervisor.saver.save(sess, path, global_step=self.supervisor.global_step)
-        self._saver.save(self.sess, path)
+        self._saver.save(self.sess, path, global_step=step)
         print("Model variables saved to {}.".format(get_path(path, absolute=True)))
 
     def restore(self, path=None):

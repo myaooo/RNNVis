@@ -184,7 +184,7 @@ def isfloat(s):
         return False
 
 
-__punct_set = {':', ';', '--', ',', "'"}
+__punct_set = {':', ';', '--', ',', "'", "(", ")", "``", '"', "-", "..."}
 
 
 def tokenize(str_stream, eos=True, remove_punct=False):

@@ -79,7 +79,7 @@ FLAGS = tf.app.flags.FLAGS
 # We use a number of buckets and pad to the closest one for efficiency.
 # See seq2seq_model.Seq2SeqModel for details of how they work.
 # _buckets = [(5, 10), (10, 15), (20, 25), (40, 50)]
-bucket = (40, 50)
+bucket = (30, 30)
 
 
 def config_proto():

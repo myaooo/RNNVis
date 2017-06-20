@@ -103,7 +103,7 @@ def store_yelp(data_path, name, n_words=10000, upsert=False):
     all_words = []
     reviews = []
     stars = []
-    for item in training_data:
+    for item in data:
         tokenized_review = list(itertools.chain.from_iterable(tokenize(item['review'], remove_punct=True)[0]))
         reviews.append(tokenized_review)
         stars.append(item['label'])
@@ -121,19 +121,20 @@ def store_yelp(data_path, name, n_words=10000, upsert=False):
         id_to_word[id_] = word
 
     reviews = [[word_to_id[t] if word_to_id.get(t) else 0 for t in sentence] for sentence in reviews]
-    training_data = (reviews, stars)
+    training_data, validate_data, test_data = split(list(zip(reviews, stars)), fractions=[0.8, 0.1, 0.1], shuffle=True)
+    # training_data = (reviews, stars)
 
-    tmp_data = []
-    for _data in [validate_data, test_data]:
-        reviews = []
-        stars = []
-        for item in _data:
-            tokenized_review = list(itertools.chain.from_iterable(tokenize(item['review'])[0]))
-            reviews.append([word_to_id[t] if word_to_id.get(t) else 0 for t in tokenized_review])
-            stars.append(item['label'])
-        tmp_data.append((reviews, stars))
-    validate_data = tmp_data[0]
-    test_data = tmp_data[1]
+    # tmp_data = []
+    # for _data in [validate_data, test_data]:
+        # reviews = []
+        # stars = []
+        # for item in _data:
+            # tokenized_review = list(itertools.chain.from_iterable(tokenize(item['review'])[0]))
+            # reviews.append([word_to_id[t] if word_to_id.get(t) else 0 for t in tokenized_review])
+            # stars.append(item['label'])
+        # tmp_data.append((reviews, stars))
+    # validate_data = tmp_data[0]
+    # test_data = tmp_data[1]
 
     word_to_id_json = dict2json(word_to_id)
     insertion('word_to_id', {'name': name}, {'name': name, 'data': word_to_id_json})
@@ -142,12 +143,12 @@ def store_yelp(data_path, name, n_words=10000, upsert=False):
     data_names = ['train', 'valid', 'test']
     data_dict = {}
     for i, data_set in enumerate([training_data, validate_data, test_data]):
-        data_set = tuple(zip(*sorted(zip(*data_set), key=lambda x: len(x[0]))))
+        data_set = zip(*sorted(data_set, key=lambda x: len(x[0])))
         data, label = data_set
         ids = list(range(len(data)))
         data_dict[data_names[i]] = {'data': data, 'label': label, 'ids': ids}
-        insertion('sentences', {'name': name, 'set': data_names[i]},
-                  {'name': name, 'set': data_names[i], 'data': data, 'label': label, 'ids': ids})
+        #insertion('sentences', {'name': name, 'set': data_names[i]},
+        #          {'name': name, 'set': data_names[i], 'data': data, 'label': label, 'ids': ids})
     store_dataset_by_default(name, data_dict, upsert)
 
 
@@ -183,7 +184,7 @@ if __name__ == '__main__':
     # store_ptb(get_path('cached_data/simple-examples/data'))
     # store_plain_text(get_path('cached_data/tinyshakespeare.txt'), 'shakespeare',
     # {'train': 0.9, 'valid': 0.05, 'test': 0.05})
-    seed_db()
+    seed_db(force=True)
     # data = get_datasets_by_name('sst', ['train', 'valid', 'word_to_id'])
     # train_data = data['train']
     # test_data = data['test']
