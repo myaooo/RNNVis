@@ -75,8 +75,8 @@ def gunzip_file(gz_path, new_path):
 
 def get_wmt_enfr_train_set(directory):
     """Download the WMT en-fr training corpus to directory unless it's there."""
-    # train_path = os.path.join(directory, "giga-fren.release2.fixed")
-    train_path = os.path.join(directory, "newstest2013")
+    train_path = os.path.join(directory, "giga-fren.release2.fixed")
+    # train_path = os.path.join(directory, "newstest2013")
     if not (gfile.Exists(train_path + ".fr") and gfile.Exists(train_path + ".en")):
         corpus_file = maybe_download(directory, "training-giga-fren.tar",
                                      WMT_ENFR_TRAIN_URL)
@@ -179,7 +179,7 @@ def initialize_vocabulary(vocabulary_path):
         rev_vocab = []
         with open(vocabulary_path, mode="rb") as f:
             rev_vocab.extend(f.readlines())
-        rev_vocab = [line.strip().decode('utf-8') for line in rev_vocab]
+        rev_vocab = [tf.compat.as_bytes(line.strip())  for line in rev_vocab]
         vocab = dict([(x, y) for (y, x) in enumerate(rev_vocab)])
         return vocab, rev_vocab
     else:

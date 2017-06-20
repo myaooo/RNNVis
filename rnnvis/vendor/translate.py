@@ -244,12 +244,15 @@ def self_test():
 
 
 def main(_):
+    try:
+        init_tf_environ(1)
+    except:
+        init_tf_environ(0)
     if FLAGS.self_test:
         self_test()
     elif FLAGS.decode:
         decode()
     else:
-        init_tf_environ(0)
         train()
 
 
