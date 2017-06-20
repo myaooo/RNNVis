@@ -98,6 +98,7 @@ def store_yelp(data_path, name, n_words=10000, upsert=False):
                 negatives.append(item)
             elif item['label'] > 3:
                 positives.append(item)
+        print("{0} positive reviews, {1} negative reviews".format(len(positives), len(negatives)))
         if len(positives) < len(negatives):
             negatives = random.sample(negatives, len(positives))
         elif len(positives) > len(negatives):
