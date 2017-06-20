@@ -44,6 +44,7 @@ from rnnvis.vendor.seq2seq_model import Seq2SeqModel, create_model
 
 from rnnvis.procedures import init_tf_environ
 from rnnvis.utils.io_utils import before_save
+from rnnvis.db.seq2seq import prepare_data
 
 tf.app.flags.DEFINE_float("learning_rate", 0.5, "Learning rate.")
 tf.app.flags.DEFINE_float("learning_rate_decay_factor", 0.98,
@@ -89,29 +90,21 @@ def config_proto():
 def train():
     """Train a en->fr translation model using WMT data."""
     from_train = None
-    to_train = None
     from_dev = None
-    to_dev = None
-    if FLAGS.from_train_data and FLAGS.to_train_data:
+    if FLAGS.from_train_data:
         from_train_data = FLAGS.from_train_data
-        to_train_data = FLAGS.to_train_data
         from_dev_data = from_train_data
-        to_dev_data = to_train_data
-        if FLAGS.from_dev_data and FLAGS.to_dev_data:
+        if FLAGS.from_dev_data:
             from_dev_data = FLAGS.from_dev_data
-            to_dev_data = FLAGS.to_dev_data
-        from_train, to_train, from_dev, to_dev, from_vocab_path, _ = data_utils.prepare_data(
+        from_train, from_dev, from_vocab_path = prepare_data(
             FLAGS.data_dir,
             from_train_data,
-            to_train_data,
             from_dev_data,
-            to_dev_data,
-            FLAGS.from_vocab_size,
-            FLAGS.to_vocab_size)
+            FLAGS.from_vocab_size)
     else:
         # Prepare WMT data.
         print("Preparing WMT data in %s" % FLAGS.data_dir)
-        from_train, _, from_dev, _, _, _ = data_utils.prepare_wmt_data(
+        from_train, from_dev, from_vocab_path = data_utils.prepare_wmt_data(
             FLAGS.data_dir, FLAGS.from_vocab_size, FLAGS.to_vocab_size)
 
     vocab = data_utils.initialize_vocabulary(from_vocab_path)

@@ -302,26 +302,24 @@ def prepare_data(data_dir, from_train_path, to_train_path, from_dev_path, to_dev
           (6) path to the "to language" vocabulary file.
       """
     # Create vocabularies of the appropriate sizes.
-    to_vocab_path = os.path.join(data_dir, "vocab%d.to" % to_vocabulary_size)
+    # to_vocab_path = os.path.join(data_dir, "vocab%d.to" % to_vocabulary_size)
     from_vocab_path = os.path.join(data_dir, "vocab%d.from" % from_vocabulary_size)
-    create_vocabulary(to_vocab_path, to_train_path, to_vocabulary_size, tokenizer)
+    # create_vocabulary(to_vocab_path, to_train_path, to_vocabulary_size, tokenizer)
     create_vocabulary(from_vocab_path, from_train_path, from_vocabulary_size, tokenizer)
 
     # Create token ids for the training data.
-    to_train_ids_path = to_train_path + (".ids%d" % to_vocabulary_size)
+    # to_train_ids_path = to_train_path + (".ids%d" % to_vocabulary_size)
     from_train_ids_path = from_train_path + (".ids%d" % from_vocabulary_size)
-    data_to_token_ids(to_train_path, to_train_ids_path, to_vocab_path, tokenizer)
+    # data_to_token_ids(to_train_path, to_train_ids_path, to_vocab_path, tokenizer)
     data_to_token_ids(from_train_path, from_train_ids_path, from_vocab_path, tokenizer)
 
     # Create token ids for the development data.
-    to_dev_ids_path = to_dev_path + (".ids%d" % to_vocabulary_size)
+    # to_dev_ids_path = to_dev_path + (".ids%d" % to_vocabulary_size)
     from_dev_ids_path = from_dev_path + (".ids%d" % from_vocabulary_size)
-    data_to_token_ids(to_dev_path, to_dev_ids_path, to_vocab_path, tokenizer)
+    # data_to_token_ids(to_dev_path, to_dev_ids_path, to_vocab_path, tokenizer)
     data_to_token_ids(from_dev_path, from_dev_ids_path, from_vocab_path, tokenizer)
 
-    return (from_train_ids_path, to_train_ids_path,
-            from_dev_ids_path, to_dev_ids_path,
-            from_vocab_path, to_vocab_path)
+    return from_train_ids_path. from_dev_ids_path, from_vocab_path
 
 
 def read_data(source_path, max_size=None):
