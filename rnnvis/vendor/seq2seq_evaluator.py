@@ -12,8 +12,8 @@ from rnnvis.datasets.data_utils import Feeder
 
 class Seq2SeqEvaluator():
 
-    def __init__(self, model, batch_size=1, num_steps=1, record_every=1, log_state=True, log_input=False,
-                 log_output=True, log_gradients=False, log_pos=False):
+    def __init__(self, model, batch_size=1, record_every=1, log_state=True, log_input=False,
+                 log_output=True, log_pos=False):
         """
         Create an unrolled rnn model with TF tensors
         :param rnn:
@@ -25,14 +25,17 @@ class Seq2SeqEvaluator():
         assert isinstance(model, Seq2SeqModel)
         self.model = model
         self.batch_size = batch_size
-        self.num_steps = num_steps
+        self.record_every = record_every
+        self.log_state = log_state
+        self.log_input = log_input
+        self.log_output = log_output
 
         self.current_state = None
 
         self.pos_tagger = None
         if log_pos:
-            if self.model.id_to_word is None:
-                raise ValueError('Evaluator: RNN instance needs to have id_to_word property in order to log_pos!')
+            # if self.model.id_to_word is None:
+            #     raise ValueError('Evaluator: RNN instance needs to have id_to_word property in order to log_pos!')
             import nltk  # lazy import
 
             def tagger(ids):
@@ -46,7 +49,7 @@ class Seq2SeqEvaluator():
 
             self.pos_tagger = tagger
 
-    def evaluate_and_record(self, sess, inputs, targets, recorder, verbose=True, refresh_state=False):
+    def evaluate_and_record(self, sess, data, recorder, verbose=True, refresh_state=False):
         """
         A similar method like evaluate.
         Evaluate model's performance on a sequence of inputs and targets,
@@ -60,21 +63,22 @@ class Seq2SeqEvaluator():
         :return:
         """
 
-        assert isinstance(inputs, Feeder), 'expect inputs type Feeder but got type {:s}'.format(str(type(inputs)))
-        assert isinstance(targets, Feeder) or targets is None
         assert isinstance(recorder, Recorder), "recorder should be an instance of rnn.eval_recorder.Recorder!"
+        inputs, targets = zip(*data)
         recorder.start(inputs, targets, self.pos_tagger)
-        input_size = inputs.epoch_size
+        input_size = len(data)
         print("input size: {:d}".format(input_size))
-        eval_ops = self.summary_ops
         # self.model.reset_state()
-        for i in range(0, input_size, self.record_every):
-            if refresh_state:
-                self.model.reset_state()
+        for i, batch_data in self.model.get_batches(data):
+            _, loss, outputs, states = \
+                self.model.step(sess, batch_data[0], batch_data[1], batch_data[2], forward_only=True)
+            raw_message = []
+            if(self.log_output):
+
+            encoder_states = states[:self.model.encoder_size]
+            decoder_states = states[self.model.encoder_size:]
             n_steps = input_size - i if i + self.record_every > input_size else self.record_every
 
-            evals, _ = self.model.run(inputs, targets, n_steps, sess, eval_ops=eval_ops,
-                                      verbose=False, refresh_state=False)
             messages = [{name: value[i] for name, value in evals.items()} for i in range(n_steps)]
             for message in messages:
                 recorder.record(message)

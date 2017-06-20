@@ -228,7 +228,7 @@ def self_test():
     with tf.Session(config=config_proto()) as sess:
         print("Self-test for neural translation model.")
         # Create model with vocabularies of 10, 2 small buckets, 2 layers of 32.
-        model = Seq2SeqModel(10, 10, bucket, 32, 2,
+        model = Seq2SeqModel(range(10), range(10), bucket, 32, 2,
                              5.0, 32, 0.3, 0.99, num_samples=8, use_lstm=FLAGS.use_lstm)
         sess.run(tf.global_variables_initializer())
 

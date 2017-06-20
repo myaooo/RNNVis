@@ -455,6 +455,14 @@ class Seq2SeqModel(object):
         self.saver = tf.train.Saver(tf.global_variables())
 
     @property
+    def encoder_size(self):
+        return self.bucket[0]
+
+    @property
+    def decoder_size(self):
+        return self.bucket[1]
+
+    @property
     def source_vocab_size(self):
         return len(self.source_vocab)
 
@@ -464,7 +472,10 @@ class Seq2SeqModel(object):
 
     def get_words_from_ids(self, ids, target=False):
         vocab = self.target_vocab if target else self.source_vocab
-
+        if isinstance(ids, int):
+            ids = [ids]
+        words = [vocab[i] for i in ids if 0 <= i < len(vocab)]
+        return words
 
     def step(self, session, encoder_inputs, decoder_inputs, target_weights,
              forward_only):
@@ -528,10 +539,10 @@ class Seq2SeqModel(object):
         if not forward_only:
             return outputs[1], outputs[2], None, None  # Gradient norm, loss, no outputs.
         else:
-            return None, outputs[0], outputs[1:(decoder_size+1)], output_feed[(decoder_size+1):]
+            return None, outputs[0], outputs[1:(decoder_size+1)], outputs[(decoder_size+1):]
             # No gradient norm, loss, outputs.
 
-    def get_batch(self, data):
+    def get_batch(self, data, sample=True):
         """Get a random batch of data from the specified bucket, prepare for step.
 
         To feed data in step(..) it must be a list of batch-major vectors, while
@@ -550,10 +561,15 @@ class Seq2SeqModel(object):
         encoder_size, decoder_size = self.bucket
         encoder_inputs, decoder_inputs = [], []
 
+        def get_data(data, i):
+            return data[i]
+        if sample:
+            def get_data(data, i):
+                return random.choice(data)
         # Get a random batch of encoder and decoder inputs from data,
         # pad them if needed, reverse encoder inputs and add GO to decoder.
-        for _ in range(self.batch_size):
-            encoder_input, decoder_input = random.choice(data)
+        for i in range(self.batch_size):
+            encoder_input, decoder_input = get_data(data, i)
 
             # Encoder inputs are padded and then reversed.
             encoder_pad = [data_utils.PAD_ID] * (encoder_size - len(encoder_input))
@@ -590,6 +606,10 @@ class Seq2SeqModel(object):
                     batch_weight[batch_idx] = 0.0
             batch_weights.append(batch_weight)
         return batch_encoder_inputs, batch_decoder_inputs, batch_weights
+
+    def get_batches(self, data):
+        for i in range(0, len(data), self.batch_size):
+            yield self.get_batch(data[i:(i+self.batch_size)], sample=False)
 
     def evaluate_and_record(self, sess, inputs, targets, recorder, verbose=True, refresh_state=False):
         pass

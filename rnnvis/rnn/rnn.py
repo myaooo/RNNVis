@@ -514,7 +514,7 @@ class RNN(object):
             self.generator = Generator(self)
 
     def train(self, inputs, targets, epoch_size, epoch_num, valid_inputs=None, valid_targets=None,
-              valid_epoch_size=None, verbose=True, refresh_state=False, early_stop=5):
+              valid_epoch_size=None, verbose=True, early_stop=5):
         """
         Training using given input and target data
         TODO: Clean up this messy function
@@ -540,7 +540,7 @@ class RNN(object):
             if valid_inputs is None:
                 # Only needs to run training graph
                 self.trainer.train(self.sess, inputs, targets, epoch_size, epoch_num,
-                                   verbose=verbose, refresh_state=refresh_state)
+                                   verbose=verbose, refresh_state=self.use_last_output)
             else:
                 for i in range(epoch_num):
                     if verbose:

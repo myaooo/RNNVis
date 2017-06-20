@@ -47,7 +47,6 @@ if __name__ == '__main__':
     print('Finish Training')
     # model.save()
     print('Testing...')
-    model.validate(test_inputs, test_targets, test_epoch_size, refresh_state=model.use_last_output)
+    model.validate(test_inputs, test_targets, test_epoch_size,
+                   refresh_state=model.use_last_output)
 
-    # model.run_with_context(model.evaluator.evaluate_and_record, [test[:1000]], [test[1:1001]],
-    #                        Recorder('ptb', model.name), verbose=True)
