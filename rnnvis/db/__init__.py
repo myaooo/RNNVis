@@ -1,6 +1,6 @@
 from pymongo import MongoClient
 mongo = MongoClient('localhost', 27017)
-from rnnvis.db import language_model, sentiment_prediction, db_helper
+from rnnvis.db import language_model, sentiment_prediction, seq2seq, db_helper
 
 
 def seed_db(force=False):
@@ -16,7 +16,12 @@ def get_dataset(name, fields):
     if data_info is None:
         print("No dataset with name {:s} exists".format(name))
         return None
-    result = db_helper.get_datasets_by_name(name, fields)
+    if data_info['type'] == 'lm' or data_info['type'] == 'sp':
+        result = db_helper.get_datasets_by_name(name, fields)
+    elif data_info['type'] == 'seq2seq':
+        result = seq2seq.get_datasets_by_name(name, fields)
+    else:
+        raise ValueError('Donot support dataset type "{0}"'.format(data_info['type']))
     if result is None:
         # result = sentiment_prediction.get_datasets_by_name(name, fields)
         # if result is not None:

@@ -1,0 +1,7 @@
+datasets:
+  # Datasets and path configurations. Used for initializing the db
+  # The default base dir for all datasets is under data/
+  - name: wmt
+    type: seq2seq
+    dir: ../_cached/datasets/wmt
+    vocab_size: 10000

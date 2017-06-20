@@ -16,6 +16,7 @@ from rnnvis.db import mongo
 from rnnvis.utils.io_utils import get_path, dict2json, file_exists, path_exists
 
 _db_name = 'rnnvis'
+datasets_path = '_cached/datasets'
 
 collections = {
     'datasets': {'name': (str, 'unique', 'name of the dataset'),
@@ -117,7 +118,7 @@ def dataset_inserted(name, data_type, force=False):
 
 
 def get_dataset_path(name):
-    return get_path('_cached/datasets', name)
+    return get_path(datasets_path, name)
 
 
 def store_dataset_by_default(name, data_dict, force=False):

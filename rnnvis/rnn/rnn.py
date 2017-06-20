@@ -11,7 +11,7 @@ import numpy as np
 
 from rnnvis.datasets.data_utils import Feeder
 from rnnvis.utils.io_utils import get_path, before_save
-from rnnvis.rnn.constant import DropOutWrapper, MultiRNNCell
+from rnnvis.rnn.constant import DropOutWrapper, MultiRNNCell, static_rnn
 from rnnvis.rnn.command_utils import data_type, config_proto
 from rnnvis.rnn.evaluator import Evaluator
 from rnnvis.rnn.eval_recorder import StateRecorder
@@ -71,17 +71,17 @@ class RNNModel(object):
                     self.inputs = tf.nn.dropout(self.inputs, keep_prob)
                 # Call TF api to create recurrent neural network
                 self.input_length = sequence_length(self.inputs)
-                # if dynamic:
-                self.outputs, self.final_state = \
-                    tf.nn.dynamic_rnn(self.cell, self.inputs, sequence_length=self.input_length,
-                                      initial_state=self.state, dtype=data_type(), time_major=False)
-                # else:
-                #     inputs = [self.inputs[:, i] for i in range(num_steps)]
-                #     # Since we do not want it to be dynamic, sequence length is not fed,
-                #     # so that evaluator can fetch gate tensor values.
-                #     outputs, self.final_state = \
-                #         tf.nn.static_rnn(self.cell, inputs, initial_state=self.state, dtype=data_type())
-                #     self.outputs = tf.stack(outputs, axis=1)
+                if dynamic:
+                    self.outputs, self.final_state = \
+                        tf.nn.dynamic_rnn(self.cell, self.inputs, sequence_length=self.input_length,
+                                          initial_state=self.state, dtype=data_type(), time_major=False)
+                else:
+                    inputs = [self.inputs[:, i] for i in range(num_steps)]
+                    # Since we do not want it to be dynamic, sequence length is not fed,
+                    # so that evaluator can fetch gate tensor values.
+                    outputs, self.final_state = \
+                        static_rnn(self.cell, inputs, initial_state=self.state, dtype=data_type())
+                    self.outputs = tf.stack(outputs, axis=1)
                 if rnn.use_last_output:
                     self.outputs = last_relevant(self.outputs, self.input_length)
                     target_shape = [batch_size] + list(rnn.target_shape)[1:]
