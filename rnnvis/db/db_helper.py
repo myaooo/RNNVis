@@ -106,7 +106,7 @@ def delete_many(db_name, c_name, filter_):
 
 
 def dataset_inserted(name, data_type, force=False):
-    assert data_type == 'lm' or data_type == 'sp', "Unkown type {:s}".format(str(data_type))
+    # assert data_type == 'lm' or data_type == 'sp', "Unkown type {:s}".format(str(data_type))
     exists = db_hdlr['datasets'].find({'name': name})
     if exists.count() == 0:
         return db_hdlr['datasets'].insert_one({'name': name, 'type': data_type})

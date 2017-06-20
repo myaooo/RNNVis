@@ -92,8 +92,8 @@ def store_wmt_en(data_path, name, vocab_size, upsert=False):
     # dev_path = data_paths[1]
     insertion = replace_one_if_exists if upsert else insert_one_if_not_exists
 
-    train_path = get_wmt_train_set(data_path)
-    dev_path = get_wmt_dev_set(data_path)
+    train_path = get_wmt_train_set(data_path) + '.en'
+    dev_path = get_wmt_dev_set(data_path) + '.en'
     train_ids_path, dev_ids_path, vocab_path = prepare_data(data_path, train_path, dev_path, vocab_size)
     word_to_id, id_to_word = initialize_vocabulary(vocab_path)
     insertion('word_to_id', {'name': name}, {'name': name, 'data': dict2json(word_to_id)})
@@ -111,9 +111,14 @@ def seed_db(force=False):
     for seed in config:
         data_dir = get_path('data', seed['dir'])
         print('seeding {:s} data'.format(seed['name']))
-        if seed['type'] == 'wmt':
-            store_wmt_en(data_dir, seed['name'], force)
+        if seed['name'] == 'wmt':
+            store_wmt_en(data_dir, seed['name'], seed['vocab_size'], force)
         else:
             print('cannot find corresponding seed functions')
             continue
         dataset_inserted(seed['name'], 'seq2seq', force)
+
+
+if __name__ == '__main__':
+    seed_db(True)
+
