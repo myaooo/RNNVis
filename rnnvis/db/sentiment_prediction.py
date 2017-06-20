@@ -171,7 +171,7 @@ def store_yelp(data_path, name, n_words=10000, upsert=False):
     data_names = ['train', 'valid', 'test']
     data_dict = {}
     for i, data_set in enumerate([training_data, validate_data, test_data]):
-        data_set = tuple(zip(*sorted(zip(*data_set), key=lambda x: len(x[0]))))
+        data_set = zip(*sorted(data_set, key=lambda x: len(x[0])))
         data, label = data_set
         ids = list(range(len(data)))
         data_dict[data_names[i]] = {'data': data, 'label': label, 'ids': ids}
