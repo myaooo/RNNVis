@@ -74,6 +74,7 @@ tf.app.flags.DEFINE_boolean("self_test", False,
 # tf.app.flags.DEFINE_boolean("use_fp16", False,
 #                             "Train using fp16 instead of fp32.")
 tf.app.flags.DEFINE_boolean("use_lstm", True, "use LSTM.")
+tf.app.flags.DEFINE_boolean("evaluate", False, "evaluate and record")
 
 FLAGS = tf.app.flags.FLAGS
 
@@ -243,11 +244,31 @@ def self_test():
                        False)
 
 
+def eval_record():
+    from rnnvis.vendor.seq2seq_evaluator import Seq2SeqEvaluator, Seq2SeqFeeder
+    from rnnvis.rnn.eval_recorder import StateRecorder
+    en_vocab_path = os.path.join(FLAGS.data_dir,
+                                 "vocab%d.from" % FLAGS.from_vocab_size)
+    en_vocab, rev_en_vocab = data_utils.initialize_vocabulary(en_vocab_path)
+
+    from_train, from_dev, from_vocab_path = data_utils.prepare_wmt_data(
+        FLAGS.data_dir, FLAGS.from_vocab_size)
+    with tf.Session(config=config_proto()) as sess:
+        model = create_model(sess, en_vocab, en_vocab, bucket, FLAGS, True)
+        train_set = read_data(from_train, 100000)
+        # model.batch_size =   # We decode one sentence at a time.
+        evaluator = Seq2SeqEvaluator(model, True, True, True)
+        recorder1 = StateRecorder('wmt','seq2seq', flush_every=500)
+        recorder2 = StateRecorder('wmt','seq2seq', flush_every=500)
+        evaluator.evaluate_and_record(sess, train_set, [recorder1, recorder2])
+
 def main(_):
     try:
         init_tf_environ(1)
     except:
         init_tf_environ(0)
+    if FLAGS.evaluate:
+        eval_record()
     if FLAGS.self_test:
         self_test()
     elif FLAGS.decode:

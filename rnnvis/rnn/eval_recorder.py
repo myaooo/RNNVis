@@ -69,7 +69,7 @@ class StateRecorder(Recorder):
         self.pos_tagger = pos_tagger
         self.batch_size = inputs.shape[0]
         self.input_data = inputs.full_data
-        self.input_length = self.input_data.shape[1]
+        self.input_length = len(self.input_data[0])
         # for i in range(self.inputs.shape[0]):
         sentence_num = self.input_data.shape[0]
         sentence_lengths = [count_length(self.input_data[i]) for i in range(sentence_num)]
