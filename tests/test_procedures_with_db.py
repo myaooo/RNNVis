@@ -42,13 +42,13 @@ if __name__ == '__main__':
 
     print('Start Training')
     model.train(train_inputs, train_targets, epoch_size, epoch_num,
-                valid_inputs=valid_inputs, valid_targets=valid_targets, valid_epoch_size=valid_epoch_size,
-                refresh_state=tran_config.use_last_output if hasattr(train_config, 'use_last_output') else False)
+                valid_inputs=valid_inputs, valid_targets=valid_targets, valid_epoch_size=valid_epoch_size)
 
     print('Finish Training')
     model.save()
     print('Testing...')
-    model.validate(test_inputs, test_targets, test_epoch_size)
+    model.validate(test_inputs, test_targets, test_epoch_size,
+                   refresh_state=model.use_last_output)
 
     # model.run_with_context(model.evaluator.evaluate_and_record, [test[:1000]], [test[1:1001]],
     #                        Recorder('ptb', model.name), verbose=True)

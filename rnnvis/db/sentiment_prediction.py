@@ -90,6 +90,23 @@ def store_yelp(data_path, name, n_words=10000, upsert=False):
         insertion = insert_one_if_not_exists
     with open(os.path.join(data_path, 'review_label.json'), 'r') as file:
         data = json.load(file)
+    all_words = []
+    # reviews = []
+    # stars = []
+    for item in data:
+        tokenized_review = list(itertools.chain.from_iterable(tokenize(item['review'], remove_punct=True)[0]))
+        item['review'] = (tokenized_review)
+        # stars.append(item['label'])
+        all_words.extend(tokenized_review)
+    word_to_id, counter, words = tokens2vocab(all_words)
+    n_words -= 1
+    word_to_id = {k: v+1 for k, v in word_to_id.items() if v < n_words}
+    word_to_id['<unk>'] = 0
+
+    id_to_word = [None] * len(word_to_id)
+    for word, id_ in word_to_id.items():
+        id_to_word[id_] = word
+
     if name == 'yelp-2':
         positives = []
         negatives = []
@@ -106,25 +123,9 @@ def store_yelp(data_path, name, n_words=10000, upsert=False):
         elif len(positives) > len(negatives):
             positives = random.sample(positives, len(negatives))
         data = positives + negatives
-    all_words = []
-    reviews = []
-    stars = []
-    for item in data:
-        tokenized_review = list(itertools.chain.from_iterable(tokenize(item['review'], remove_punct=True)[0]))
-        reviews.append(tokenized_review)
-        stars.append(item['label'])
-        all_words.extend(tokenized_review)
 
-    word_to_id, counter, words = tokens2vocab(all_words)
-    n_words -= 1
-    word_to_id = {k: v+1 for k, v in word_to_id.items() if v < n_words}
-    word_to_id['<unk>'] = 0
-
-    id_to_word = [None] * len(word_to_id)
-    for word, id_ in word_to_id.items():
-        id_to_word[id_] = word
-
-    reviews = [[word_to_id[t] if word_to_id.get(t) else 0 for t in sentence] for sentence in reviews]
+    reviews = [[word_to_id.get(t,0) for t in item['review']] for item in data]
+    stars = [item['label'] for item in data]
     training_data, validate_data, test_data = split(list(zip(reviews, stars)), fractions=[0.8, 0.1, 0.1], shuffle=True)
 
     word_to_id_json = dict2json(word_to_id)
