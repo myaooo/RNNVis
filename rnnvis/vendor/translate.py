@@ -111,7 +111,7 @@ def train():
     with tf.Session(config=config_proto()) as sess:
         # Create model.
         print("Creating %d layers of %d units." % (FLAGS.num_layers, FLAGS.size))
-        model = create_model(sess, vocab, vocab, bucket, FLAGS, False)
+        model = create_model(sess, vocab[0], vocab[1], bucket, FLAGS, False)
 
         # Read data into buckets and compute their sizes.
         print("Reading development and training data (limit: %d)."
