@@ -105,7 +105,7 @@ def train():
         # Prepare WMT data.
         print("Preparing WMT data in %s" % FLAGS.data_dir)
         from_train, from_dev, from_vocab_path = data_utils.prepare_wmt_data(
-            FLAGS.data_dir, FLAGS.from_vocab_size, FLAGS.to_vocab_size)
+            FLAGS.data_dir, FLAGS.from_vocab_size)
 
     vocab = data_utils.initialize_vocabulary(from_vocab_path)
     with tf.Session(config=config_proto()) as sess:

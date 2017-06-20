@@ -246,7 +246,7 @@ def data_to_token_ids(data_path, target_path, vocabulary_path,
                     tokens_file.write(" ".join([str(tok) for tok in token_ids]) + "\n")
 
 
-def prepare_wmt_data(data_dir, en_vocabulary_size, fr_vocabulary_size, tokenizer=None):
+def prepare_wmt_data(data_dir, en_vocabulary_size, tokenizer=None):
     """Get WMT data into data_dir, create vocabularies and tokenize data.
 
     Args:
@@ -270,15 +270,11 @@ def prepare_wmt_data(data_dir, en_vocabulary_size, fr_vocabulary_size, tokenizer
     dev_path = get_wmt_enfr_dev_set(data_dir)
 
     from_train_path = train_path + ".en"
-    to_train_path = train_path + ".fr"
     from_dev_path = dev_path + ".en"
-    to_dev_path = dev_path + ".fr"
-    return prepare_data(data_dir, from_train_path, to_train_path, from_dev_path, to_dev_path, en_vocabulary_size,
-                        fr_vocabulary_size, tokenizer)
+    return prepare_data(data_dir, from_train_path, from_dev_path, en_vocabulary_size, tokenizer)
 
 
-def prepare_data(data_dir, from_train_path, to_train_path, from_dev_path, to_dev_path, from_vocabulary_size,
-                 to_vocabulary_size, tokenizer=None):
+def prepare_data(data_dir, from_train_path, from_dev_path, from_vocabulary_size, tokenizer=None):
     """Preapre all necessary files that are required for the training.
 
       Args:
