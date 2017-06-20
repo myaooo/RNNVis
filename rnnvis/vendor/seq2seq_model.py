@@ -261,12 +261,12 @@ def embedding_rnn_seq2seq(encoder_inputs,
         return outputs, states, encoder_states
 
 
-def create_model(session, options, bucket, forward_only):
+def create_model(session, from_vocab, to_vocab, bucket, options, forward_only):
     """Create translation model and initialize or load parameters in session."""
     dtype = data_type()
     model = Seq2SeqModel(
-        options.from_vocab_size,
-        options.to_vocab_size,
+        from_vocab,
+        to_vocab,
         bucket,
         options.size,
         options.num_layers,
@@ -420,23 +420,23 @@ class Seq2SeqModel(object):
                    for i in range(len(self.decoder_inputs) - 1)]
 
         # Training outputs and losses.
-        if forward_only:
-            self.outputs, self.encoder_states, self.decoder_states = \
-                seq2seq_f(self.encoder_inputs[:bucket[0]], self.decoder_inputs[:bucket[1]], True)
-            self.loss = seq2seq.sequence_loss(self.outputs, targets, self.target_weights,
-                                              softmax_loss_function=softmax_loss_function)
-            # If we use output projection, we need to project outputs for decoding.
-            if output_projection is not None:
-                for b in range(len(bucket)):
-                    self.outputs[b] = [
-                        tf.matmul(output, output_projection[0]) + output_projection[1]
-                        for output in self.outputs[b]
-                        ]
-        else:
-            self.outputs, self.encoder_states, self.decoder_states = \
-                seq2seq_f(self.encoder_inputs[:bucket[0]], self.decoder_inputs[:bucket[1]], False)
-            self.loss = seq2seq.sequence_loss(self.outputs, targets[:bucket[1]], self.target_weights[:bucket[1]],
-                                              softmax_loss_function=softmax_loss_function)
+        # if forward_only:
+        self.outputs, self.encoder_states, self.decoder_states = \
+            seq2seq_f(self.encoder_inputs[:bucket[0]], self.decoder_inputs[:bucket[1]], forward_only)
+        self.loss = seq2seq.sequence_loss(self.outputs, targets[:bucket[1]], self.target_weights[:bucket[1]],
+                                          softmax_loss_function=softmax_loss_function)
+        # If we use output projection, we need to project outputs for decoding.
+        if forward_only and (output_projection is not None):
+            # for b in range(len(bucket)):
+            self.outputs = [
+                tf.matmul(output, output_projection[0]) + output_projection[1]
+                for output in self.outputs
+                ]
+        # else:
+        #     self.outputs, self.encoder_states, self.decoder_states = \
+        #         seq2seq_f(self.encoder_inputs[:bucket[0]], self.decoder_inputs[:bucket[1]], False)
+        #     self.loss = seq2seq.sequence_loss(self.outputs, targets[:bucket[1]], self.target_weights[:bucket[1]],
+        #                                       softmax_loss_function=softmax_loss_function)
 
         # Gradients and SGD update operation for training the model.
         params = tf.trainable_variables()

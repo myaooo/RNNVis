@@ -100,7 +100,7 @@ def train():
         if FLAGS.from_dev_data and FLAGS.to_dev_data:
             from_dev_data = FLAGS.from_dev_data
             to_dev_data = FLAGS.to_dev_data
-        from_train, to_train, from_dev, to_dev, _, _ = data_utils.prepare_data(
+        from_train, to_train, from_dev, to_dev, from_vocab_path, _ = data_utils.prepare_data(
             FLAGS.data_dir,
             from_train_data,
             to_train_data,
@@ -114,10 +114,11 @@ def train():
         from_train, _, from_dev, _, _, _ = data_utils.prepare_wmt_data(
             FLAGS.data_dir, FLAGS.from_vocab_size, FLAGS.to_vocab_size)
 
+    vocab = data_utils.initialize_vocabulary(from_vocab_path)
     with tf.Session(config=config_proto()) as sess:
         # Create model.
         print("Creating %d layers of %d units." % (FLAGS.num_layers, FLAGS.size))
-        model = create_model(sess, FLAGS, bucket, False)
+        model = create_model(sess, vocab, vocab, bucket, FLAGS, False)
 
         # Read data into buckets and compute their sizes.
         print("Reading development and training data (limit: %d)."
@@ -186,17 +187,14 @@ def train():
 
 def decode():
     with tf.Session(config=config_proto()) as sess:
-        # Create model and load parameters.
-        model = create_model(sess, FLAGS, bucket, True)
-        model.batch_size = 1  # We decode one sentence at a time.
-
         # Load vocabularies.
         en_vocab_path = os.path.join(FLAGS.data_dir,
                                      "vocab%d.from" % FLAGS.from_vocab_size)
-        fr_vocab_path = os.path.join(FLAGS.data_dir,
-                                     "vocab%d.from" % FLAGS.to_vocab_size)
-        en_vocab, _ = data_utils.initialize_vocabulary(en_vocab_path)
-        _, rev_fr_vocab = data_utils.initialize_vocabulary(fr_vocab_path)
+        en_vocab, rev_en_vocab = data_utils.initialize_vocabulary(en_vocab_path)
+
+        # Create model and load parameters.
+        model = create_model(sess, en_vocab, en_vocab, bucket, FLAGS, True)
+        model.batch_size = 1  # We decode one sentence at a time.
 
         # Decode from standard input.
         sys.stdout.write("> ")
@@ -226,7 +224,7 @@ def decode():
             if data_utils.EOS_ID in outputs:
                 outputs = outputs[:outputs.index(data_utils.EOS_ID)]
             # Print out French sentence corresponding to outputs.
-            print(" ".join([tf.compat.as_str(rev_fr_vocab[output]) for output in outputs]))
+            print(" ".join([tf.compat.as_str(rev_en_vocab[output]) for output in outputs]))
             print("> ", end="")
             sys.stdout.flush()
             sentence = sys.stdin.readline()
