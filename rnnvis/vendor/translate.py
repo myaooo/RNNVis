@@ -112,7 +112,7 @@ def train():
     with tf.Session(config=config_proto()) as sess:
         # Create model.
         print("Creating %d layers of %d units." % (FLAGS.num_layers, FLAGS.size))
-        model = create_model(sess, vocab[0], vocab[1], bucket, FLAGS, False)
+        model = create_model(sess, vocab[0], vocab[0], bucket, FLAGS, False)
 
         # Read data into buckets and compute their sizes.
         print("Reading development and training data (limit: %d)."
@@ -255,12 +255,12 @@ def eval_record():
         FLAGS.data_dir, FLAGS.from_vocab_size)
     with tf.Session(config=config_proto()) as sess:
         model = create_model(sess, en_vocab, en_vocab, bucket, FLAGS, True)
-        train_set = read_data(from_train, 100000)
+        train_set = read_data(from_train, 1000)
         # model.batch_size =   # We decode one sentence at a time.
         evaluator = Seq2SeqEvaluator(model, True, True, True)
-        recorder1 = StateRecorder('wmt','seq2seq', flush_every=500)
-        recorder2 = StateRecorder('wmt','seq2seq', flush_every=500)
-        evaluator.evaluate_and_record(sess, train_set, [recorder1, recorder2])
+        recorder_encoder = StateRecorder('wmt','seq2seq', flush_every=500, pad_ids={data_utils.PAD_ID})
+        recorder_decoder = StateRecorder('wmt','seq2seq', flush_every=500, pad_ids={data_utils.PAD_ID})
+        evaluator.evaluate_and_record(sess, train_set, [recorder_encoder, recorder_decoder])
 
 def main(_):
     try:

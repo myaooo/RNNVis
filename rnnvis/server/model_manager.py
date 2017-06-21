@@ -32,7 +32,7 @@ class ModelManager(object):
             try:
                 self._available_models = yaml.safe_load(f)
             except:
-                raise ValueError("Malformat of config file!")
+                raise ValueError("Malformat of config file models.yml!")
         self._models = {}
         self._train_configs = {}
         self.record_flag = {}
@@ -68,7 +68,7 @@ class ModelManager(object):
         if name in self._available_models:
             config_file = get_path(_config_dir, self._available_models[name]['config'])
             model, train_config = build_model(config_file)
-            model.add_generator()
+            # model.add_generator()
             model.add_evaluator(1, 1, 100, True, log_gates=False, log_pos=True)
             if not train:
                 # If not training, the model should already be trained
@@ -81,23 +81,23 @@ class ModelManager(object):
             print('WARN: Cannot find model with name {:s}'.format(name))
             return False
 
-    def model_generate(self, name, seeds, max_branch=1, accum_cond_prob=0.9,
-                       min_cond_prob=0.0, min_prob=0.0, max_step=10, neg_word_ids=None):
-        """
-        :param name: name of the model
-        :param seeds: a list of word_id or a list of words
-        :param max_branch: the maximum number of branches at each node
-        :param accum_cond_prob: the maximum accumulate conditional probability of the following branches
-        :param min_cond_prob: the minimum conditional probability of each branch
-        :param min_prob: the minimum probability of a branch (note that this indicates a multiplication along the tree)
-        :param max_step: the step to generate
-        :param neg_word_ids: a set of neglected words' ids.
-        :return:
-        """
-        model = self._get_model(name)
-        if model is None:
-            return None
-        return model.generate(seeds, None, max_branch, accum_cond_prob, min_cond_prob, min_prob, max_step, neg_word_ids)
+    # def model_generate(self, name, seeds, max_branch=1, accum_cond_prob=0.9,
+    #                    min_cond_prob=0.0, min_prob=0.0, max_step=10, neg_word_ids=None):
+    #     """
+    #     :param name: name of the model
+    #     :param seeds: a list of word_id or a list of words
+    #     :param max_branch: the maximum number of branches at each node
+    #     :param accum_cond_prob: the maximum accumulate conditional probability of the following branches
+    #     :param min_cond_prob: the minimum conditional probability of each branch
+    #     :param min_prob: the minimum probability of a branch (note that this indicates a multiplication along the tree)
+    #     :param max_step: the step to generate
+    #     :param neg_word_ids: a set of neglected words' ids.
+    #     :return:
+    #     """
+    #     model = self._get_model(name)
+    #     if model is None:
+    #         return None
+    #     return model.generate(seeds, None, max_branch, accum_cond_prob, min_cond_prob, min_prob, max_step, neg_word_ids)
 
     def model_evaluate_sequence(self, name, sequences):
         """

@@ -30,8 +30,8 @@
 #  'config': yelp-rnn-50.yml
 #'PTB-LARGE':
 #  'config': lstm-large.yml
-#'YELP-2-LSTM-50-1':
-#  'config': yelp-2-lstm-50-1.yml
+'YELP-2-GRU-50-1':
+  'config': yelp-2-gru-50-1.yml
 'YELP-2-GRU-100-1':
   'config': yelp-2-gru-100-1.yml
 'YELP-2-LSTM-100-1':

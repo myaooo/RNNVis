@@ -1,15 +1,10 @@
 import math
 
-import tensorflow as tf
+import numpy as np
 
-from rnnvis.vendor.seq2seq_model import Seq2SeqModel, create_model
-
-from rnnvis.rnn.rnn import RNNModel, RNN, DropOutWrapper, MultiRNNCell, _input_and_global
-from rnnvis.rnn.varlen_support import sequence_length, last_relevant
-from rnnvis.rnn.command_utils import data_type
+from rnnvis.rnn.seq2seq import Seq2SeqModel
 from rnnvis.rnn.eval_recorder import Recorder
-
-from rnnvis.datasets.data_utils import Feeder, SentenceProducer
+from rnnvis.datasets.data_utils import Feeder
 
 
 class Seq2SeqFeeder(Feeder):
@@ -68,11 +63,6 @@ class Seq2SeqEvaluator():
                  log_output=True, log_pos=False):
         """
         Create an unrolled rnn model with TF tensors
-        :param rnn:
-        :param batch_size:
-        :param num_steps:
-        :param keep_prob:
-        :param name:
         """
         assert isinstance(model, Seq2SeqModel)
         self.model = model
@@ -105,14 +95,11 @@ class Seq2SeqEvaluator():
     def batch_size(self):
         return self.model.batch_size
 
-    def evaluate_and_record(self, sess, data, recorders, verbose=True, refresh_state=False):
+    def evaluate_and_record(self, sess, data, recorders, verbose=True):
         """
         A similar method like evaluate.
         Evaluate model's performance on a sequence of inputs and targets,
         and record the detailed information with recorder.
-        :param inputs: an object convertible to a numpy ndarray, with 2D shape [batch_size, length],
-            elements are word_ids of int type
-        :param targets: same as inputs, no loss will be calculated if targets is None
         :param sess: the sess to run the computation
         :param recorders: an object with method `start(inputs, targets)` and `record(record_message)`
         :param verbose: verbosity
@@ -121,14 +108,26 @@ class Seq2SeqEvaluator():
 
         assert isinstance(recorders[0], Recorder), "recorder0 should be an instance of rnn.eval_recorder.Recorder!"
         assert isinstance(recorders[1], Recorder), "recorder1 should be an instance of rnn.eval_recorder.Recorder!"
+        model = self.model
+        def pack_data(data):
+            batch_encoder_inputs, batch_decoder_inputs, batch_weights = \
+                zip(*model.get_batches(data))
+            batch_encoder_inputs = np.hstack(batch_encoder_inputs).T
+            batch_decoder_inputs = np.hstack(batch_decoder_inputs).T
+            batch_weights = np.hstack(batch_weights).T
+            return batch_encoder_inputs, batch_decoder_inputs, batch_weights
+
+        encoder_inputs, decoder_inputs, weights = pack_data(data)
         inputs, targets = zip(*data)
 
         recorders[0].model_name += '-encoder'
         recorders[1].model_name += '-decoder'
         if self.log_state:
-            recorders[0].start(inputs, None, self.pos_tagger)
+            input_feeder = Seq2SeqFeeder(encoder_inputs, self.batch_size)
+            recorders[0].start(input_feeder, None, self.pos_tagger)
         if self.log_state or self.log_output:
-            recorders[1].start(targets, None, self.pos_tagger)
+            target_feeder = Seq2SeqFeeder(decoder_inputs, self.batch_size)
+            recorders[1].start(target_feeder, None, self.pos_tagger)
         input_size = len(data)
         print("input size: {:d}".format(input_size))
         # self.model.reset_state()

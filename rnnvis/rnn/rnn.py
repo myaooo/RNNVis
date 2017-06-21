@@ -9,6 +9,7 @@ import os
 import tensorflow as tf
 import numpy as np
 
+from rnnvis.rnn.base_model import ModelBase
 from rnnvis.datasets.data_utils import Feeder
 from rnnvis.utils.io_utils import get_path, before_save
 from rnnvis.rnn.constant import DropOutWrapper, MultiRNNCell, static_rnn
@@ -290,7 +291,7 @@ class RNNModel(object):
                 raise TypeError("Unsupported Cell Type {:s}".format(cell_type_name))
 
 
-class RNN(object):
+class RNN(ModelBase):
     """
     A helper class that wraps TF RNNCells
     This class is used for wrapping RNN Model definition. You cannot use this class directly for computation.

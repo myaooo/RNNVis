@@ -96,6 +96,8 @@ def store_wmt_en(data_path, name, vocab_size, upsert=False):
     dev_path = get_wmt_dev_set(data_path) + '.en'
     train_ids_path, dev_ids_path, vocab_path = prepare_data(data_path, train_path, dev_path, vocab_size)
     word_to_id, id_to_word = initialize_vocabulary(vocab_path)
+    word_to_id = {key.decode('utf-8'): value for key, value in word_to_id.items()}
+    id_to_word = [word.decode('utf-8') for word in id_to_word]
     insertion('word_to_id', {'name': name}, {'name': name, 'data': dict2json(word_to_id)})
     insertion('id_to_word', {'name': name}, {'name': name, 'data': id_to_word})
 

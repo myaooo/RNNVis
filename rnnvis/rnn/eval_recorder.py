@@ -44,7 +44,7 @@ class Recorder(object):
 
 class StateRecorder(Recorder):
 
-    def __init__(self, data_name, model_name, set_name=None, flush_every=100):
+    def __init__(self, data_name, model_name, set_name=None, flush_every=100, pad_ids=None):
         self.data_name = data_name
         self.model_name = model_name
         self.set_name = set_name
@@ -57,6 +57,7 @@ class StateRecorder(Recorder):
         self.pos_tagger = None
         self.pos_tags = None
         self.step = 0
+        self.pad_ids = {-1} if pad_ids is None else pad_ids
 
     def start(self, inputs, targets, pos_tagger=None):
         """
@@ -71,12 +72,12 @@ class StateRecorder(Recorder):
         self.input_data = inputs.full_data
         self.input_length = len(self.input_data[0])
         # for i in range(self.inputs.shape[0]):
-        sentence_num = self.input_data.shape[0]
-        sentence_lengths = [count_length(self.input_data[i]) for i in range(sentence_num)]
-        sentences = [self.input_data[i, :sentence_lengths[i]].tolist() for i in range(sentence_num)]
+        sentence_num = len(self.input_data)
+        # sentence_lengths = [count_length(self.input_data[i], self.pad_ids) for i in range(sentence_num)]
+        sentences = [remove_padding(self.input_data[i], self.pad_ids) for i in range(sentence_num)]
         self.write_evaluation(sentences)
         if self.pos_tagger is not None:
-            self.pos_tags = [self.pos_tagger(sentence) for sentence in sentences]
+            self.pos_tags = [list(self.pos_tagger(sentence)) for sentence in sentences]
 
     def record(self, record_message):
         """
@@ -94,9 +95,9 @@ class StateRecorder(Recorder):
         for i, record in enumerate(records):
             word_id = int(self.input_data[start_x + i, start_y])
             record['word_id'] = word_id
-            if word_id >= 0:
+            if word_id not in self.pad_ids:
                 if self.pos_tags is not None:
-                    record['pos'] = self.pos_tags[start_x + i][start_y]
+                    record['pos'] = self.pos_tags[start_x + i].pop(0)
                 good_records.append(record)
                 eval_ids.append(self.eval_doc_id[start_x + i])
         self.buffer['records'] += good_records
@@ -156,8 +157,13 @@ class BufferRecorder(StateRecorder):
             yield eval_doc['data'], eval_doc['records']
 
 
-def count_length(inputs, marker=-1):
+def count_length(inputs, markers):
+    counter = 0
     for i, data in enumerate(inputs):
-        if data == marker:
-            return i
-    return len(inputs)
+        if data in markers:
+            counter += 1
+    return len(inputs) - counter
+
+
+def remove_padding(inputs, pad_ids):
+    return [int(d) for d in inputs if d not in pad_ids]
