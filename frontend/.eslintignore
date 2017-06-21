@@ -4,7 +4,7 @@ src/components/*.vue
 src/algorithm/*.js
 src/services/*.js
 src/router/*.js
-src/*.js
+src
 src/App.vue
 src/lib/*.js
 src/layout/*.js

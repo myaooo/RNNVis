@@ -1,5 +1,5 @@
 import * as d3 from 'd3';
-import { SentenceRecord, CoClusterProcessor } from '../preprocess'
+import { SentenceRecord, CoClusterProcessor } from '../service/preprocess'
 
 const layoutParams = {
   nodeIntervalScale: 1.5,

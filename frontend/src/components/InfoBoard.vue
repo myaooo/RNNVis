@@ -1,6 +1,9 @@
 <template>
   <div>
+    <el-tooltip placement="top" :open-delay="500">
+    <div slot="content">{{ headerText }}</div>
     <h4 class="normal">{{ header }}</h4>
+    </el-tooltip>
     <hr>
     <svg :id='svgId' :width='width' :height='height'> </svg>
     <svg :id='svgId+"2"' :width='width' :height='30'> </svg>
@@ -18,7 +21,7 @@
   import * as d3 from 'd3';
   import { Chart } from '../layout/chart';
   import { bus, SELECT_UNIT, SELECT_WORD, SELECT_LAYER } from '../event-bus';
-  import dataServices from '../services/dataService.js'
+  import dataServices from '../service/dataService.js'
 
   const layoutParams = {
     lineLength: 30,
@@ -31,7 +34,7 @@
     name: 'InfoBoard',
     data(){
       return {
-        width: 0,
+        // width: 0,
         chart: null,
         labelBoard: null,
         shared: bus.state,
@@ -40,6 +43,7 @@
         wordsStatistics: null,
         unitsStatistics: null,
         top_k: 4,
+        width: 300,
       };
     },
     props: {
@@ -65,6 +69,12 @@
         const typeStr = this.type === 'state' ? 'Hidden State' : 'Word';
         return 'Info: ' + (this.shared.compare ? ('[' + this.selectedModel + '] ' + typeStr) : typeStr);
       },
+      headerText: function() {
+        switch (this.type) {
+          case 'state': return "Highly sensitive words of selected hidden units";
+          default: return "The distribution of model's updates on hidden states";
+        }
+      },
       svgId: function () {
         return this.id + '-svg';
       },
@@ -86,9 +96,6 @@
       selectedNode: function() {
         return this.type === 'word' ? (this.compare ? this.shared.selectedNode2 : this.shared.selectedNode) : 0;
       },
-      // width: function() {
-      //   return this.height * 3;
-      // }
     },
     watch: {
       width: function () {
@@ -211,18 +218,22 @@
             .line(sortIdx.map((i) => wordData.mean[i]), (d, i) => i*interval, (d) => { return d; })
             .attr('stroke-width', 1)
             .attr('stroke', wordData.color)
-            .attr('stroke-opacity', 0.7);
+            .attr('stroke-opacity', 0.6);
           if(wordData.range1){
             this.chart
               .area(sortIdx.map((i) => wordData.range1[i]), (d, i) => i*interval, (d) => d[0], (d) => d[1])
               .attr('fill', wordData.color)
-              .attr('fill-opacity', 0.2);
+              .attr('fill-opacity', 0.15)
+              .attr('stroke', wordData.color)
+              .attr('stroke-opacity', 0.1);
           }
           if(wordData.range2){
             this.chart
               .area(sortIdx.map((i) => wordData.range2[i]), (d, i) => i*interval, (d) => d[0], (d) => d[1])
               .attr('fill', wordData.color)
-              .attr('fill-opacity', 0.1);
+              .attr('fill-opacity', 0.15)
+              .attr('stroke', wordData.color)
+              .attr('stroke-opacity', 0.05);
           }
           // draw labels
           this.labelBoard.append('rect')
