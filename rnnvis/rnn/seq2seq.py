@@ -1,26 +1,9 @@
-# Copyright 2015 The TensorFlow Authors. All Rights Reserved.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-# ==============================================================================
-
-"""Sequence-to-sequence model with an attention mechanism."""
-
-# from __future__ import absolute_import
-# from __future__ import division
-# from __future__ import print_function
-
 import random
-import copy
+import os
+import time
+import math
+import sys
+import yaml
 
 import numpy as np
 import tensorflow as tf
@@ -28,33 +11,78 @@ import tensorflow.contrib.legacy_seq2seq as seq2seq
 
 from rnnvis.rnn.base_model import ModelBase
 from rnnvis.rnn.seq2seq_overwrite import embedding_rnn_seq2seq
-from rnnvis.vendor import data_utils
-from rnnvis.rnn.command_utils import data_type
+from rnnvis.rnn import seq2seq_utils
+from rnnvis.rnn.command_utils import data_type, config_proto
+from rnnvis.rnn.config_utils import get_rnn_cell
+from rnnvis.utils.io_utils import before_save, get_path
+from rnnvis.db import get_dataset
 
 
-def create_model(session, from_vocab, to_vocab, bucket, options, forward_only):
+def dict2obj(d):
+    class Struct(object):
+        def __init__(self, **entries):
+            self.__dict__.update(entries)
+    return Struct(**d)
+
+
+def build_model(config_file, forward_only=True):
+    if isinstance(config_file, str):
+        with open(config_file) as f:
+            config_dict = yaml.safe_load(f)
+    elif isinstance(config_file, dict):
+        config_dict = config_file
+    else:
+        raise ValueError("Unsupported type {:s} for arg:config_file!".format(type(config_file)))
+    model_config = config_dict['model']
+    if model_config.get('app', None) != 'seq2seq':
+        return None, None
+    train_config = config_dict['train']
+    dtype = data_type()
+    vocab, rev_vocab = get_dataset(model_config['dataset'], ['word_to_id'],
+                                   vocab_size=model_config['vocab_size']
+                                   )['word_to_id']
+    size = model_config['cells'][0]['num_units']
+    num_layers = len(model_config['cells'])
+    max_grad_norm = train_config.get('gradient_clip_args', {}).get('clip_norm', 5.0)
+    model = Seq2SeqModel(
+        vocab, vocab,
+        model_config['bucket'],
+        model_config['name'],
+        size, num_layers,
+        max_grad_norm,
+        train_config['batch_size'],
+        train_config['learning_rate'],
+        train_config.get('learning_rate_decay_factor', 0.95),
+        cell=model_config['cell_type'],
+        forward_only=forward_only,
+        dtype=dtype
+    )
+    # model_config = dict2obj(model_config)
+    train_config = dict2obj(train_config)
+    return model, train_config
+
+
+def create_model(from_vocab, to_vocab, bucket, options, forward_only):
     """Create translation model and initialize or load parameters in session."""
     dtype = data_type()
     model = Seq2SeqModel(
         from_vocab,
         to_vocab,
         bucket,
+        options.name,
         options.size,
         options.num_layers,
         options.max_gradient_norm,
         options.batch_size,
         options.learning_rate,
         options.learning_rate_decay_factor,
-        use_lstm=options.use_lstm,
+        cell='BasicLSTM' if options.use_lstm else 'GRU',
         forward_only=forward_only,
         dtype=dtype)
-    ckpt = tf.train.get_checkpoint_state(options.train_dir)
+    ckpt = tf.train.get_checkpoint_state(model.logdir)
     if ckpt and tf.train.checkpoint_exists(ckpt.model_checkpoint_path):
         print("Reading model parameters from %s" % ckpt.model_checkpoint_path)
-        model.saver.restore(session, ckpt.model_checkpoint_path)
-    else:
-        print("Created model with fresh parameters.")
-        session.run(tf.global_variables_initializer())
+        model.restore()
     return model
 
 
@@ -77,13 +105,14 @@ class Seq2SeqModel(ModelBase):
                  source_vocab,
                  target_vocab,
                  bucket,
+                 name,
                  size,
                  num_layers,
                  max_gradient_norm,
                  batch_size,
                  learning_rate,
                  learning_rate_decay_factor,
-                 use_lstm=False,
+                 cell='GRU',
                  num_samples=512,
                  forward_only=False,
                  dtype=tf.float32):
@@ -110,126 +139,136 @@ class Seq2SeqModel(ModelBase):
           forward_only: if set, we do not construct the backward pass in the model.
           dtype: the data type to use to store internal variables.
         """
+        self.graph = tf.Graph()
+
         def build_vocab(vocab):
             id_to_word = [None] * len(vocab)
             for key, value in vocab.items():
                 id_to_word[value] = key.decode('utf-8')
             word_to_id = {word: i for i, word in enumerate(id_to_word)}
             return word_to_id, id_to_word
+        self.name = name
+        self.size = size
+        self.num_layers = num_layers
+        self.cell = get_rnn_cell(cell)
+        self.dtype = data_type()
         self.source_vocab, self.rev_source_vocab = build_vocab(source_vocab)
         self.target_vocab, self.rev_target_vocab = build_vocab(target_vocab)
         self.bucket = bucket
         self.batch_size = batch_size
-        self.learning_rate = tf.Variable(
-            float(learning_rate), trainable=False, dtype=dtype)
-        self.learning_rate_decay_op = self.learning_rate.assign(
-            self.learning_rate * learning_rate_decay_factor)
-        self.global_step = tf.Variable(0, trainable=False)
+        self.forward_only = forward_only
+        self.max_gradient_norm = max_gradient_norm
+        self._build_model(learning_rate, learning_rate_decay_factor, num_samples)
 
-        # If we use sampled softmax, we need an output projection.
-        output_projection = None
-        softmax_loss_function = None
-        # Sampled softmax only makes sense if we sample less than vocabulary size.
-        if num_samples > 0 and num_samples < self.target_vocab_size:
-            w_t = tf.get_variable("proj_w", [self.target_vocab_size, size], dtype=dtype)
-            w = tf.transpose(w_t)
-            b = tf.get_variable("proj_b", [self.target_vocab_size], dtype=dtype)
-            output_projection = (w, b)
+    def _build_model(self, learning_rate, learning_rate_decay_factor, num_samples):
+        with self.graph.as_default():
+            self.learning_rate = tf.Variable(
+                float(learning_rate), trainable=False, dtype=self.dtype)
+            self.learning_rate_decay_op = self.learning_rate.assign(
+                self.learning_rate * learning_rate_decay_factor)
+            self.global_step = tf.Variable(0, trainable=False)
 
-            def sampled_loss(labels, logits):
-                labels = tf.reshape(labels, [-1, 1])
-                # We need to compute the sampled_softmax_loss using 32bit floats to
-                # avoid numerical instabilities.
-                local_w_t = tf.cast(w_t, tf.float32)
-                local_b = tf.cast(b, tf.float32)
-                local_inputs = tf.cast(logits, tf.float32)
-                return tf.cast(
-                    tf.nn.sampled_softmax_loss(
-                        weights=local_w_t,
-                        biases=local_b,
-                        labels=labels,
-                        inputs=local_inputs,
-                        num_sampled=num_samples,
-                        num_classes=self.target_vocab_size),
-                    dtype)
+            # If we use sampled softmax, we need an output projection.
+            output_projection = None
+            softmax_loss_function = None
+            # Sampled softmax only makes sense if we sample less than vocabulary size.
+            if num_samples > 0 and num_samples < self.target_vocab_size:
+                w_t = tf.get_variable("proj_w", [self.target_vocab_size, self.size], dtype=self.dtype)
+                w = tf.transpose(w_t)
+                b = tf.get_variable("proj_b", [self.target_vocab_size], dtype=self.dtype)
+                output_projection = (w, b)
 
-            softmax_loss_function = sampled_loss
+                def sampled_loss(labels, logits):
+                    labels = tf.reshape(labels, [-1, 1])
+                    # We need to compute the sampled_softmax_loss using 32bit floats to
+                    # avoid numerical instabilities.
+                    local_w_t = tf.cast(w_t, tf.float32)
+                    local_b = tf.cast(b, tf.float32)
+                    local_inputs = tf.cast(logits, tf.float32)
+                    return tf.cast(
+                        tf.nn.sampled_softmax_loss(
+                            weights=local_w_t,
+                            biases=local_b,
+                            labels=labels,
+                            inputs=local_inputs,
+                            num_sampled=num_samples,
+                            num_classes=self.target_vocab_size),
+                        self.dtype)
 
-        # Create the internal multi-layer cell for our RNN.
-        def single_cell():
-            return tf.contrib.rnn.GRUCell(size)
+                softmax_loss_function = sampled_loss
 
-        if use_lstm:
+            # Create the internal multi-layer cell for our RNN.
             def single_cell():
-                return tf.contrib.rnn.BasicLSTMCell(size)
-        cell = single_cell()
-        if num_layers > 1:
-            cell = tf.contrib.rnn.MultiRNNCell([single_cell() for _ in range(num_layers)])
+                return self.cell(self.size)
 
-        # The seq2seq function: we use embedding for the input and attention.
-        def seq2seq_f(encoder_inputs, decoder_inputs, do_decode):
-            return embedding_rnn_seq2seq(
-                encoder_inputs,
-                decoder_inputs,
-                cell,
-                num_encoder_symbols=len(source_vocab),
-                num_decoder_symbols=len(target_vocab),
-                embedding_size=size,
-                output_projection=output_projection,
-                feed_previous=do_decode,
-                dtype=dtype)
+            cell = single_cell()
+            if self.num_layers > 1:
+                cell = tf.contrib.rnn.MultiRNNCell([single_cell() for _ in range(self.num_layers)])
 
-        # Feeds for inputs.
-        self.encoder_inputs = []
-        self.decoder_inputs = []
-        self.target_weights = []
-        for i in range(bucket[0]):  # Last bucket is the biggest one.
-            self.encoder_inputs.append(tf.placeholder(tf.int32, shape=[None],
-                                                      name="encoder{0}".format(i)))
-        for i in range(bucket[1] + 1):
-            self.decoder_inputs.append(tf.placeholder(tf.int32, shape=[None],
-                                                      name="decoder{0}".format(i)))
-            self.target_weights.append(tf.placeholder(dtype, shape=[None],
-                                                      name="weight{0}".format(i)))
+            # The seq2seq function: we use embedding for the input and attention.
+            def seq2seq_f(encoder_inputs, decoder_inputs, do_decode):
+                return embedding_rnn_seq2seq(
+                    encoder_inputs,
+                    decoder_inputs,
+                    cell,
+                    num_encoder_symbols=len(self.source_vocab),
+                    num_decoder_symbols=len(self.target_vocab),
+                    embedding_size=self.size,
+                    output_projection=output_projection,
+                    feed_previous=do_decode,
+                    dtype=self.dtype)
 
-        # Our targets are decoder inputs shifted by one.
-        targets = [self.decoder_inputs[i + 1]
-                   for i in range(len(self.decoder_inputs) - 1)]
+            # Feeds for inputs.
+            self.encoder_inputs = []
+            self.decoder_inputs = []
+            self.target_weights = []
+            for i in range(self.encoder_size):  # Last bucket is the biggest one.
+                self.encoder_inputs.append(tf.placeholder(tf.int32, shape=[None],
+                                                          name="encoder{0}".format(i)))
+            for i in range(self.decoder_size + 1):
+                self.decoder_inputs.append(tf.placeholder(tf.int32, shape=[None],
+                                                          name="decoder{0}".format(i)))
+                self.target_weights.append(tf.placeholder(self.dtype, shape=[None],
+                                                          name="weight{0}".format(i)))
 
-        # Training outputs and losses.
-        # if forward_only:
-        self.outputs, self.encoder_states, self.decoder_states = \
-            seq2seq_f(self.encoder_inputs[:bucket[0]], self.decoder_inputs[:bucket[1]], forward_only)
-        self.loss = seq2seq.sequence_loss(self.outputs, targets[:bucket[1]], self.target_weights[:bucket[1]],
-                                          softmax_loss_function=softmax_loss_function)
-        # If we use output projection, we need to project outputs for decoding.
-        if forward_only and (output_projection is not None):
-            # for b in range(len(bucket)):
-            self.outputs = [
-                tf.matmul(output, output_projection[0]) + output_projection[1]
-                for output in self.outputs
-                ]
-        # else:
-        #     self.outputs, self.encoder_states, self.decoder_states = \
-        #         seq2seq_f(self.encoder_inputs[:bucket[0]], self.decoder_inputs[:bucket[1]], False)
-        #     self.loss = seq2seq.sequence_loss(self.outputs, targets[:bucket[1]], self.target_weights[:bucket[1]],
-        #                                       softmax_loss_function=softmax_loss_function)
+            # Our targets are decoder inputs shifted by one.
+            targets = [self.decoder_inputs[i + 1]
+                       for i in range(len(self.decoder_inputs) - 1)]
 
-        # Gradients and SGD update operation for training the model.
-        params = tf.trainable_variables()
-        if not forward_only:
-            # self.gradient_norms = []
-            # self.updates = []
-            opt = tf.train.GradientDescentOptimizer(self.learning_rate)
-            # for b in range(len(buckets)):
-            gradients = tf.gradients(self.loss, params)
-            clipped_gradients, norm = tf.clip_by_global_norm(gradients,
-                                                             max_gradient_norm)
-            self.gradient_norm = norm
-            self.update = opt.apply_gradients(
-                zip(clipped_gradients, params), global_step=self.global_step)
+            # Training outputs and losses.
+            self.outputs, self.encoder_states, self.decoder_states = \
+                seq2seq_f(self.encoder_inputs[:self.encoder_size],
+                          self.decoder_inputs[:self.decoder_size],
+                          self.forward_only)
+            self.loss = seq2seq.sequence_loss(self.outputs,
+                                              targets[:self.decoder_size],
+                                              self.target_weights[:self.decoder_size],
+                                              softmax_loss_function=softmax_loss_function)
+            # If we use output projection, we need to project outputs for decoding.
+            if self.forward_only and (output_projection is not None):
+                # for b in range(len(bucket)):
+                self.outputs = [
+                    tf.matmul(output, output_projection[0]) + output_projection[1]
+                    for output in self.outputs
+                    ]
+            # Gradients and SGD update operation for training the model.
+            params = tf.trainable_variables()
+            if not self.forward_only:
+                # self.gradient_norms = []
+                # self.updates = []
+                opt = tf.train.GradientDescentOptimizer(self.learning_rate)
+                # for b in range(len(buckets)):
+                gradients = tf.gradients(self.loss, params)
+                clipped_gradients, norm = tf.clip_by_global_norm(gradients,
+                                                                 self.max_gradient_norm)
+                self.gradient_norm = norm
+                self.update = opt.apply_gradients(
+                    zip(clipped_gradients, params), global_step=self.global_step)
 
-        self.saver = tf.train.Saver(tf.global_variables())
+            self.finalized = False
+            self._sess = None
+            self.logdir = get_path('./models', self.name)
+            self.finalize()
 
     @property
     def encoder_size(self):
@@ -254,12 +293,58 @@ class Seq2SeqModel(ModelBase):
         words = [vocab[i] for i in ids if 0 <= i < len(vocab)]
         return words
 
-    def step(self, session, encoder_inputs, decoder_inputs, target_weights,
+    def get_id_from_word(self, words, target=False):
+        vocab = self.target_vocab if target else self.source_vocab
+        if isinstance(words, str):
+            words = [words]
+        ids = [vocab.get(i, seq2seq_utils.UNK_ID) for i in words if 0 <= i < len(vocab)]
+        return ids
+
+    def save(self, path=None, step=None):
+        """
+        Save the model to a given path
+        :param path:
+        :return:
+        """
+        path = path if path is not None else os.path.join(self.logdir, 'model')
+        before_save(path)
+        self.saver.save(self.sess, path, global_step=self.global_step)
+        print("Model variables saved to {}.".format(get_path(path, absolute=True)))
+
+    def restore(self, path=None):
+        path = path if path is not None else self.logdir
+        checkpoint = tf.train.latest_checkpoint(path)
+        self.saver.restore(self.sess, checkpoint)
+        print("Model variables restored from {}.".format(get_path(path, absolute=True)))
+
+    def finalize(self):
+        """
+        After all the computation ops are built in the graph, build a supervisor which implicitly finalize the graph
+        :return: None
+        """
+        if self.finalized:
+            # print("Graph has already been finalized!")
+            return False
+        with self.graph.as_default():
+            self._init_op = tf.global_variables_initializer()
+            self.saver = tf.train.Saver(tf.trainable_variables())
+        self.finalized = True
+        return True
+
+    @property
+    def sess(self):
+        assert self.finalized
+        if self._sess is None or self._sess._closed:
+            self._sess = tf.Session(graph=self.graph, config=config_proto())
+            self._sess.run(self._init_op)
+        return self._sess
+        # return self.supervisor.managed_session(config=config_proto())
+
+    def step(self, encoder_inputs, decoder_inputs, target_weights,
              forward_only):
         """Run a step of the model feeding the given inputs.
 
         Args:
-          session: tensorflow session to use.
           encoder_inputs: list of numpy int vectors to feed as encoder inputs.
           decoder_inputs: list of numpy int vectors to feed as decoder inputs.
           target_weights: list of numpy float vectors to feed as target weights.
@@ -311,12 +396,57 @@ class Seq2SeqModel(ModelBase):
             for l in range(decoder_size):
                 output_feed.append(self.decoder_states[l])
 
-        outputs = session.run(output_feed, input_feed)
+        outputs = self.sess.run(output_feed, input_feed)
         if not forward_only:
             return outputs[1], outputs[2], None, None  # Gradient norm, loss, no outputs.
         else:
             return None, outputs[0], outputs[1:(decoder_size+1)], outputs[(decoder_size+1):]
             # No gradient norm, loss, outputs.
+
+    def train(self, train_set, dev_set, steps_per_checkpoint=400):
+
+        # This is the training loop.
+        step_time, loss = 0.0, 0.0
+        current_step = 0
+        previous_losses = []
+        with self.sess as sess:
+            while True:
+                # Get a batch and make a step.
+                start_time = time.time()
+                encoder_inputs, decoder_inputs, target_weights = self.get_batch(
+                    train_set)
+                _, step_loss, _, _ = self.step(encoder_inputs, decoder_inputs,
+                                                target_weights, False)
+                step_time += (time.time() - start_time) / steps_per_checkpoint
+                loss += step_loss / steps_per_checkpoint
+                current_step += 1
+
+                # Once in a while, we save checkpoint, print statistics, and run evals.
+                if current_step % steps_per_checkpoint == 0:
+                    # Print statistics for the previous epoch.
+                    perplexity = math.exp(float(loss)) if loss < 300 else float("inf")
+                    print("global step %d learning rate %.4f step-time %.2f perplexity "
+                          "%.2f" % (self.global_step.eval(), self.learning_rate.eval(),
+                                    step_time, perplexity))
+                    # Decrease learning rate if no improvement was seen over last 3 times.
+                    if len(previous_losses) > 2 and loss > max(previous_losses[-3:]):
+                        self.sess.run(self.learning_rate_decay_op)
+                    previous_losses.append(loss)
+                    # Save checkpoint and zero timer and loss.
+                    self.save()
+                    step_time, loss = 0.0, 0.0
+                    # Run evals on development set and print their perplexity.
+                    # for bucket_id in xrange(len(_buckets)):
+                    if len(dev_set) == 0:
+                        print("  eval: empty bucket")
+                        continue
+                    encoder_inputs, decoder_inputs, target_weights = self.get_batch(dev_set)
+                    _, eval_loss, _, _ = self.step(encoder_inputs, decoder_inputs,
+                                                    target_weights, True)
+                    eval_ppx = math.exp(float(eval_loss)) if eval_loss < 300 else float(
+                        "inf")
+                    print("  eval: bucket perplexity %.2f" % eval_ppx)
+                    sys.stdout.flush()
 
     def get_batch(self, data, sample=True):
         """Get a random batch of data from the specified bucket, prepare for step.
@@ -348,13 +478,13 @@ class Seq2SeqModel(ModelBase):
             encoder_input, decoder_input = get_data(data, i)
 
             # Encoder inputs are padded and then reversed.
-            encoder_pad = [data_utils.PAD_ID] * (encoder_size - len(encoder_input))
+            encoder_pad = [seq2seq_utils.PAD_ID] * (encoder_size - len(encoder_input))
             encoder_inputs.append(list(reversed(encoder_input + encoder_pad)))
 
             # Decoder inputs get an extra "GO" symbol, and are padded then.
             decoder_pad_size = decoder_size - len(decoder_input) - 1
-            decoder_inputs.append([data_utils.GO_ID] + decoder_input +
-                                  [data_utils.PAD_ID] * decoder_pad_size)
+            decoder_inputs.append([seq2seq_utils.GO_ID] + decoder_input +
+                                  [seq2seq_utils.PAD_ID] * decoder_pad_size)
 
         # Now we create batch-major vectors from the data selected above.
         batch_encoder_inputs, batch_decoder_inputs, batch_weights = [], [], []
@@ -378,7 +508,7 @@ class Seq2SeqModel(ModelBase):
                 # The corresponding target is decoder_input shifted by 1 forward.
                 if length_idx < decoder_size - 1:
                     target = decoder_inputs[batch_idx][length_idx + 1]
-                if length_idx == decoder_size - 1 or target == data_utils.PAD_ID:
+                if length_idx == decoder_size - 1 or target == seq2seq_utils.PAD_ID:
                     batch_weight[batch_idx] = 0.0
             batch_weights.append(batch_weight)
         return batch_encoder_inputs, batch_decoder_inputs, batch_weights

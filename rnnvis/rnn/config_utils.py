@@ -4,12 +4,12 @@ Helpers for running rnn services from configurations
 
 
 import os
-import yaml
 import tensorflow as tf
 from . import rnn
 from . import constant
 from . import trainer
 from . import losses
+from rnnvis.utils.io_utils import yaml2dict
 
 
 __str2initializer = {
@@ -125,11 +125,10 @@ class RNNConfig(object):
         if isinstance(file_or_dict, dict):
             config_dict = file_or_dict['model']
         else:
-            with open(file_or_dict) as f:
-                try:
-                    config_dict = yaml.safe_load(f)['model']
-                except:
-                    raise ValueError("Malformat of config file!")
+            try:
+                config_dict = yaml2dict(file_or_dict)['model']
+            except:
+                raise ValueError("Malformat of config file!")
         return RNNConfig(**config_dict)
 
 
@@ -178,9 +177,8 @@ class TrainConfig(object):
         if isinstance(file_or_dict, dict):
             config_dict = file_or_dict['train']
         else:
-            with open(file_or_dict) as f:
-                try:
-                    config_dict = yaml.safe_load(f)['train']
-                except:
-                    raise ValueError("Malformat of config file!")
+            try:
+                config_dict = yaml2dict(file_or_dict)['train']
+            except:
+                raise ValueError("Malformat of config file!")
         return TrainConfig(**config_dict)

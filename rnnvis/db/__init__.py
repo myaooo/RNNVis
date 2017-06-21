@@ -11,7 +11,7 @@ def seed_db(force=False):
     print('Seeding complete')
 
 
-def get_dataset(name, fields):
+def get_dataset(name, fields, **kwargs):
     data_info = db_helper.db_hdlr['datasets'].find_one({'name': name})
     if data_info is None:
         print("No dataset with name {:s} exists".format(name))
@@ -19,7 +19,7 @@ def get_dataset(name, fields):
     if data_info['type'] == 'lm' or data_info['type'] == 'sp':
         result = db_helper.get_datasets_by_name(name, fields)
     elif data_info['type'] == 'seq2seq':
-        result = seq2seq.get_datasets_by_name(name, fields)
+        result = seq2seq.get_datasets_by_name(name, fields, **kwargs)
     else:
         raise ValueError('Donot support dataset type "{0}"'.format(data_info['type']))
     if result is None:

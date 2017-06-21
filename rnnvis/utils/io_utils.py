@@ -6,6 +6,7 @@ import os
 import json
 import io
 import csv
+import yaml
 from urllib.request import urlretrieve
 
 from zipfile import ZipFile
@@ -122,6 +123,11 @@ def before_save(file_or_dir):
     if not os.path.exists(dir_name):
         os.makedirs(dir_name)
 
+
+def yaml2dict(file):
+    with open(file) as f:
+        d = yaml.safe_load(f)
+    return d
 
 def download(url, path):
     """

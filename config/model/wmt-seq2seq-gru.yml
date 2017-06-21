@@ -1,5 +1,5 @@
 model:
-  name: WMT-Seq2Seq-GRU-512-2
+  name: seq2seq-gru
   app: seq2seq
   input_dtype: int32
   target_dtype: int32
@@ -19,6 +19,6 @@ train:
   gradient_clip: global_norm
   gradient_clip_args:
     clip_norm: 1.0
-  optimizer: RMSProp
-  learning_rate: 0.001
+#  optimizer: RMSProp
+  learning_rate: 1.0
 

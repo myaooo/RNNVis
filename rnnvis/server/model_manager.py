@@ -10,6 +10,7 @@ from multiprocessing import Process
 
 
 from rnnvis.rnn.rnn import RNN
+from rnnvis.rnn.seq2seq import build_model as build_seq2seq
 from rnnvis.rnn.evaluator import Evaluator
 from rnnvis.datasets.data_utils import Feeder, SentenceProducer
 from rnnvis.utils.io_utils import get_path, assert_path_exists
@@ -67,9 +68,12 @@ class ModelManager(object):
     def _load_model(self, name, train=False):
         if name in self._available_models:
             config_file = get_path(_config_dir, self._available_models[name]['config'])
-            model, train_config = build_model(config_file)
+            try:
+                model, train_config = build_model(config_file)
+                model.add_evaluator(1, 1, 100, True, log_gates=False, log_pos=True)
+            except:
+                model, train_config = build_seq2seq(config_file)
             # model.add_generator()
-            model.add_evaluator(1, 1, 100, True, log_gates=False, log_pos=True)
             if not train:
                 # If not training, the model should already be trained
                 assert_path_exists(get_path(_model_dir, model.name))

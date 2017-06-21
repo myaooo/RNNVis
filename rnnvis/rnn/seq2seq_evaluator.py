@@ -95,12 +95,11 @@ class Seq2SeqEvaluator():
     def batch_size(self):
         return self.model.batch_size
 
-    def evaluate_and_record(self, sess, data, recorders, verbose=True):
+    def evaluate_and_record(self, data, recorders, verbose=True):
         """
         A similar method like evaluate.
         Evaluate model's performance on a sequence of inputs and targets,
         and record the detailed information with recorder.
-        :param sess: the sess to run the computation
         :param recorders: an object with method `start(inputs, targets)` and `record(record_message)`
         :param verbose: verbosity
         :return:
@@ -133,7 +132,7 @@ class Seq2SeqEvaluator():
         # self.model.reset_state()
         for i, batch_data in enumerate(self.model.get_batches(data)):
             _, loss, outputs, states = \
-                self.model.step(sess, batch_data[0], batch_data[1], batch_data[2], forward_only=True)
+                self.model.step(batch_data[0], batch_data[1], batch_data[2], forward_only=True)
             messages1 = {}
             messages2 = {}
             if self.log_output:

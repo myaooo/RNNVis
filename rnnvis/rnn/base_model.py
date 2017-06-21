@@ -22,7 +22,6 @@ class ModelBase(object):
     def get_id_from_word(self, words):
         raise NotImplementedError("This is the ModelBase class! Use inherited classes!")
 
-
 class EvaluatorBase(object):
     def evaluate_and_record(self, *args, **kwargs):
         raise NotImplementedError("This is the EvaluatorBase class! Use inherited classes!")

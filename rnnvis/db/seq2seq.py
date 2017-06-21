@@ -2,8 +2,8 @@ import os
 import yaml
 import tarfile
 
-from rnnvis.vendor.data_utils import create_vocabulary, data_to_token_ids, maybe_download, \
-    gunzip_file, read_data, initialize_vocabulary, WMT_ENFR_TRAIN_URL, WMT_ENFR_DEV_URL
+from rnnvis.rnn.seq2seq_utils import create_vocabulary, data_to_token_ids, maybe_download, \
+    gunzip_file, read_data, initialize_vocabulary, prepare_wmt_data, WMT_ENFR_TRAIN_URL, WMT_ENFR_DEV_URL
 from rnnvis.utils.io_utils import get_path, file_exists, dict2json
 from rnnvis.db.db_helper import insert_one_if_not_exists, replace_one_if_exists, \
     store_dataset_by_default, dataset_inserted, datasets_path
@@ -14,16 +14,19 @@ _train_path = "giga-fren.release2.fixed"
 _dev_path = "newstest2013"
 
 
-def get_datasets_by_name(name, fields):
-    data_path = get_path(datasets_path(name))
+def get_datasets_by_name(name, fields, vocab_size=None):
+    data_path = get_path(datasets_path, name)
     results = {}
+    train, dev, vocab_path = prepare_wmt_data(
+        data_path, vocab_size)
     for field in fields:
         if field == 'train':
-            path = get_wmt_train_set(data_path)
-            results['train'] = read_data(path, max_train_size)
-        elif field == 'test' or 'valid':
-            path = get_wmt_dev_set(data_path)
-            results[field] = read_data(path)
+            results[field] = read_data(train, max_train_size)
+        elif field in {'test', 'dev', 'valid'}:
+            results[field] = read_data(dev, max_train_size)
+        elif field == 'word_to_id':
+            results[field] = initialize_vocabulary(vocab_path)
+    return results
 
 
 def get_wmt_train_set(directory):

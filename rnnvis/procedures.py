@@ -10,6 +10,8 @@ import tensorflow as tf
 from rnnvis.rnn.config_utils import RNNConfig, TrainConfig
 from rnnvis.rnn.command_utils import data_type, pick_gpu_lowest_memory
 from rnnvis.rnn.rnn import RNN
+from rnnvis.rnn.seq2seq import build_model as build_seq2seq
+from rnnvis.utils.io_utils import yaml2dict
 from rnnvis.datasets.data_utils import load_data_as_ids, get_lm_data_producer, get_sp_data_producer
 from rnnvis.db import get_dataset, NoDataError
 
@@ -78,14 +80,11 @@ def build_model(config, train=True):
     :return:
     """
     print("Building model from {:s}".format(config))
-    if isinstance(config, str):
-        rnn_config = RNNConfig.load(config)
-        train_config = TrainConfig.load(config)
-    elif isinstance(config, dict):
-        rnn_config = config['model']
-        train_config = config['train']
-    else:
-        raise TypeError('config should be a file_path or a dict!')
+    config = yaml2dict(config)
+    if config['model'].get('app', None) == 'seq2seq':
+        return build_seq2seq(config, forward_only=not train)
+    rnn_config = RNNConfig.load(config)
+    train_config = TrainConfig.load(config)
     rnn_ = build_rnn(rnn_config)
     if train:
         build_trainer(rnn_, train_config)
