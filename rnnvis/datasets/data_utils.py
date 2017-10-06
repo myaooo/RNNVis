@@ -314,7 +314,7 @@ def split(data_list, fractions=None, shuffle=False):
 
 
 def read_words(filename):
-    with tf.gfile.GFile(filename, "r") as f:
+    with open(filename, "r") as f:
         return f.read().replace("\n", "<eos>").split()
 
 

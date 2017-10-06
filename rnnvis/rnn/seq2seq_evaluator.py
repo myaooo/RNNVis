@@ -117,7 +117,7 @@ class Seq2SeqEvaluator():
             return batch_encoder_inputs, batch_decoder_inputs, batch_weights
 
         encoder_inputs, decoder_inputs, weights = pack_data(data)
-        inputs, targets = zip(*data)
+        # inputs, targets = zip(*data)
 
         recorders[0].model_name += '-encoder'
         recorders[1].model_name += '-decoder'
@@ -141,8 +141,8 @@ class Seq2SeqEvaluator():
             if self.log_state:
                 encoder_states = states[:self.model.encoder_size]
                 decoder_states = states[self.model.encoder_size:]
-                messages1['state_h'] = encoder_states
-                messages2['state_h'] = decoder_states
+                messages1['state_h'] = [np.array(s).reshape(self.batch_size, model.num_layers, model.size) for s in encoder_states]
+                messages2['state_h'] = [np.array(s).reshape(self.batch_size, model.num_layers, model.size) for s in decoder_states]
 
             if len(messages1) > 0:
                 messages1 = [{key: value[i] for key, value in messages1.items()} for i in range(self.model.encoder_size)]

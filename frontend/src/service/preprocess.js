@@ -1,319 +1,73 @@
-import dataService from './dataService';
-
-export class CoClusterProcessor {
-  constructor(modelName, stateName, nCluster = 10, params = { top_k: 300, mode: 'raw', layer: -1 }, sortBy = 'col') {
-    this.rawData;
-    this._rowClusters;
-    this._colClusters;
-    this._colSizes;
-    this._rolSizes;
-    this._aggregation_info = null;
-    this.modelName = modelName;
-    this.stateName = stateName;
-    this.nCluster = nCluster;
-    this.params = params;
-    this.sortBy = sortBy;
-  }
-  get correlation() {
-    return this.hasData ? this.rawData.data : undefined;
-  }
-  get labels() {
-    if (this.hasData && !this._labels) {
-      this._labels = [...new Set([...(this.colLabels), ...(this.rowLabels)])];
-      if (this.sortBy === 'col')
-        this._labels.sort((a, b) => this.colSizes[a] - this.colSizes[b]);
-      else if (this.sortBy === 'row')
-        this._labels.sort((a, b) => this.rowSizes[a] - this.rowSizes[b]);
-      // console.log(this._labels);
-    }
-    return this._labels;
-  }
-  get colSizes() {
-    if (this.hasData && !this._colSizes) {
-      const colSizes = new Int32Array(this.labels.length);
-      this.colLabels.forEach((label, i) => { colSizes[label] += 1; });
-      this._colSizes = colSizes;
-    }
-    return this._colSizes;
-  }
-  get rowSizes() {
-    if (this.hasData && !this._rowSizes) {
-      const rowSizes = new Int32Array(this.labels.length);
-      this.rowLabels.forEach((label, i) => { rowSizes[label] += 1; });
-      this._rowSizes = rowSizes;
-    }
-    return this._rowSizes;
-  }
-  get rowLabels() {
-    return this.hasData ? this.rawData.row : undefined;
-  }
-  get colLabels() {
-    return this.hasData ? this.rawData.col : undefined;
-  }
-  get ids() {
-    return this.hasData ? this.rawData.ids : undefined;
-  }
-
-  get words() {
-    return this.hasData ? this.rawData.words : undefined;
-  }
-
-  load() {
-    return dataService.getCoCluster(this.modelName, this.stateName, this.nCluster, this.params, (response) => {
-      if (response.status === 200) {
-        this.rawData = response.data;
-        console.log(this);
-      } else {
-        throw response;
-      }
-    });
-  }
-  get hasData() {
-    return Boolean(this.rawData);
-  }
-
-  strength_filter(strength, mode = this.params.mode) {
-    switch (mode) {
-      case 'positive':
-        return strength > 0 ? strength : 0;
-        break;
-      case 'negative':
-        return strength < 0 ? Math.abs(strength) : 0;
-        break;
-      case 'abs':
-        return Math.abs(strength);
-        break;
-      case 'raw':
-        return strength;
-        break;
-    }
-  }
-
-  Create2DArray(rowNum, colNum) {
-    return Array.from({ length: rowNum }, (v, i) => {
-      return new Float32Array(colNum); //Array.from({ length: colNum }, (v, i) => 0);
-    });
-  }
-
-  // sortData() {
-  //   if (this.hasData) {
-
-  //   }
-  // }
-  get aggregation_info() {
-    if (this.hasData && !this._aggregation_info) {
-      // const rowClusters = this.rowClusters;
-      // const colClusters = this.colClusters;
-      const row_cluster_2_col_cluster = this.Create2DArray(this.nCluster, this.nCluster);
-      const row_single_2_col_cluster = this.Create2DArray(this.rawData.row.length, this.nCluster);
-      const row_cluster_2_col_single = this.Create2DArray(this.nCluster, this.rawData.col.length);
-      const row_single_2_col_single = this.Create2DArray(this.rawData.row.length, this.rawData.col.length);
-      const cluster = [];
-      // calculate the correlation between clusters
-      this.correlation.forEach((strength_list, r_index) => {
-        strength_list.forEach((s, c_index) => {
-          let strength = this.strength_filter(s);
-          row_cluster_2_col_cluster[this.rawData.row[r_index]][this.rawData.col[c_index]] += strength / (this.rowSizes[this.rowLabels[r_index]] * this.colSizes[this.colLabels[c_index]]);
-          row_cluster_2_col_single[this.rawData.row[r_index]][c_index] += strength / this.rowSizes[this.rowLabels[r_index]];
-          row_single_2_col_cluster[r_index][this.rawData.col[c_index]] += strength / this.colSizes[this.colLabels[c_index]];
-          row_single_2_col_single[r_index][c_index] += strength;
-        });
-      });
-
-      this._aggregation_info = {
-        row_cluster_2_col_cluster: row_cluster_2_col_cluster,
-        row_single_2_col_cluster: row_single_2_col_cluster,
-        row_cluster_2_col_single: row_cluster_2_col_single,
-        row_single_2_col_single: row_single_2_col_single
-      };
-    }
-    return this._aggregation_info;
-  }
-
-  get cluster2cluster() {
-    if (this.hasData && !this._cluster2cluster) {
-      const row_cluster_2_col_cluster = this.Create2DArray(this.nCluster, this.nCluster);
-      this.correlation.forEach((strength_list, r_index) => {
-        strength_list.forEach((s, c_index) => {
-          let strength = this.strength_filter(s);
-          row_cluster_2_col_cluster[this.rawData.row[r_index]][this.rawData.col[c_index]] += strength;
-        });
-      });
-      this._cluster2cluster = row_cluster_2_col_cluster;
-    }
-    return this._cluster2cluster;
-  }
-
-  get single2cluster() {
-    if (this.hasData && !this._single2cluster) {
-      const row_single_2_col_cluster = this.Create2DArray(this.rawData.row.length, this.nCluster);
-      this.correlation.forEach((strength_list, r_index) => {
-        strength_list.forEach((s, c_index) => {
-          let strength = this.strength_filter(s);
-          row_single_2_col_cluster[r_index][this.rawData.col[c_index]] += strength;
-        });
-      });
-      this._single2cluster = row_single_2_col_cluster;
-    }
-    return this._cluster2cluster;
-  }
-
-  get cluster2single() {
-    if (this.hasData && !this._cluster2single) {
-      const row_cluster_2_col_single = this.Create2DArray(this.nCluster, this.rawData.col.length);
-      this.correlation.forEach((strength_list, r_index) => {
-        strength_list.forEach((s, c_index) => {
-          let strength = this.strength_filter(s);
-          row_single_2_col_single[r_index][c_index] += strength;
-        });
-      });
-      this._cluster2single = row_cluster_2_col_single;
-    }
-    return this._cluster2single;
-  }
-
-  get single2single() {
-    if (this.hasData && !this._single2single) {
-      const row_single_2_col_single = this.Create2DArray(this.rawData.row.length, this.rawData.col.length);
-      this.correlation.forEach((strength_list, r_index) => {
-        strength_list.forEach((s, c_index) => {
-          let strength = this.strength_filter(s);
-          row_single_2_col_cluster[r_index][this.rawData.col[c_index]] += strength;
-        });
-      });
-      this._single2cluster = row_single_2_col_cluster;
-    }
-    return this._cluster2cluster;
-  }
-
-  get rowClusters() {
-    if (this.hasData && !this._rowClusters) {
-      const rowClusters = Array.from({ length: this.labels.length }, (v, i) => []);
-      this.rawData.row.forEach((r, i) => {
-        // if (rowClusters[r] === undefined) {
-        //   rowClusters[r] = [];
-        // }
-        rowClusters[r].push(i);
-      });
-      this._rowClusters = new Array(this.labels.length);
-      this.labels.forEach((l, i) => this._rowClusters[i] = rowClusters[l]);
-    }
-    return this._rowClusters;
-  }
-  get colClusters() {
-    if (this.hasData && !this._colClusters) {
-      const colClusters = Array.from({ length: this.labels.length }, (v, i) => []);
-      this.rawData.col.forEach((c, i) => {
-        if (colClusters[c] === undefined) {
-          colClusters[c] = [];
-        }
-        colClusters[c].push(i);
-      });
-      this._colClusters = new Array(this.labels.length);
-      this.labels.forEach((l, i) => this._colClusters[i] = colClusters[l]);
-    }
-    return this._colClusters;
-  }
-
-  static identifier(processor) {
-    return `${processor.modelName}${processor.stateName}${processor.nCluster}${processor.params.layer+1}`;
-  }
-
-}
-
 export class SentenceRecord {
-  constructor(inputs, modelName) {
-    this.inputs = inputs;
-    this.tokens;
-    this.records;
-    this.modelName = modelName;
+  constructor({
+    tokens,
+    records,
+  }) {
+    this.tokens = tokens[0]; // assume one sentence
+    this.records = records[0];
+    this.states = undefined;
+    this.layerNum = undefined;
   }
-  evaluate(modelName = this.modelName) {
-    return dataService.getTextEvaluation(modelName, this.inputs, (response => {
-      if (response.status === 200) {
-        const data = response.data;
-        this.tokens = data.tokens[0]; // assume one sentence
-        this.records = data.records[0];
-      } else {
-        throw response;
-      }
-    }));
-  }
-  get states() {
-    if (this.records && !this._states) {
-      this._states = Object.keys(this.records[0]);
+  getStates() {
+    if (this.records && !this.states) {
+      this.states = Object.keys(this.records[0]);
     }
-    return this._states;
+    return this.states;
   }
-  get layerNum() {
-    if (this.records && !this._layerNum) {
-      this._layerNum = this.records[0][this.states[0]].length;
+  getLayerNum() {
+    if (this.records && !this.layerNum) {
+      this.layerNum = this.records[0][this.states[0]].length;
     }
-    return this._layerNum;
+    return this.layerNum;
   }
   getRecords(stateName, layer = -1) {
     if (this.records) {
-      layer = layer === -1 ? this.layerNum - 1 : layer;
-      console.log(layer);
-      return this.records.map((word) => {
-        return word[stateName][layer];
-      });
+      const selectedLayer = layer === -1 ? this.layerNum - 1 : layer;
+      return this.records.map((word) => word[stateName][selectedLayer]);
     }
     return undefined;
   }
 }
 
-export class StateStatistics {
-  constructor(modelName, stateName, layer = -1, top_k = 600) {
-    this.modelName = modelName;
-    this.stateName = stateName;
-    this.layer = layer;
-    this.top_k = top_k;
-    this.data;
+export class StateProcessor {
+  constructor(data) {
+    this.data = data;
+    this.stateNum = this.data.mean[0].length;
+    this.statesData = undefined;
+    this.wordsData = undefined;
+    this.word2Id = undefined;
   }
-  load() {
-    if (this.data) return Promise.resolve("Already loaded");
-    return dataService.getStateStatistics(this.modelName, this.stateName, this.layer, this.top_k, (response) => {
-      this.data = response.data;
-    });
-  }
-  get stateNum() {
-    return this.data ? this.data.mean[0].length : undefined;
-  }
-  get statesData() { // calculate statistics for each state unit
-    if (this.data && !this._statesData) {
-      this._statesData = this.data.mean[0].map((_, j) => {
-        return {
-          words: this.data.words,
-          // freqs: this.data.freqs,
-          mean: this.data.mean.map((m) => m[j]),
-          low1: this.data.low1.map((m) => m[j]),
-          low2: this.data.low2.map((m) => m[j]),
-          high1: this.data.high1.map((m) => m[j]),
-          high2: this.data.high2.map((m) => m[j]),
-          rank: this.data.sort_idx.map((indices) => {
-            return indices.findIndex((idx) => (idx === j));
-          }),
-        };
-      });
+
+  getStatesData() { // calculate statistics for each state unit
+    if (this.data && !this.statesData) {
+      this.statesData = this.data.mean[0].map((_, j) => ({
+        words: this.data.words,
+        // freqs: this.data.freqs,
+        mean: this.data.mean.map((m) => m[j]),
+        low1: this.data.low1.map((m) => m[j]),
+        low2: this.data.low2.map((m) => m[j]),
+        high1: this.data.high1.map((m) => m[j]),
+        high2: this.data.high2.map((m) => m[j]),
+        rank: this.data.sort_idx.map((indices) => indices.findIndex((idx) => (idx === j))),
+      }));
     }
-    return this._statesData;
+    return this.statesData;
   }
-  get word2Id() {
-    if (this.data && !this._word2Id) {
-      const word2Id = {}
+  getWord2Id() {
+    if (this.data && !this.word2Id) {
+      const word2Id = {};
       this.data.words.forEach((word, i) => {
         word2Id[word] = i;
-      })
-      this._word2Id = word2Id;
+      });
+      this.word2Id = word2Id;
     }
-    return this._word2Id;
+    return this.word2Id;
   }
-  get wordsData() {
-    if (this.data && !this._wordsData) {
-      this._wordsData = this.data.mean.map((mean, i) => {
+  getWordsData() {
+    if (this.data && !this.wordsData) {
+      this.wordsData = this.data.mean.map((mean, i) => {
         const data = {
-          mean: mean,
+          mean,
           range1: this.data.low1[i].map((low, j) => [low, this.data.high1[i][j]]),
           range2: this.data.low2[i].map((low, j) => [low, this.data.high2[i][j]]),
           word: this.data.words[i],
@@ -322,32 +76,211 @@ export class StateStatistics {
         return data;
       });
     }
-    return this._wordsData;
+    return this.wordsData;
   }
   statOfWord(word) {
     if (this.data) {
-      const id = this.word2Id[word];
-      return this.wordsData[id];
+      const id = this.getWord2Id()[word];
+      return this.getWordsData()[id];
     }
     return undefined;
   }
 }
 
-function memorize(fn) {
-  var cache = {};
-  return function () {
-    var key = arguments.length + Array.prototype.join.call(arguments, ",");
-    if (key in cache) {
-      return cache[key];
-    } else {
-      return cache[key] = f.apply(this, arguments);
+function create2DArray(rowNum, colNum) {
+  return Array.from({
+    length: rowNum,
+  }, () => new Float32Array(colNum)); // Array.from({ length: colNum }, (v, i) => 0);
+}
+
+function label2Index(labels) {
+  const mapper = new Array(labels.length);
+  labels.forEach((label, i) => {
+    mapper[label] = i;
+  });
+  return mapper;
+}
+
+export class CoClusterProcessor {
+
+  constructor({ data, params }) {
+    this.aggregationInfo = undefined;
+    this.colClusters = undefined;
+    this.rowClusters = undefined;
+    this.rawData = data;
+    this.params = params;
+    // preprocess
+    this.correlation = data.data;
+    this.rowData = data.row;
+    this.colData = data.col;
+
+    this.rowLabels = [...new Set([...(this.rowData)])].sort((a, b) => a - b);
+    this.colLabels = [...new Set([...(this.colData)])].sort((a, b) => a - b);
+    this.nRowCluster = this.rowLabels.length;
+    this.nColCluster = this.colLabels.length;
+
+    const colSizes = new Int32Array(this.colLabels.length);
+    this.colData.forEach((label) => {
+      colSizes[label] += 1;
+    });
+    this.colSizes = colSizes;
+
+    const rowSizes = new Int32Array(this.rowLabels.length);
+    this.rowData.forEach((label) => {
+      rowSizes[label] += 1;
+    });
+    this.rowSizes = rowSizes;
+  }
+  process() {
+    this.getColClusters();
+    this.getRowClusters();
+    this.getAggregationInfo();
+  }
+  // get labels() {
+  //   if (this.hasData && !this._labels) {
+  //     this._labels = [...new Set([...(this.colData), ...(this.rowData)])];
+  //     this._labels.sort((a, b) => a - b);
+  //   }
+  //   return this._labels;
+  // }
+
+  // get uniqRowLabels() {
+  //   if (this.hasData && !this._uniqRowLabels) {
+  //     const uniqueLabels = new Set([...(this.rowData)]);
+  //     const rowLabels = [];
+  //     for (let i = 0; i < this.labels.length; i++) {
+  //       if (uniqueLabels.has(this.labels[i])) {
+  //         rowLabels.push(this.labels[i]);
+  //       }
+  //     }
+  //     this._uniqRowLabels = rowLabels;
+  //   }
+  //   return this._uniqRowLabels;
+  // }
+  // get uniqColLabels() {
+  //   if (this.hasData && !this._uniqColLabels) {
+  //     const uniqueLabels = new Set([...(this.colData)]);
+  //     const colLabels = [];
+  //     for (let i = 0; i < this.labels.length; i++) {
+  //       if (uniqueLabels.has(this.labels[i])) {
+  //         colLabels.push(this.labels[i]);
+  //       }
+  //     }
+  //     this._uniqColLabels = colLabels;
+  //   }
+  //   return this._uniqColLabels;
+  // }
+  get ids() {
+    return this.rawDat ? this.rawData.ids : undefined;
+  }
+
+  get words() {
+    return this.rawData ? this.rawData.words : undefined;
+  }
+
+  strengthFilter(mode = this.params.mode) {
+    switch (mode) {
+      case 'positive':
+        return (strength) => (strength > 0 ? strength : 0);
+      case 'negative':
+        return (strength) => (strength < 0 ? Math.abs(strength) : 0);
+      case 'abs':
+        return Math.abs;
+      case 'raw':
+      default:
+        return (strength) => (strength);
     }
   }
+
+  getAggregationInfo() {
+    if (this.rawData && !this.aggregationInfo) {
+      const colLabels = this.colData;
+      const rowLabels = this.rowData;
+      const colLabelMap = label2Index(this.colLabels);
+      const rowLabelMap = label2Index(this.rowLabels);
+      const strengthFilter = this.strengthFilter();
+      // const colClusters = this.colClusters;
+      const rowCluster2colCluster = create2DArray(
+        this.rowLabels.length, this.colLabels.length);
+      const rowSingle2colCluster = create2DArray(
+        rowLabels.length, this.colLabels.length);
+      const rowCluster2colSingle = create2DArray(
+        this.rowLabels.length, colLabels.length);
+      const rowSingle2colSingle = create2DArray(
+        rowLabels.length, colLabels.length);
+      // calculate the correlation between clusters
+      this.correlation.forEach((strengthList, r) => {
+        strengthList.forEach((s, c) => {
+          const strength = strengthFilter(s);
+          const row = rowLabelMap[rowLabels[r]];
+          const col = colLabelMap[colLabels[c]];
+          rowCluster2colCluster[row][col] +=
+            strength / (this.rowSizes[rowLabels[r]] * this.colSizes[colLabels[c]]);
+          rowCluster2colSingle[row][c] += strength / this.rowSizes[rowLabels[r]];
+          rowSingle2colCluster[r][col] += strength / this.colSizes[colLabels[c]];
+          rowSingle2colSingle[r][c] += strength;
+        });
+      });
+
+      this.aggregationInfo = {
+        rowCluster2colCluster,
+        rowSingle2colCluster,
+        rowCluster2colSingle,
+        rowSingle2colSingle,
+      };
+    }
+    return this.aggregationInfo;
+  }
+
+  getRowClusters() {
+    if (this.rawData && !this.rowClusters) {
+      const rowClusters = Array.from({
+        length: this.rowLabels.length,
+      }, () => []);
+      this.rawData.row.forEach((r, i) => {
+        rowClusters[r].push(i);
+      });
+      // this._rowClusters = new Array(this.labels.length);
+      // this.labels.forEach((l, i) => this._rowClusters[i] = rowClusters[l]);
+      this.rowClusters = new Array(this.rowLabels.length);
+      this.rowLabels.forEach((label, i) => {
+        this.rowClusters[i] = rowClusters[label];
+      });
+    }
+    return this.rowClusters;
+  }
+  getColClusters() {
+    if (this.rawData && !this.colClusters) {
+      const colClusters = Array.from({
+        length: this.colLabels.length,
+      }, () => []);
+      this.colData.forEach((c, i) => {
+        colClusters[c].push(i);
+      });
+      // this._colClusters = new Array(this.labels.length);
+      // this.labels.forEach((l, i) => this._colClusters[i] = colClusters[l]);
+      this.colClusters = new Array(this.colLabels.length);
+      this.colLabels.forEach((label, i) => {
+        this.colClusters[i] = colClusters[label];
+      });
+    }
+    return this.colClusters;
+  }
+
+  static identifier({
+    modelName,
+    stateName,
+    nCluster,
+    params,
+  }) {
+    return `${modelName}${stateName}${nCluster}${params.layer + 1}`;
+  }
+
 }
 
 export default {
-  CoClusterProcessor,
   SentenceRecord,
-  StateStatistics,
-  memorize,
+  StateProcessor,
+  CoClusterProcessor,
 };
+

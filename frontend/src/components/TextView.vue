@@ -73,8 +73,8 @@
 }
 </style>
 <script>
-  import dataService from '../service/dataService';
-  import { bus, SELECT_MODEL } from '../event-bus';
+  import dataService from 'src/service/dataService';
+  import { bus, SELECT_MODEL } from 'src/state';
 
   let activeColorScheme = ["88, 126, 182", "201, 90, 95"];
   export default {

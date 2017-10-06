@@ -19,9 +19,10 @@
 
 <script>
   import * as d3 from 'd3';
+  import { mapActions, mapState } from 'vuex';
   import { Chart } from '../layout/chart';
-  import { bus, SELECT_UNIT, SELECT_WORD, SELECT_LAYER } from '../event-bus';
-  import dataServices from '../service/dataService.js'
+  import { SELECT_UNIT, SELECT_WORD, SELECT_LAYER, GET_STATE_STATISTICS, GET_WORD_STATISTICS } from '../store';
+  // import dataServices from 'src/service/dataService.js'
 
   const layoutParams = {
     lineLength: 30,
@@ -37,10 +38,8 @@
         // width: 0,
         chart: null,
         labelBoard: null,
-        shared: bus.state,
-        statistics: null,
         layoutParams: layoutParams,
-        wordsStatistics: null,
+        wordsStatistics: [],
         unitsStatistics: null,
         top_k: 4,
         width: 300,
@@ -67,7 +66,7 @@
     computed: {
       header: function() {
         const typeStr = this.type === 'state' ? 'Hidden State' : 'Word';
-        return 'Info: ' + (this.shared.compare ? ('[' + this.selectedModel + '] ' + typeStr) : typeStr);
+        return 'Info: ' + (this.$store.state.compare ? ('[' + this.selectedModel + '] ' + typeStr) : typeStr);
       },
       headerText: function() {
         switch (this.type) {
@@ -78,42 +77,45 @@
       svgId: function () {
         return this.id + '-svg';
       },
-      selectedLayer: function () {
-        return this.compare ? this.shared.selectedLayer2 : this.shared.selectedLayer;
+      model: function () {
+        return this.compare ? this.$store.state.selectedModel2 : this.$store.state.selectedModel;
       },
-      selectedModel: function () {
-        return this.compare ? this.shared.selectedModel2 : this.shared.selectedModel;
+      selectedLayer: function () {
+        return this.model ? this.model.selectedLayer : null;
       },
       selectedState: function () {
-        return this.compare ? this.shared.selectedState2 : this.shared.selectedState;
+        return this.model ? this.model.selectedState : null;
       },
       selectedUnits: function () {
-        return this.type === 'state' ? (this.compare ? this.shared.selectedUnits2 : this.shared.selectedUnits) : 0;
+        if (!this.model) return [];
+        return this.type === 'state' ? (this.model.selectedUnits) : [];
       },
       selectedWords: function () {
-        return this.type === 'word' ? (this.compare ? this.shared.selectedWords2 : this.shared.selectedWords) : 0;
+        if (!this.model) return [];
+        return this.type === 'word' ? (this.model.selectedWords) : [];
       },
       selectedNode: function() {
-        return this.type === 'word' ? (this.compare ? this.shared.selectedNode2 : this.shared.selectedNode) : 0;
+        if (!this.model) return null;
+        return this.type === 'word' ? (this.model.selectedNode) : null;
       },
+      ...mapState({
+        color: 'color',
+      }),
     },
     watch: {
       width: function () {
-        if (this.selectedLayer && this.selectedModel && this.selectedState) {
+        if (this.selectedLayer && this.model && this.selectedState) {
           if (this.type === 'word' && this.wordsStatistics) this.repaintWord();
           else if (this.type === 'state' && this.unitsStatistics) this.repaintState();
         }
       },
       selectedUnits: function () {
-        if (this.selectedUnits) {
-          let model = this.selectedModel,
-            state = this.selectedState,
-            layer = this.selectedLayer;
-          const p = bus.loadStatistics(model, state, layer)
+        if (this.selectedUnits.length) {
+          let model = this.model;
+          this.getStateStatistics({ modelName: model.name })
             .then(() => {
-              this.statistics = bus.getStatistics(model, state, layer);
               this.unitsStatistics = this.selectedUnits.map((unit, i) => {
-                const data = this.statistics.statesData[unit];
+                const data = model.stateStats.statesData[unit];
                 const dataArray = data.mean.map((_, j) => {
                   return {
                     mean: data.mean[j],
@@ -131,42 +133,37 @@
         }
       },
       selectedWords: function() {
-        if (this.selectedWords) {
-          let model = this.selectedModel,
-            state = this.selectedState,
-            layer = this.selectedLayer;
-          const p = bus.loadStatistics(model, state, layer)
+        if (this.selectedWords.length) {
+          this.getStateStatistics({ modelName: this.model.name })
             .then(() => {
-              this.statistics = bus.getStatistics(model, state, layer);
               this.wordsStatistics = this.selectedWords.map((word, i) => {
-                const wordData = this.statistics.statOfWord(word.text);
-                wordData.color = this.selectedWords[i].color;
+                const wordData = this.model.stateStats.statOfWord(word);
+                wordData.color = this.color(i);
                 return wordData;
               });
-              // console.log(this.statistics);
               this.repaintWord();
-              // const wordsStatistics = this.statistics.statOfWord(this.selectedWords[0]).mean;
             });
+        } else {
+          this.wordsStatistics = [];
+          this.repaintWord();
         }
       },
       selectedNode: function() {
         if (this.selectedNode) {
-          let model = this.selectedModel,
-            state = this.selectedState,
-            layer = this.selectedLayer;
-          const p = dataServices.getWordStatistics(model, state, layer, this.selectedNode.word, (response) => {
-            if (response.status === 200) {
-              const data = response.data;
+          this.getWordStatistics({ modelName: this.model.name, word: this.selectedNode.word })
+            .then(wordStatistics => {
+              const data = wordStatistics.data;
               data.word = data.words;
               data.range1 = data.low1.map((low1, i) => [low1, data.high1[i]]);
               data.range2 = data.low2.map((low2, i) => [low2, data.high2[i]]);
-              data.color = this.layoutParams.color(0);
-              const line = {mean: this.selectedNode.response, color: this.layoutParams.color(1), word: data.word + '(sentence)'};
+              data.color = this.color(0);
+              const line = {mean: this.selectedNode.response, color: this.color(1), word: data.word + '(sentence)'};
               this.wordsStatistics = [data, line];
-              console.log(this.selectedNode);
+              // console.log(this.selectedNode);
+              console.log(this.wordsStatistics);
+              console.log(line);
               this.repaintWord();
-            }
-          });
+            });
         }
       },
       compare: function () {
@@ -189,6 +186,7 @@
         this.labelBoard = d3.select(`#${this.svgId}2`);
       },
       repaintWord() {
+
         this.chart.clean()
           .resize(this.width, this.height);
         this.labelBoard.selectAll('rect, text, path').remove();
@@ -197,7 +195,7 @@
           return;
         }
         const layout = this.layoutParams;
-        const color = layout.color;
+        const color = this.color;
         const labelLength = layout.lineLength + layout.wordWidth + layout.interval;
 
         this.chart
@@ -304,6 +302,10 @@
         this.chart.draw();
       },
 
+      ...mapActions({
+        getStateStatistics: GET_STATE_STATISTICS,
+        getWordStatistics: GET_WORD_STATISTICS,
+      }),
     },
     mounted() {
       // console.log(this.$el);

@@ -1,5 +1,4 @@
 from functools import lru_cache
-import os
 
 import yaml
 from flask import jsonify, send_file, request, send_from_directory, safe_join
@@ -161,11 +160,11 @@ def co_cluster():
     model = request.args.get('model', '')
     state_name = request.args.get('state', '')
     layer = int(request.args.get('layer', -1))
-    top_k = int(request.args.get('top_k', 100))
+    top_k = int(request.args.get('topK', 100))
     mode = request.args.get('mode', 'positive')
     seed = int(request.args.get('seed', 0))
     method = request.args.get('method', 'cocluster')
-    n_cluster = request.args.get('n_cluster', '2').split(',')
+    n_cluster = request.args.get('nCluster', '2').split(',')
     n_cluster = [int(e) for e in n_cluster]
     if method == 'cocluster':
         if len(n_cluster) > 1:

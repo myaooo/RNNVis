@@ -2,15 +2,17 @@
 The backend manager for handling the models
 """
 
+import copy
 import hashlib
 import os
 import yaml
+from collections import Counter
 from functools import lru_cache
 from multiprocessing import Process
 
 
 from rnnvis.rnn.rnn import RNN
-from rnnvis.rnn.seq2seq import build_model as build_seq2seq
+from rnnvis.rnn.seq2seq import Seq2SeqModel
 from rnnvis.rnn.evaluator import Evaluator
 from rnnvis.datasets.data_utils import Feeder, SentenceProducer
 from rnnvis.utils.io_utils import get_path, assert_path_exists
@@ -68,11 +70,10 @@ class ModelManager(object):
     def _load_model(self, name, train=False):
         if name in self._available_models:
             config_file = get_path(_config_dir, self._available_models[name]['config'])
-            try:
-                model, train_config = build_model(config_file)
+
+            model, train_config = build_model(config_file)
+            if isinstance(model, RNN):
                 model.add_evaluator(1, 1, 100, True, log_gates=False, log_pos=True)
-            except:
-                model, train_config = build_seq2seq(config_file)
             # model.add_generator()
             if not train:
                 # If not training, the model should already be trained
@@ -120,13 +121,13 @@ class ModelManager(object):
             # sequences = [model.get_id_from_word(sequence) for sequence in tokenized_sequences]
         config = self._train_configs[name]
         max_len = max([len(sequence) for sequence in sequences])
-        # print(sequence)
+        print(sequences)
         recorder = BufferRecorder(config.dataset, name, 500)
         # if not isinstance(sequences, Feeder):
         producer = SentenceProducer(sequences, 1, max_len, num_steps=1)
         inputs = producer.get_feeder()
-        # print(inputs)
-        model.evaluator.record_every = max_len
+        if not isinstance(model, Seq2SeqModel):
+            model.evaluator.record_every = max_len
         # model.evaluate_and_record(inputs, None, recorder, verbose=False)
         # return list(recorder.evals())[0]
         try:
@@ -140,7 +141,8 @@ class ModelManager(object):
         # except ValueError:
         #     print("ERROR: Fail to evaluate given sequence! Sequence length too large!")
         #     return None
-        except:
+        except Exception as e:
+            print(e)
             print("ERROR: Fail to evaluate given sequence!")
             return None
 
@@ -177,7 +179,7 @@ class ModelManager(object):
                 model.evaluator2 = Evaluator(model, 10, 1, config.num_steps,
                                              log_state=True, log_gates=True, log_pos=True, dynamic=False)
 
-        def record_thread(manager):
+        def record_process(manager):
             try:
                 print("Start evaluating...", flush=True)
                 # print("the inputs is " + inputs)
@@ -190,7 +192,7 @@ class ModelManager(object):
                 print("ERROR: Fail to evaluate given sequence!")
                 raise
 
-        p = Process(target=record_thread, args=(self,))
+        p = Process(target=record_process, args=(self,))
         p.start()
         p.join()
         return self.record_flag[record_name]
@@ -243,12 +245,49 @@ class ModelManager(object):
         if model is None:
             return None
         config = self._train_configs[name]
+        model_name, state_name = get_names(model.name, state_name)
         # layer_num = len(model.cell_list)
-        results = get_co_cluster(config.dataset, model.name, state_name, n_cluster, layer, top_k,
+        print('getting co cluster of model {:s} of {:s}'.format(model_name, state_name))
+        results = get_co_cluster(config.dataset, model_name, state_name, n_cluster, layer, top_k,
                                  mode=mode, seed=seed, method=method)
         strength_mat, row_cluster, col_cluster, word_ids = results
+
+        def sort_by_col(row_cluster, col_cluster):
+            c_counter = Counter(col_cluster)
+            c_counter = {label: num for label, num in c_counter.items() if num > 0}
+            r_counter = Counter(row_cluster)
+            r_counter = {label: num for label, num in r_counter.items() if num > 0}
+
+            c_re_index = [None] * (max(c_counter) + 1)
+            print('max label:', len(c_re_index))
+            c_sorted_labels = sorted(c_counter, key=lambda key: c_counter[key])
+            for i, label in enumerate(c_sorted_labels):
+                c_re_index[label] = i
+            mutual_set = set([label for label in c_sorted_labels if label in r_counter])
+            remain_set = set(r_counter.keys()) - mutual_set
+            r_sorted_labels = list(remain_set) + [label for label in c_sorted_labels if label in mutual_set]
+            r_re_index = [None] * (max(r_sorted_labels) + 1)
+            for i, label in enumerate(r_sorted_labels):
+                r_re_index[label] = i
+            # r_re_index = [idx for label, idx in enumerate(c_re_index) if label in r_counter else None ]
+            # remain_set = set(range(len(sorted_labels))) - set(r_re_index)
+            # remain_labels = sorted(remain_set)
+            # i = len(sorted_labels)
+            # for label in r_counter:
+            #     if r_re_index[label] is not None:
+            #         continue
+            #     if len(remain_labels) > 0:
+            #         r_re_index[label] = remain_labels.pop(0)
+            #     else:
+            #         r_re_index[label] = i
+            #         i += 1
+            row_cluster = [r_re_index[r] for r in row_cluster]
+            col_cluster = [c_re_index[c] for c in col_cluster]
+            return row_cluster, col_cluster
+
+        row_cluster, col_cluster = sort_by_col(row_cluster.tolist(), col_cluster.tolist())
         words = model.get_word_from_id(word_ids)
-        return strength_mat.tolist(), row_cluster.tolist(), col_cluster.tolist(), word_ids, words
+        return strength_mat.tolist(), row_cluster, col_cluster, word_ids, words
 
     def model_vocab(self, name, top_k=None):
         model = self._get_model(name)
@@ -264,9 +303,10 @@ class ModelManager(object):
         if model is None:
             return None
         config = self._train_configs[name]
+        model_name, state_name = get_names(model.name, state_name)
         if isinstance(k, str):
             k = model.get_id_from_word(k.lower())[0]
-        stats = get_state_statistics(config.dataset, model.name, state_name, diff, layer, top_k, k)
+        stats = get_state_statistics(config.dataset, model_name, state_name, diff, layer, top_k, k)
         return stats
 
     @lru_cache(maxsize=32)
@@ -275,9 +315,12 @@ class ModelManager(object):
         if model is None:
             return None
         config = self._train_configs[name]
-        results = get_pos_statistics(config.dataset, model.name, top_k)
+        if isinstance(model, Seq2SeqModel):
+            results = get_pos_statistics(config.dataset, model.name + '-encoder', top_k)
+        else:
+            results = get_pos_statistics(config.dataset, model.name, top_k)
         for pos_data in results:
-            word = model.id_to_word[pos_data['id']]
+            word = model.get_word_from_id(pos_data['id'])[0]
             pos_data['word'] = word
         return results
 
@@ -297,6 +340,14 @@ class ModelManager(object):
 def hash_tag_str(text_list):
     """Use hashlib.md5 to tag a hash str of a list of text"""
     return hashlib.md5(" ".join(text_list).encode()).hexdigest()
+
+
+def get_names(model, state):
+    if state[-3:] == '_en':
+        return model + '-encoder', state[:-3]
+    elif state[-3:] == '_de':
+        return model + '-decoder', state[:-3]
+    return model, state
 
 if __name__ == '__main__':
     print(os.path.realpath(__file__))

@@ -3,7 +3,6 @@ config/*.js
 src/components/*.vue
 src/algorithm/*.js
 src/service/*.js
-src/*.js
-src/App.vue
+src/state/*.js
 src/lib/*.js
 src/layout/*.js

@@ -58,6 +58,7 @@ def build_model(config_file, forward_only=True):
         dtype=dtype
     )
     # model_config = dict2obj(model_config)
+    train_config['dataset'] = model_config['dataset']
     train_config = dict2obj(train_config)
     return model, train_config
 
@@ -297,8 +298,13 @@ class Seq2SeqModel(ModelBase):
         vocab = self.target_vocab if target else self.source_vocab
         if isinstance(words, str):
             words = [words]
-        ids = [vocab.get(i, seq2seq_utils.UNK_ID) for i in words if 0 <= i < len(vocab)]
+        ids = [vocab.get(i, seq2seq_utils.UNK_ID) for i in words]
         return ids
+
+    def run_with_context(self, func, *args, **kwargs):
+        self.finalize()
+        with self.graph.as_default():
+            return func(self.sess, *args, **kwargs)
 
     def save(self, path=None, step=None):
         """

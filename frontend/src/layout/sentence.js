@@ -1,5 +1,7 @@
 import * as d3 from 'd3';
-import { SentenceRecord, CoClusterProcessor } from '../service/preprocess'
+import {
+  SentenceRecord,
+} from '../service/dataService';
 
 const layoutParams = {
   nodeIntervalScale: 1.5,
@@ -19,8 +21,8 @@ const layoutParams = {
 // example usage:
 // see TestView.vue: draw3();
 
-class SentenceLayout{
-  constructor(selector, compare = false, params = layoutParams){
+class SentenceLayout {
+  constructor(selector, compare = false, params = layoutParams) {
     this.group = selector;
     this._size = [50, 600];
     this._rectSize = [20, 50];
@@ -31,8 +33,12 @@ class SentenceLayout{
     this._dataList = [];
     this.type = 'bar2';
     this.compare = compare;
-    this._mouseoverCallback = function(_) {console.log(_)};
-    this._barMouseoverCallback = function(_) {console.log(_)};
+    this._mouseoverCallback = function (_) {
+      console.log(_)
+    };
+    this._barMouseoverCallback = function (_) {
+      console.log(_)
+    };
     this.transform();
     // each data in data list has 3 handles after drawing:
     // el: the group holding all elements of a word
@@ -45,7 +51,7 @@ class SentenceLayout{
   barMouseoverCallback(func) {
     return arguments.length ? (this._barMouseoverCallback = func, this) : this._barMouseoverCallback;
   }
-  size(size){
+  size(size) {
     return arguments.length ? (this._size = size, this) : this._size;
   }
   transform(transformStr = '') {
@@ -59,9 +65,9 @@ class SentenceLayout{
     return this;
   }
   get radius() {
-    if (!this._radius){
-      const radius = this._size[0] / (this.params.widthScale*2);
-      if (this._sentence && !this._radius){
+    if (!this._radius) {
+      const radius = this._size[0] / (this.params.widthScale * 2);
+      if (this._sentence && !this._radius) {
         const radius2 = this._size[1] /
           (this.params.nodeIntervalScale * (this._sentence.length - 1) + this.params.radiusScale * 2 * this._sentence.length);
         // const radius2 = (this._size[1] - (this.sentence.length - 1) * this.params.nodeIntervalScale * radius) /
@@ -100,7 +106,7 @@ class SentenceLayout{
     return arguments.length ? (this._words = words, this) : this._words;
   }
   // start to layout words
-  draw(type=this.type, ) {
+  draw(type = this.type, ) {
     this.type = type;
     // prepare
     this.prepareDraw(type);
@@ -116,7 +122,7 @@ class SentenceLayout{
     } else {
       this._dataList.forEach((data, i) => {
         const pos = this.getWordPos(i);
-        if(i > 0){
+        if (i > 0) {
           const gl = this.group.append('g');
           this.drawConnection(gl, data, i)
             .attr('transform', 'translate(' + [pos[0], pos[1] - this.nodeInterval] + ')')
@@ -138,31 +144,34 @@ class SentenceLayout{
       g.append('text')
         .text(d.word)
         .style('text-anchor', 'middle')
-        .attr('transform', 'rotate(90)translate(' + [rectSize[1] * i + rectSize[1] / 2, -rectSize[0]/4] + ')');
+        .attr('transform', 'rotate(90)translate(' + [rectSize[1] * i + rectSize[1] / 2, -rectSize[0] / 4] + ')');
 
       g.append('rect')
-      .attr('x', 0)
-      .attr('y', i * rectSize[1])
-      .attr('width', rectSize[0])
-      .attr('height', rectSize[1])
-      .attr('fill', 'lightgray')
-      .attr('stroke-width', 2)
-      .attr('stroke', 'blue')
-      .attr('opacity', 0.2);
+        .attr('x', 0)
+        .attr('y', i * rectSize[1])
+        .attr('width', rectSize[0])
+        .attr('height', rectSize[1])
+        .attr('fill', 'lightgray')
+        .attr('stroke-width', 2)
+        .attr('stroke', 'blue')
+        .attr('opacity', 0.2);
     });
     g.append('g').call(
       d3.brushY()
-        .extent([[0, 0], [rectSize[0], rectSize[1] * data.length]])
-        .on('end', function() {
-          if (!d3.event.sourceEvent) return;
-          if (!d3.event.selection) return;
-          let extent = d3.event.selection;
-          extent[0] = Math.round(extent[0] / rectSize[1]) * rectSize[1];
-          extent[1] = Math.round(extent[1] / rectSize[1]) * rectSize[1];
-          d3.select(this).transition().call(d3.event.target.move, extent);
-          func([Math.round(extent[0] / rectSize[1]), Math.round(extent[1] / rectSize[1])])
-          // console.log(d3.event.selection);
-        })
+      .extent([
+        [0, 0],
+        [rectSize[0], rectSize[1] * data.length]
+      ])
+      .on('end', function () {
+        if (!d3.event.sourceEvent) return;
+        if (!d3.event.selection) return;
+        let extent = d3.event.selection;
+        extent[0] = Math.round(extent[0] / rectSize[1]) * rectSize[1];
+        extent[1] = Math.round(extent[1] / rectSize[1]) * rectSize[1];
+        d3.select(this).transition().call(d3.event.target.move, extent);
+        func([Math.round(extent[0] / rectSize[1]), Math.round(extent[1] / rectSize[1])])
+        // console.log(d3.event.selection);
+      })
     );
 
     return g;
@@ -177,28 +186,27 @@ class SentenceLayout{
     let maxValue = 0.1;
     this.dataList.forEach((data) => {
       data.data.forEach((clst) => {
-        const clstMaxP =  clst.currents[0] - Math.min(clst.updateds[0], 0);
-        const clstMaxN =  clst.currents[1] - Math.min(clst.updateds[1], 0);
-        const clstMax = Math.max(clstMaxP/clst.size, Math.abs(clstMaxN/clst.size));
+        const clstMaxP = clst.currents[0] - Math.min(clst.updateds[0], 0);
+        const clstMaxN = clst.currents[1] - Math.min(clst.updateds[1], 0);
+        const clstMax = Math.max(clstMaxP / clst.size, Math.abs(clstMaxN / clst.size));
         maxValue = maxValue < clstMax ? clstMax : maxValue;
       })
     });
     maxValue = Math.ceil(maxValue * 11) / 10;
     this.params.avgValueRange = [-maxValue, maxValue];
-    if (type === 'bar'){
+    if (type === 'bar') {
       this.scaleHeight = d3.scaleLinear()
-        .range([-this.nodeHeight/2, this.nodeHeight/2])
+        .range([-this.nodeHeight / 2, this.nodeHeight / 2])
         .domain(this.params.avgValueRange);
       let stateSize = 0;
-      for( let j = 0; j < this._dataList[0].data.length; j++) stateSize += this._dataList[0].data[j].size;
+      for (let j = 0; j < this._dataList[0].data.length; j++) stateSize += this._dataList[0].data[j].size;
       this.scaleWidth = d3.scaleLinear()
-      .range([0, this.nodeWidth])
-      .domain([0, stateSize]);
-    }
-    else if (type === 'bar2')
+        .range([0, this.nodeWidth])
+        .domain([0, stateSize]);
+    } else if (type === 'bar2')
       this.scaleHeight = d3.scaleLinear()
-        .range([-this.nodeHeight/2, this.nodeHeight/2])
-        .domain(this.params.avgValueRange);
+      .range([-this.nodeHeight / 2, this.nodeHeight / 2])
+      .domain(this.params.avgValueRange);
     this.drawWord = type === 'pie' ? this.drawOneWordPie : (type === 'bar' ? this.drawOneWordBar : this.drawOneWordBar2);
     this.drawConnection = type === 'bar' ? this.drawOneConnection : (type === 'bar2' ? this.drawOneConnection2 : null);
 
@@ -208,10 +216,10 @@ class SentenceLayout{
     this._dataList.forEach(data => {
       if (data.el)
         data.el
-          .transition()
-          .duration(300)
-          .style('opacity', 0)
-          .remove();
+        .transition()
+        .duration(300)
+        .style('opacity', 0)
+        .remove();
       // data.el = null;
       // data.els = null;
       // data.handles = null;
@@ -222,11 +230,11 @@ class SentenceLayout{
     this._dataList = [];
   }
   // get the position [x, y] of a word regarding this.group
-  getWordPos(i){
+  getWordPos(i) {
     // if (this.type === 'bar')
     //   return [this._size[0] / 2, this.radius * (this.params.radiusScale * (1 + 2 * i)) + i * this.nodeInterval];
     // else
-      return [0, (this.nodeHeight + this.nodeInterval) * i]
+    return [0, (this.nodeHeight + this.nodeInterval) * i]
   }
   // draw one word using bar chart
   // data: {word: 'he', data: Array}
@@ -289,14 +297,14 @@ class SentenceLayout{
     const posColor = this.params.posColor;
     const negColor = this.params.negColor;
 
-    el.on('mouseover', function() {
+    el.on('mouseover', function () {
         // el.attr('class')
         self._mouseoverCallback(data, t, true)
       })
-      .on('mouseleave', function() {
+      .on('mouseleave', function () {
         self._mouseoverCallback(data, t, false);
       })
-      .on('click', function() {
+      .on('click', function () {
         self._mouseoverCallback(data, t, false, true);
       });
     // bounding box
@@ -315,13 +323,17 @@ class SentenceLayout{
       .data(data.data);
     const gCurrent = gSelector.enter()
       .append('g')
-      .on('mouseenter' , function(d, i) {self._barMouseoverCallback(i, true); })
-      .on('mouseleave' , function(d, i) {self._barMouseoverCallback(i, false); });
+      .on('mouseenter', function (d, i) {
+        self._barMouseoverCallback(i, true);
+      })
+      .on('mouseleave', function (d, i) {
+        self._barMouseoverCallback(i, false);
+      });
     const cur = gCurrent.append('rect')
-      .attr('x', (d, i) => unitWidth*i)
-      .attr('y', (d) => height/2 - scaleHeight(d.currents[0] / d.size))
+      .attr('x', (d, i) => unitWidth * i)
+      .attr('y', (d) => height / 2 - scaleHeight(d.currents[0] / d.size))
       .attr('width', (d) => unitWidth)
-      .attr('height', (d) => scaleHeight((d.currents[0]-d.currents[1]) / d.size))
+      .attr('height', (d) => scaleHeight((d.currents[0] - d.currents[1]) / d.size))
       .attr('fill', (d, j) => color(j))
     gCurrent.style('fill-opacity', 0.4)
       // .style('stroke-opacity', 0.5)
@@ -330,23 +342,23 @@ class SentenceLayout{
       .attr('stroke-opacity', 0.5);
 
     gCurrent.append('path')
-      .attr('d', (d, i) => 'M ' + (unitWidth*i) + ' ' + (height/2 - scaleHeight(d.currents[0] / d.size))
-        + ' H ' + (unitWidth * (i+1) ))
+      .attr('d', (d, i) => 'M ' + (unitWidth * i) + ' ' + (height / 2 - scaleHeight(d.currents[0] / d.size)) +
+        ' H ' + (unitWidth * (i + 1)))
       .attr('stroke-width', 2);
 
     gCurrent.append('path')
-      .attr('d', (d, i) => 'M ' + (unitWidth*i) + ' ' + (height/2 - scaleHeight(d.currents[1] / d.size))
-        + ' H ' + (unitWidth * (i+1) ))
+      .attr('d', (d, i) => 'M ' + (unitWidth * i) + ' ' + (height / 2 - scaleHeight(d.currents[1] / d.size)) +
+        ' H ' + (unitWidth * (i + 1)))
       .attr('stroke-width', 2);
 
     const gUpdated1 = gSelector.enter()
       .append('g');
     const updated1 = gUpdated1.append('rect')
       .attr('x', (d, i) => unitWidth * i)
-      .attr('y', (d) => height/2 + scaleHeight(-d.currents[1] / d.size))
+      .attr('y', (d) => height / 2 + scaleHeight(-d.currents[1] / d.size))
       .attr('width', (d) => unitWidth)
       .attr('height', (d) => scaleHeight(Math.abs(d.updateds[1]) / d.size))
-      .attr('transform', (d) => d.updateds[1] < 0 ? ('translate(' + [0, -scaleHeight(Math.abs(d.updateds[1]) / d.size) ] + ')') : '')
+      .attr('transform', (d) => d.updateds[1] < 0 ? ('translate(' + [0, -scaleHeight(Math.abs(d.updateds[1]) / d.size)] + ')') : '')
       .style('fill-opacity', 0.4);
     if (paintColor) {
       updated1.attr('fill', (d, j) => {
@@ -367,10 +379,10 @@ class SentenceLayout{
       .append('g');
     const updated2 = gUpdated2.append('rect')
       .attr('x', (d, i) => unitWidth * i)
-      .attr('y', (d) => height/2 - scaleHeight(d.currents[0] / d.size))
+      .attr('y', (d) => height / 2 - scaleHeight(d.currents[0] / d.size))
       .attr('width', (d) => unitWidth)
       .attr('height', (d) => scaleHeight(Math.abs(d.updateds[0]) / d.size))
-      .attr('transform', (d) => d.updateds[0] < 0 ? ('translate(' + [0, -scaleHeight(Math.abs(d.updateds[0]) / d.size) ] + ')') : '')
+      .attr('transform', (d) => d.updateds[0] < 0 ? ('translate(' + [0, -scaleHeight(Math.abs(d.updateds[0]) / d.size)] + ')') : '')
       // .attr('fill', (d, j) => d.updateds[0] < 0 ? 'none' : color(j))
       .style('stroke-opacity', (d, j) => d.updateds[1] < 0 ? 1.0 : 1.0);
     if (paintColor) {
@@ -388,14 +400,14 @@ class SentenceLayout{
       .style('fill-opacity', 0.4);
 
 
-    el.append('path').attr('d', 'M0 ' + height/2 + ' H ' + width)
+    el.append('path').attr('d', 'M0 ' + height / 2 + ' H ' + width)
       .style('stroke', 'black').style('stroke-width', 0.5);
 
     // append labels
     const fontSize = this.params.wordSize;
     const labelSize = this.params.labelSize;
     const valRange = [this.params.avgValueRange[1], this.params.avgValueRange[0]];
-    const wordX = this.compare ? (4 + width) : (-2-fontSize);
+    const wordX = this.compare ? (4 + width) : (-2 - fontSize);
     el.selectAll('text')
       .data(valRange).enter()
       .append('text')
@@ -407,25 +419,29 @@ class SentenceLayout{
 
     el.append('text')
       .attr('x', wordX)
-      .attr('y', (height/2))
+      .attr('y', (height / 2))
       .attr('text-anchor', 'middle')
-      .attr('transform', 'rotate(' + [90, wordX, (height/2)] + ')')
+      .attr('transform', 'rotate(' + [90, wordX, (height / 2)] + ')')
       .attr('font-size', fontSize)
       .text(data.word);
 
-    cur.each(function(d) {
-      if(d.els) d.els[0] = this;
+    cur.each(function (d) {
+      if (d.els) d.els[0] = this;
       else d.els = [this];
     });
-    updated1.each(function(d) { d.els[1] = this; });
-    updated2.each(function(d) { d.els[2] = this; });
+    updated1.each(function (d) {
+      d.els[1] = this;
+    });
+    updated2.each(function (d) {
+      d.els[2] = this;
+    });
     data.els = [cur, updated1, updated2];
     data.el = el; // bind group
     data.bg = bg;
     return el;
   }
 
-  drawOneConnection2(el, data, t, paintColor=false) {
+  drawOneConnection2(el, data, t, paintColor = false) {
     const height = this.nodeInterval;
     // const width = this.nodeWidth;
     const color = paintColor ? this.params.color : (i) => {
@@ -441,13 +457,13 @@ class SentenceLayout{
       .data(data.data).enter()
       .append('g');
     const rulers1 = gs.append('rect')
-      .attr('x', (d, i) => unitWidth * (i+0.5) - rulerWidth/2).attr('y', 0)
-      .attr('width', rulerWidth).attr('height', (d) => (height-markerHeight) * d.keptRate)
+      .attr('x', (d, i) => unitWidth * (i + 0.5) - rulerWidth / 2).attr('y', 0)
+      .attr('width', rulerWidth).attr('height', (d) => (height - markerHeight) * d.keptRate)
       .style('stroke', 'none').style('fill', (d, i) => color(i)).style('fill-opacity', 0.5);
 
     const rulers2 = gs.append('rect')
-      .attr('x', (d, i) => unitWidth * (i+0.5) - rulerWidth/2).attr('y', (d) => (height-markerHeight) * d.keptRate)
-      .attr('width', rulerWidth).attr('height', (d) => height - (height-markerHeight) * d.keptRate)
+      .attr('x', (d, i) => unitWidth * (i + 0.5) - rulerWidth / 2).attr('y', (d) => (height - markerHeight) * d.keptRate)
+      .attr('width', rulerWidth).attr('height', (d) => height - (height - markerHeight) * d.keptRate)
       .style('stroke', 'none').style('fill', 'gray').style('fill-opacity', 0.5);
 
     // const markers = gs.append('rect')
@@ -456,9 +472,9 @@ class SentenceLayout{
 
     const markers = gs.append('path')
       .attr('d', (d, i) => {
-        return 'M' + (unitWidth * (i+0.5) - markerWidth/2) + ' ' + ((height-markerHeight) * d.keptRate)
-          + ' ' + 'H' + ' ' + (unitWidth * (i+0.5) + markerWidth/2)
-          + ' ' + 'L' + ' ' + (unitWidth * (i+0.5)) + ' ' + ((height-markerHeight) * d.keptRate + markerHeight);
+        return 'M' + (unitWidth * (i + 0.5) - markerWidth / 2) + ' ' + ((height - markerHeight) * d.keptRate) +
+          ' ' + 'H' + ' ' + (unitWidth * (i + 0.5) + markerWidth / 2) +
+          ' ' + 'L' + ' ' + (unitWidth * (i + 0.5)) + ' ' + ((height - markerHeight) * d.keptRate + markerHeight);
       });
 
     return el;
@@ -505,8 +521,12 @@ class SentenceLayout{
       .outerRadius(radius);
 
     let arc3 = d3.arc()
-      .innerRadius((d) => { return radius * (d.data.updatedRate < 0 ? (1 + d.data.updatedRate) : 1); })
-      .outerRadius((d) => { return radius * (d.data.updatedRate < 0 ? 1 : (1 + d.data.updatedRate)); });
+      .innerRadius((d) => {
+        return radius * (d.data.updatedRate < 0 ? (1 + d.data.updatedRate) : 1);
+      })
+      .outerRadius((d) => {
+        return radius * (d.data.updatedRate < 0 ? 1 : (1 + d.data.updatedRate));
+      });
 
     let arcs = [arc1, arc3, arc2];
     let pie = d3.pie()
@@ -515,7 +535,7 @@ class SentenceLayout{
 
     const gs = new Array(3);
     const handles = new Array(3);
-    for (let j = 0; j < 3; j++){
+    for (let j = 0; j < 3; j++) {
       gs[j] = el.append('g');
       if (i === 0 && j === 0)
         continue;
@@ -548,7 +568,7 @@ class SentenceLayout{
     });
     const accClustersSize = new Float32Array(clustersSize.length);
     for (let i = 1; i < accClustersSize.length; i++)
-      accClustersSize[i] += accClustersSize[i-1] + clustersSize[i-1];
+      accClustersSize[i] += accClustersSize[i - 1] + clustersSize[i - 1];
     // const info
     // let infoCurrent
     const currentStates = sentence.map((word) => {
@@ -559,10 +579,10 @@ class SentenceLayout{
       });
     });
 
-    const updatedData = sentence.map((word, t)=>{
+    const updatedData = sentence.map((word, t) => {
       if (t === 0) return word;
       return word.map((v, j) => {
-        return v - sentence[t-1][j];
+        return v - sentence[t - 1][j];
       });
     })
 
@@ -585,7 +605,7 @@ class SentenceLayout{
       }
     }
 
-    const infoPrevious = [new Float32Array(clusterNum), ...infoCurrent.slice(0, len-1)];
+    const infoPrevious = [new Float32Array(clusterNum), ...infoCurrent.slice(0, len - 1)];
     const h_tij = [currentStates[0].map((clst) => new Float32Array(clst.length)), ...currentStates];
     // console.log(h_tij);
     const infoKept = new Array(len);
@@ -596,9 +616,9 @@ class SentenceLayout{
       keptPositive[t] = new Float32Array(clusterNum);
       keptNegative[t] = new Float32Array(clusterNum);
       for (let i = 0; i < clusterNum; i++) {
-        for (let j = 0; j < clustersSize[i]; j++){
+        for (let j = 0; j < clustersSize[i]; j++) {
           const prev = h_tij[t][i][j];
-          const cur = h_tij[t+1][i][j];
+          const cur = h_tij[t + 1][i][j];
           const ratio = cur / prev;
           infoKept[t][i] += Math.abs(prev) * (ratio < 0 ? 0 : 1 < ratio ? 1 : ratio);
           keptPositive[t][i] += prev > 0 ? (cur > 0 ? (cur > prev ? prev : cur) : 0) : 0;
@@ -616,8 +636,8 @@ class SentenceLayout{
         const kept = keptP - keptN;
         const positive = infoPositive[t][i];
         const negative = infoNegative[t][i];
-        const prevPositive = t > 0 ? infoPositive[t-1][i] : 0;
-        const prevNegative = t > 0 ? infoNegative[t-1][i] : 0;
+        const prevPositive = t > 0 ? infoPositive[t - 1][i] : 0;
+        const prevNegative = t > 0 ? infoNegative[t - 1][i] : 0;
         const updatedPositive = positive - prevPositive;
         const updatedNegative = negative - prevNegative;
         const updated = updatedPositive + updatedNegative;
@@ -660,10 +680,10 @@ class SentenceLayout{
   }
 };
 
-function sentence(selector, compare = false){
+function sentence(selector, compare = false) {
   return new SentenceLayout(selector, compare);
-};
-
-export {
-  sentence,
 }
+
+export default {
+  sentence,
+};

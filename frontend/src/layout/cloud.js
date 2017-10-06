@@ -1,73 +1,70 @@
 import * as d3 from 'd3';
 import cloud from 'd3-cloud';
-import { bus, SELECT_WORD, DESELECT_WORD } from '../event-bus';
-// import cloud from './forcecloud.js';
-// console.log(d3);
-// var cloud = require('./d3.cloud.js');
-// console.log('haha');
 
 const bgLayout = {
-  'stroke': 'black',
+  stroke: 'black',
   'stroke-width': 1,
-  'fill': 'white',
+  fill: 'white',
   'fill-opacity': 0.0,
   'stroke-opacity': 0.2,
 };
 
-const wordLayout = {
-  'font': 'Arial',
-  // 'fontSize': [12, 24],
-  'fontSize': [9, 17],
-  // 'fontSize': [7, 11],
-  'fontWeight': [300, 400, 500],
-  'padding': 0,
-  'opacity': 0.7,
-  'baseColor': '#1f77b4',
-}
+// const wordLayout = {
+//   font: 'Arial',
+//   // 'fontSize': [12, 24],
+//   fontSize: [9, 17],
+//   // 'fontSize': [7, 11],
+//   fontWeight: [300, 400, 500],
+//   padding: 0,
+//   opacity: 0.7,
+//   baseColor: '#1f77b4',
+// };
 
-export class WordCloud{
-  constructor(selector, radiusX = 100, radiusY = radiusX, bgshape = 'rect', compare = false) {
+export class WordCloud {
+  constructor(selector, size = [200, 200], {
+    bgshape = 'rect',
+    selectWordHandle = () => {},
+    style = {
+      font: 'Arial',
+      fontSize: [12, 24],
+      // fontSize: [9, 17],
+      // 'fontSize': [7, 11],
+      fontWeight: [300, 400, 500],
+      padding: 0,
+      opacity: 0.7,
+      baseColor: '#1f77b4',
+    }
+  }, compare = false) {
     this.selector = selector;
     this.bggroup = this.selector.append('g');
     this.bg = this.bggroup.append('g');
-    this.bgHandle;
+    this.bgHandle = null;
     this.bgshape = bgshape;
     this.bgLayout = bgLayout;
-    this.wordLayout = wordLayout;
+    this.wordLayout = style;
     this.group = this.bggroup.append('g');
-    this.radius = [radiusX, radiusY];
-    this.data;
-    this.cloud = null;  // the handle to all the texts
-    this.font = 'Impact';
+    this.data = null;
+    this.cloud = null; // the handle to all the texts
+    // this.font = style.font;
     this.margin_ = 0;
     this.colorScheme = d3.scaleOrdinal(d3.schemeCategory10);
     this.word2data;
     this.compare = compare;
-    this.boundingSize = [radiusX*2, radiusY*2];
+    this.boundingSize = size;
+    this.selectWordHandle = selectWordHandle;
     // this.selected = [];
     // this.bounding();
     // register event listener
   }
   get width() {
-    return (this.radius[0] - this.margin_) * 2;
+    return this.boundingSize[0] - (this.margin_ * 2);
   }
   get height() {
-    return (this.radius[1] - this.margin_) * 2;
+    return this.boundingSize[1] - (this.margin_ * 2);
   }
-  get polygon() {
-    let polygon = [];
-    const len = 4;
-    for (let i = 0; i < len; i++) {
-      polygon.push([
-        Math.round(this.radiusX * Math.cos(2 * Math.PI * i / len)),
-        Math.round(this.radiusY * Math.sin(2 * Math.PI * i / len))]);
-    }
-    return polygon;
-  }
+
   size(size) {
-    this.radius[0] = size[0] / 2;
-    this.radius[1] = size[1] / 2;
-    return this;
+    return arguments.length ? (this.boundingSize = size, this) : this.boundingSize;
   }
   wordLayoutParams(layoutParams) {
     return arguments.length ? (this.wordLayout = layoutParams, this) : this.wordLayout;
@@ -91,23 +88,23 @@ export class WordCloud{
   }
   drawBackground() {
     // console.log("Redrawing backgrounds")
-    if(this.bgHandle)
-      this.bgHandle.remove();
-    this.bgHandle = this.bg.append(this.bgshape);
+    if (!this.bgHandle) {
+      this.bgHandle = this.bg.append(this.bgshape);
+    }
     if (this.bgshape === 'rect') {
       this.bgHandle
-        .attr('x', -this.radius[0])
-        .attr('y', -this.radius[1])
+        .attr('x', -this.boundingSize[0]/2)
+        .attr('y', -this.boundingSize[1]/2)
         .attr('rx', 4)
         .attr('ry', 4)
-        .attr('width', 2 * this.radius[0])
-        .attr('height', 2 * this.radius[1])
+        .attr('width', this.boundingSize[0])
+        .attr('height', this.boundingSize[1])
     } else if (this.bgshape === 'ellipse') {
       this.bgHandle
         .attr('cx', 0)
         .attr('cy', 0)
-        .attr('rx', radius[0])
-        .attr('ry', radius[1]);
+        .attr('rx', this.boundingSize[0]/2)
+        .attr('ry', this.boundingSize[1]/2);
     }
     Object.keys(this.bgLayout).forEach((param) => {
       this.bgHandle.attr(param, this.bgLayout[param]);
@@ -115,28 +112,16 @@ export class WordCloud{
     return this;
   }
   margin(margin) {
-    this.margin_ = margin;
-    // this.group.attr('transform', `scale()`)
-    return this;
+    return arguments.length ? (this.margin_ = margin, this) : this.margin_;
   }
   fontFamily(font) {
-    this.wordLayout.font = font;
-    return this;
+    return arguments.length ? (this.wordLayout.font = font, this) : this.wordLayout.font;
   }
   color(colorScheme) {
-    this.colorScheme = colorScheme;
-    return this;
+    return arguments.length ? (this.colorScheme = colorScheme, this) : this.colorScheme;
   }
-  draw(size = [this.width/2, this.height/2], data = this.data) {
-    // console.log(this.cloud);
-    if (size[0] !== this.width/2 || size[1] !== this.height/2) {
-      // this.size(size);
-      this.radius = size;
-      this.drawBackground();
-
-    }
-    if (!this.bgHandle)
-      this.drawBackground();
+  draw(size = this.boundingSize, data = this.data) {
+    this.drawBackground();
     if (!this.data)
       this.data = data;
     // if (this.compare) this.group
@@ -144,35 +129,35 @@ export class WordCloud{
     const radiusX = size[0];
     const radiusY = size[1];
     const wordLayout = this.wordLayout;
+    const selectWordHandle = this.selectWordHandle;
+    const compare = this.compare;
     // this.group.attr('transform', 'translate(' + [-radiusX, -radiusY] + ')');
     const filterData = data.filter((d) => {
-      return -radiusX < d.x - d.width / 4 && -radiusY < d.y - d.size/2 && d.x + d.width/4 < radiusX && d.y -d.size/2 < radiusY;
+      return -radiusX < d.x - d.width / 4 && -radiusY < d.y - d.size / 2 && d.x + d.width / 4 < radiusX && d.y - d.size / 2 < radiusY;
     });
     const self = this;
     this.cloud = this.group.selectAll('text')
-      .data(filterData, function (d) { return d.text; }); // matching key
+      .data(filterData, (d) => d.text); // matching key
 
-    //Entering words
+    // Entering words
     const text = this.cloud.enter()
       .append('text')
       .style('font-family', wordLayout.font)
       .attr('text-anchor', 'middle')
-      .style('fill', (d, i) => { return typeof d.type === 'number' ? self.colorScheme(d.type) : wordLayout.baseColor; });
+      .style('fill', (d) => (typeof d.type === 'number' ? self.colorScheme(d.type) : wordLayout.baseColor));
     text
-      .text(function (d) { return d.text; });
+      .text((d) => d.text);
 
     this.cloud
-      .style('fill', (d, i) => { return typeof d.type === 'number' ? self.colorScheme(d.type) : wordLayout.baseColor; });
+      .style('fill', (d) => (typeof d.type === 'number' ? self.colorScheme(d.type) : wordLayout.baseColor));
 
-      // .attr('font-size', 1);
+    // .attr('font-size', 1);
 
     text
-      .attr('transform', function (d) {
-        return 'translate(' + [d.x, d.y] + ')';
-      })
+      .attr('transform', (d) => `translate(${d.x},${d.y})`)
       // .attr('font-size', 1)
-      .attr('font-size', function (d) { return d.size + 'px'; })
-      .attr('font-weight', function(d) { return d.weight; })
+      .attr('font-size', (d) => `${d.size}px`)
+      .attr('font-weight', (d) => d.weight)
       .style('fill-opacity', 0)
       .transition()
       .duration(300)
@@ -182,34 +167,36 @@ export class WordCloud{
       .on('mouseover', function () {
         d3.select(this).style('fill-opacity', 1.0);
       })
-      .on('mouseout', function (d, i) {
+      .on('mouseout', function (d) {
         if (d.select) return;
         d3.select(this).style('fill-opacity', wordLayout.opacity);
       })
-      .on('click', function (d, i) {
-        if (!d.select){
+      .on('click', function (d) {
+        if (!d.select) {
           d.select = true;
           d.opacity = wordLayout.opacity;
           d.baseColor = typeof d.type === 'number' ? self.colorScheme(d.type) : wordLayout.baseColor;
-          d3.select(this).style('fill-opacity', 1.0).style('font-weight', d.weight+500);
-          bus.$emit(SELECT_WORD, d, self.compare);
+          d3.select(this).style('fill-opacity', 1.0).style('font-weight', d.weight + 500);
+          selectWordHandle({ word: d.text, compare });
         } else {
           d.select = false;
-          bus.$emit(DESELECT_WORD, d, self.compare);
+          selectWordHandle({ word: d.text, compare });
           d3.select(this).style('fill-opacity', wordLayout.opacity).style('font-weight', d.weight);
         }
       });
 
     // registering el in to datum
-    text.each(function(d) {
+    text.each(function (d) {
       d.el = this;
     });
 
-    this.word2data = {}
-    this.data.forEach((d) => this.word2data[d.text] = d);
+    this.word2data = {};
+    this.data.forEach((d) => {
+      this.word2data[d.text] = d;
+    });
     // console.log(data);
 
-    //Exiting words
+    // Exiting words
     this.cloud.exit()
       .transition()
       .duration(200)
@@ -224,11 +211,9 @@ export class WordCloud{
     // setTimeout(() => self.autoscale(bounds), 100);
   }
   update(words) {
-    const self = this;
-    // console.log(words);
-    words.sort((a, b) => {return a.size - b.size; });
+    words.sort((a, b) => a.size - b.size);
     const fontExtent = d3.extent(words, (d) => d.size);
-    const scale = d3.scalePow()
+    const scale = d3.scaleLinear()
       .range(this.wordLayout.fontSize)
       .domain(fontExtent);
     const weightScale = d3.scaleQuantize()
@@ -239,9 +224,10 @@ export class WordCloud{
       word.size = scale(word.size);
     });
     // d3.cloud()
-    self.boundingSize = [self.boundingSize[0]*1.3, self.boundingSize[1]*1.05];
+    // when layout, first give a larger region
+    const boundingSize = [this.boundingSize[0] * 1.3, this.boundingSize[1] * 1.05];
     cloud()
-      .size(this.boundingSize) // when layout, first give a larger region
+      .size(boundingSize)
       .words(words)
       .padding(this.wordLayout.padding)
       .rotate(0)
@@ -255,10 +241,10 @@ export class WordCloud{
         //   console.log('word cloud size updated to ' + self.boundingSize);
         //   self.update(words);
         // } else {
-        self.draw([self.width/2, self.height/2], words_);
+        this.draw([this.width, this.height], words_);
         // }
       })
-      .random(()=> 0.5)
+      .random(() => 0.5)
       .spiral('rectangular')
       .start();
     // return this
@@ -285,3 +271,4 @@ export class WordCloud{
 export default {
   WordCloud,
 };
+

@@ -1,5 +1,5 @@
 model:
-  name: seq2seq-gru
+  name: seq2seq-gru-2
   app: seq2seq
   input_dtype: int32
   target_dtype: int32
@@ -8,17 +8,19 @@ model:
   cell_type: GRU
   cells:
     - num_units: 512
+    - num_units: 512
   loss_func: sentence_loss
   dataset: wmt
   bucket: [50, 50]
 train:
   epoch_num: 5
   num_steps: 100
-  batch_size: 32
+  batch_size: 64
   keep_prob: 1.0
   gradient_clip: global_norm
   gradient_clip_args:
     clip_norm: 5.0
 #  optimizer: RMSProp
   learning_rate: 1.0
+  learning_rate_decay_rate: 0.9
 

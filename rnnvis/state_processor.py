@@ -254,8 +254,8 @@ def get_state_statistics(data_name, model_name, state_name, diff=True, layer=-1,
         id_to_states = load_sorted_words_states(data_name_, model_name_, state_name_, diff_)
         _words = get_datasets_by_name(data_name_, ['id_to_word'])['id_to_word']
         words = []
-        state_shape = id_to_states[0][0].shape
-        dtype = id_to_states[0][0].dtype
+        state_shape = id_to_states[4][0].shape
+        dtype = id_to_states[4][0].dtype
         layer_num = state_shape[0]
         stats_list = []
         for i in range_:
@@ -514,12 +514,18 @@ def cal_empirical_strength(id_states, strength_func):
     :param strength_func: np.mean, etc
     :return: a list of strength mat of shape [n_layer, state_size]
     """
-    state_shape = id_states[0][0].shape
+    state_shape = (0,)
+    for id_state in id_states:
+        if id_state is not None:
+            state_shape = id_state[0].shape
+            break
+    if len(state_shape) == 1:
+        state_shape = (1, state_shape[0])
 
     def strenth_map(states):
         if states is None:
             return np.zeros(state_shape)
-        states_mat = np.stack(states, axis=0)
+        states_mat = np.stack(states, axis=0).reshape(len(states), state_shape[0], -1)
         return strength_func(states_mat)
 
     strength_list = list(map(strenth_map, id_states))

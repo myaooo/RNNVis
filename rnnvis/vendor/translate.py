@@ -171,17 +171,18 @@ def eval_record():
     from rnnvis.rnn.eval_recorder import StateRecorder
     en_vocab_path = os.path.join(FLAGS.data_dir,
                                  "vocab%d.from" % FLAGS.from_vocab_size)
-    en_vocab, rev_en_vocab = seq2seq_utils.initialize_vocabulary(en_vocab_path)
+    # en_vocab, rev_en_vocab = seq2seq_utils.initialize_vocabulary(en_vocab_path)
 
     from_train, from_dev, from_vocab_path = seq2seq_utils.prepare_wmt_data(
         FLAGS.data_dir, FLAGS.from_vocab_size)
     # with tf.Session(config=config_proto()) as sess:
     model, train_config = build_model(FLAGS.config, False)
-    train_set = read_data(from_train, 1000)
+    model.restore()
+    train_set = read_data(from_train, 100)
     # model.batch_size =   # We decode one sentence at a time.
     evaluator = Seq2SeqEvaluator(model, True, True, True)
-    recorder_encoder = StateRecorder('wmt','seq2seq', flush_every=500, pad_ids={seq2seq_utils.PAD_ID})
-    recorder_decoder = StateRecorder('wmt','seq2seq', flush_every=500, pad_ids={seq2seq_utils.PAD_ID})
+    recorder_encoder = StateRecorder('wmt', model.name, flush_every=500, pad_ids={seq2seq_utils.PAD_ID})
+    recorder_decoder = StateRecorder('wmt', model.name, flush_every=500, pad_ids={seq2seq_utils.PAD_ID})
     evaluator.evaluate_and_record(train_set, [recorder_encoder, recorder_decoder])
 
 def main(_):

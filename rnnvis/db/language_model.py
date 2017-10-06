@@ -159,4 +159,4 @@ def seed_db(force=False):
 
 
 if __name__ == '__main__':
-    seed_db()
+    seed_db(True)

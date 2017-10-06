@@ -1,0 +1,51 @@
+// event definitions goes here
+export const GET_MODEL_LIST = 'GET_MODEL_LIST';
+// export const SET_MODEL_LIST = 'SET_MODEL_LIST';
+export const GET_MODEL = 'GET_MODEL';
+export const GET_COCLUSTER_DATA = 'GET_COCLUSTER_DATA';
+export const GET_SENTENCE_EVALUATION = 'GET_SENTENCE_EVALUATION';
+export const GET_STATE_STATISTICS = 'GET_STATE_STATISTICS';
+export const GET_POS_STATISTICS = 'GET_POS_STATISTICS';
+export const GET_WORD_STATISTICS = 'GET_WORD_STATISTICS';
+// export const SET_MODEL = 'SET_MODEL';
+export const SELECT_MODEL = 'SELECT_MODEL';
+export const SELECT_STATE = 'SELECT_STATE';
+export const SELECT_LAYER = 'SELECT_LAYER';
+export const SELECT_UNIT = 'SELECT_UNIT';
+export const SELECT_WORD = 'SELECT_WORD';
+export const SELECT_SENTENCE_NODE = 'SELECT_SENTENCE_NODE';
+export const EVALUATE_SENTENCE = 'EVALUATE_SENTENCE';
+export const UPDATE_STYLE = 'UPDATE_STYLE';
+// export const DESELECT_UNIT = 'DESELECT_UNIT';
+// export const DESELECT_WORD = 'DESELECT_WORD';
+export const CLOSE_SENTENCE = 'CLOSE_SENTENCE';
+export const LOADING = 'LOADING';
+export const LOADED = 'LOADED';
+export const RENDER_GRAPH = 'RENDER_GRAPH';
+export const GRAPH_RENDERED = 'GRAPH_RENDERED';
+export const COMPARE = 'COMPARE';
+
+
+// export default {
+//   GET_MODEL_LIST,
+//   // export const SET_MODEL_LIST = 'SET_MODEL_LIST';
+//   GET_MODEL,
+//   GET_COCLUSTER_DATA,
+//   GET_SENTENCE_EVALUATION,
+//   GET_STATE_STATISTICS,
+//   GET_POS_STATISTICS,
+//   // export const SET_MODEL = 'SET_MODEL';
+//   SELECT_MODEL,
+//   SELECT_STATE,
+//   SELECT_UNIT,
+//   SELECT_WORD,
+//   SELECT_LAYER,
+//   SELECT_SENTENCE_NODE,
+//   CHANGE_LAYOUT,
+//   EVALUATE_SENTENCE,
+//   DESELECT_UNIT,
+//   DESELECT_WORD,
+//   CLOSE_SENTENCE,
+// };
+
+// const SELECT_COLOR = 'SELECT_COLOR';

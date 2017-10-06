@@ -25,4 +25,3 @@ train:
     clip_norm: 1.0
   optimizer: RMSProp
   learning_rate: 0.001
-

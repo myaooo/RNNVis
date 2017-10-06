@@ -9,7 +9,7 @@
       <hr>
       <el-tooltip placement="top" :open-delay="500">
       <div slot="content">click to add another model for comparison</div>
-      <el-button @click="toggleCompare" size="small">Compare Model</el-button>
+      <el-button @click="toggleCompare" size="small" class="compare-button">Compare Model</el-button>
       </el-tooltip>
     </div>
   </div>
@@ -26,48 +26,40 @@
   }
 </style>
 <script>
-  import { bus, SELECT_MODEL, SELECT_STATE } from '../event-bus.js';
+  import { mapState, mapActions, mapMutations } from 'vuex';
+  import { GET_MODEL_LIST, SELECT_MODEL, SELECT_STATE, COMPARE } from '../store';
   import ModelConfig from './ModelConfig';
 
   export default{
     name: 'ModelView',
     components: { ModelConfig },
-    data() {
-      return {
-        compare: false,
-        shared: bus.state,
-      };
-    },
+    // data() {
+    //   // return {
+    //   //   compare: false,
+    //   // };
+    // },
     mounted() {
       this.getAvailableModels();
     },
     computed: {
-      // availableModels: function() { // model list
-      //   return this.shared.availableModels;
-      // },
+      ...mapState({
+        compare: 'compare',
+      }),
     },
     methods: {
-      getAvailableModels() {
-        console.log("getting available models...");
-        bus.loadAvailableModels();
-        if(this.shared.availableModels) return;
-        setTimeout(() => {
-          this.getAvailableModels();
-        }, 2000);
-      },
       modelColor(i) {
         return i === 1 ? 'primary' : 'success';
       },
       toggleCompare() {
         this.compare = !this.compare;
-        if (!this.compare) {
-          this.selectedModel2 = null;
-          this.selectedState2 = null;
-          this.states2 = [];
-          bus.$emit(SELECT_MODEL, null, true);
-          bus.$emit(SELECT_STATE, null, true);
+        // if (!this.compare) {
+        //   this.selectedModel2 = null;
+        //   this.selectedState2 = null;
+        //   this.states2 = [];
+        //   bus.$emit(SELECT_MODEL, null, true);
+        //   bus.$emit(SELECT_STATE, null, true);
 
-        }
+        // }
       },
       stateName(state) {
         switch(state) {
@@ -76,7 +68,13 @@
           case 'state': return 'h_state';
           default: return 'Unknown';
         }
-      }
+      },
+      ...mapActions({
+        getAvailableModels: GET_MODEL_LIST,
+      }),
+      ...mapMutations({
+        toggleCompare: COMPARE,
+      }),
     },
   }
 

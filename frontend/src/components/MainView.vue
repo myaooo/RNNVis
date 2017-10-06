@@ -1,9 +1,9 @@
 <template>
-  <div>
+  <div class="main-view">
     <h4 class="normal">Main</h4>
     <hr>
-    <cluster-view v-if="compare" :width="width/2-15" :height="height" :compare='true'> </cluster-view>
-    <cluster-view :width="compare ? width/2-15 : width" :height="height" :compare='false'> </cluster-view>
+    <cluster-view v-if="selectedModel2" :width="width/2-15" :height="height" :compare='true'> </cluster-view>
+    <cluster-view v-if="selectedModel" :width="selectedModel2 ? width/2-15 : width" :height="height" :compare='false'> </cluster-view>
 
   </div>
 
@@ -15,19 +15,15 @@
   }
 </style>
 <script>
-  // import ModelView from 'components/ModelView';
-  // import ProjectView from 'components/ProjectView';
-  // import TestView from 'components/TestView';
-  // import ArcView from 'components/ArcView';
+  import { mapState } from 'vuex';
   import ClusterView from 'components/ClusterView';
-  import { bus } from '../event-bus';
+  import { bus } from '../store';
 
   export default {
     name: "MainView",
     data() {
       return {
         activeTab: 'project',
-        shared: bus.state,
         width: 800,
       };
     },
@@ -39,26 +35,16 @@
     },
     methods: {
       handleClick(tab, event) {
-        // console.log(tab, event);
         return;
       }
     },
     computed: {
-      // width: function () {
-      //   if (this.$el) {
-      //     console.log(this.$el.clientWidth);
-      //     return this.$el.clientWidth;
-      //   }
-      //   return 800;
-      // },
-      compare: function () {
-        return this.shared.compare;
-      }
+      ...mapState({
+        selectedModel: 'selectedModel',
+        selectedModel2: 'selectedModel2',
+      }),
     },
     components: {
-      // ProjectView,
-      // TestView,
-      // ArcView,
       ClusterView,
     },
     mounted() {

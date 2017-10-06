@@ -30,11 +30,23 @@ module.exports = {
     'arrow-parens': 0,
     // allow async-await
     // 'generator-star-spacing': 0,
+    "no-param-reassign": [
+      "error",
+      {
+        "props": false
+      }
+    ],
+    "max-len": [
+      "error", 120
+    ],
 
-    "import/no-extraneous-dependencies": [2, { devDependencies: true }],
+    "import/no-extraneous-dependencies": [2, {
+      devDependencies: true
+    }],
     // allow debugger during development
     'no-debugger': process.env.NODE_ENV === 'production' ? 2 : 0,
     // "import/no-extraneous-dependencies": [2, { devDependencies: true }],
+    'import/no-unresolved': 0,
     "import/extensions": [
       "error",
       "always",
@@ -45,3 +57,4 @@ module.exports = {
     ],
   }
 }
+

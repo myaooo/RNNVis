@@ -20,7 +20,7 @@
   }
 </style>
 <script>
-  import { bus, SELECT_UNIT, SELECT_WORD, SELECT_SENTECE_NODE } from '../event-bus.js';
+  import { SELECT_UNIT, SELECT_WORD, SELECT_SENTECE_NODE } from '../store';
   import InfoBoard from './InfoBoard';
 
   export default{
@@ -28,7 +28,6 @@
     components: { InfoBoard },
     data() {
       return {
-        shared: bus.state,
         type1: 'state',
         type2: 'word',
       };
@@ -43,6 +42,7 @@
       compare: function() {
         return this.shared.compare;
       },
+
     },
     methods: {
 

@@ -2,8 +2,8 @@
 #  'config': imdb-tiny.yml
 'PTB-RNN':
   'config': rnn.yml
-'PTB-GRU':
-  'config': gru.yml
+#'PTB-GRU':
+#  'config': gru.yml
 'PTB-LSTM-SMALL':
   'config': lstm-small.yml
 'PTB-LSTM-MEDIUM':
@@ -36,5 +36,13 @@
   'config': yelp-2-gru-100-1.yml
 'YELP-2-LSTM-100-1':
   'config': yelp-2-lstm-100-1.yml
-'WMT-Seq2Seq-GRU':
-  'config': wmt-seq2seq-gru.yml
+'Shakespeare-Small':
+  'config': shakespeare0.yml
+'Shakespeare-Medium':
+  'config': shakespeare1.yml
+'Shakespeare-Large':
+  'config': shakespeare2.yml
+#'WMT-Seq2Seq-GRU':
+#  'config': wmt-seq2seq-gru.yml
+#'WMT-Seq2Seq-GRU2':
+#  'config': wmt-seq2seq-gru-2.yml
