@@ -30,7 +30,7 @@
     "css-loader": "^0.26.1",
     "d3-cloud": "^1.2.4",
     "element-theme": "^0.7.1",
-    "element-theme-default": "^1.2.3",
+    "element-theme-default": "^1.4.6",
     "eslint": "^3.15.0",
     "eslint-config-airbnb-base": "^11.1.1",
     "eslint-config-standard": "^6.2.1",

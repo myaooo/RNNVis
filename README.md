@@ -25,6 +25,10 @@ and help practitioners to debug their model and data, and help reasearchers impr
    
    `python -m rnnvis.main seeddb`
 
+## Build
+
+- [ ] TODO
+
 ## Usage
 
 ### Training an RNN model
@@ -37,7 +41,7 @@ and help practitioners to debug their model and data, and help reasearchers impr
 
     `python -m tests.test_procedures --config_path=./config/model/lstm-large3.yml`
 
-you can modify the model file in the `/config` directory and customize your model and training process
+you can modify the model file under the `/config` directory and customize your model and training parameters.
 
 
 ### Visualizing the hidden states of a model
@@ -50,6 +54,6 @@ Then, to run the visualization server, first modify the `./config/models.yml` to
 
 `python -m rnnvis.main server` 
 
-to host a server for the visualization. Also note that it will take some time (depend on your record size) the first time you attemp to run the visualization.
+to host a server for the visualization. Also note that it will take some time (depend on the size of your model and the dataset) the first time you attempt to run the visualization.
 
 

@@ -37,13 +37,20 @@ class ModelManager(object):
         self._models = {}
         self._train_configs = {}
         self.record_flag = {}
+        print("loading models...")
+        for model_name in self._available_models.keys():
+            try:
+                self._load_model(model_name)
+                print("Model {:s} successfully loaded\n".format(model_name))
+            except:
+                print("Failed to load model {:s}\n".format(model_name))
         # self._records = {}
         # self._data = {}
 
     @property
     @lru_cache(maxsize=2)
     def available_models(self):
-        models = list(self._available_models.keys())
+        models = list(self._models.keys())
         models.sort()
         return models
 
@@ -62,8 +69,9 @@ class ModelManager(object):
         if name in self._models:
             return self._models[name]
         else:
-            flag = self._load_model(name, train)
-            return self._models[name] if flag else None
+            return None
+            # flag = self._load_model(name, train)
+            # return self._models[name] if flag else None
 
     def _load_model(self, name, train=False):
         if name in self._available_models:
