@@ -9,7 +9,7 @@ import itertools
 
 import yaml
 
-from rnnvis.utils.io_utils import dict2json, get_path, path_exists
+from rnnvis.utils.io_utils import dict2json, get_path, path_exists, file_exists
 from rnnvis.datasets.data_utils import split
 from rnnvis.datasets.text_processor import SSTProcessor, tokenize, tokens2vocab
 from rnnvis.datasets.sst_helper import download_sst
@@ -194,6 +194,9 @@ def seed_db(force=False):
     for seed in config:
         print('seeding {:s} data'.format(seed['name']))
         data_dir = get_path('cached_data', seed['dir'])
+        if not path_exists(data_dir):
+            print('Directory "{:s}" not available!'.format(data_dir))
+            continue
         seed['scheme'].update({'upsert': force})
         if seed['type'] == 'sst':
             store_sst(data_dir, seed['name'], **seed['scheme'])

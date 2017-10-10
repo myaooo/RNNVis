@@ -1,7 +1,11 @@
 # RNNVis
+
 A visualization tool for understanding and debugging RNNs.
+
 **Note**: This is an underdeveloped project.
+
 ## Goals
+
 The major goal of this project is to explore possible ways to help better unerstanding of RNN models (Vanilla RNN, LSTM, GRU, etc.)
 and help practitioners to debug their model and data, and help reasearchers improve model architecture and performances.
 
@@ -23,10 +27,29 @@ and help practitioners to debug their model and data, and help reasearchers impr
 
 ## Usage
 
+### Training an RNN model
+
 1. Run tests on PTB datasets to see whether the code runs normally: 
 
-    `python -m tests.test_language_model --config_path=./config/lstm.yml --data_path=./cached_data/simple-examples/data`
+    `python -m tests.test_language_model --config_path=./config/model/lstm.yml --data_path=./cached_data/simple-examples/data`
 
 2. For a well performed model, and use pre-defined procedures, run:
 
-    `python -m tests.test_procedures --config_path=./config/lstm-large3.yml --data_path=./cached_data/simple-examples/data`
+    `python -m tests.test_procedures --config_path=./config/model/lstm-large3.yml`
+
+you can modify the model file in the `/config` directory and customize your model and training process
+
+
+### Visualizing the hidden states of a model
+
+Since the system is built on top of the hidden states of RNN. You need to first record the hidden states of the model by running it on a dataset (the hidden states record will be stored in mongodb for latter use). To do so, you can run:
+
+`python -m tests.test_eval_record --config_path=./config/lstm-large3.yml`
+
+Then, to run the visualization server, first modify the `./config/models.yml` to config which models you want to load. Then run:
+
+`python -m rnnvis.main server` 
+
+to host a server for the visualization. Also note that it will take some time (depend on your record size) the first time you attemp to run the visualization.
+
+
