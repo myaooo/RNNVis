@@ -33,13 +33,15 @@ and help practitioners to debug their model and data, and help reasearchers impr
 
 ## Usage
 
-### Training an RNN model
+### Run Training Test
 
 1. Run tests on PTB datasets to see whether the code runs normally: 
 
     `python -m tests.test_language_model --config_path=./config/model/lstm.yml --data_path=./cached_data/simple-examples/data`
 
-2. For a well performed model, and use pre-defined procedures, run:
+### Training an RNN model
+
+2. To train a rnn model using predefined procedures, run:
 
     `python -m tests.train_with_db --config_path=./config/model/lstm-large3.yml`
 
