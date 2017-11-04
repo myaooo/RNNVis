@@ -41,7 +41,7 @@ and help practitioners to debug their model and data, and help reasearchers impr
 
 2. For a well performed model, and use pre-defined procedures, run:
 
-    `python -m tests.test_procedures --config_path=./config/model/lstm-large3.yml`
+    `python -m tests.train_with_db --config_path=./config/model/lstm-large3.yml`
 
     you can modify the model file under the `/config` directory and customize your model and training parameters.
 

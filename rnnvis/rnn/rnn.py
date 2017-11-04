@@ -558,8 +558,10 @@ class RNN(object):
                                                              refresh_state=self.use_last_output)
                     self.validator.evaluate(self.sess, valid_inputs, valid_targets, valid_epoch_size,
                                             verbose=verbose, refresh_state=self.use_last_output)
+                    
                     losses.append(loss)
                     accs.append(accs)
+                    self.save(step=i)
                     if i > early_stop:
                         threshold = 5e-5
                         abs_diff = [abs(losses[j] - losses[i-early_stop]) for j in range(i+1-early_stop, i+1)]

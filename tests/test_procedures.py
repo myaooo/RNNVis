@@ -1,10 +1,3 @@
-"""
-The data required for this example is in the data/ dir of the
-PTB datasets from Tomas Mikolov's webpage:
-$ wget http://www.fit.vutbr.cz/~imikolov/rnnlm/simple-examples.tgz
-$ tar xvf simple-examples.tgz
-"""
-
 from rnnvis.procedures import build_model, init_tf_environ, produce_ptb_data
 from rnnvis.datasets.data_utils import InputProducer
 from tensorflow import flags
