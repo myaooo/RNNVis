@@ -4,7 +4,10 @@ Vue.use(VueResource);
 
 // Test version
 // const devMainUrl = 'http://143.89.191.20';
-const devMainUrl = 'http://localhost:5000';
+const devMainUrl =
+  process.env.NODE_ENV === 'development'
+    ? 'http://localhost:5000'
+    : location.origin;
 
 const $http = Vue.http;
 
